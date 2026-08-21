@@ -1,0 +1,10 @@
+{
+  "name": "pl-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Precision Labeling dashboard — card release ticker and recomp throughput, backed by Metabase.",
+  "engines": {
+    "node": ">=18"
+  }
+}

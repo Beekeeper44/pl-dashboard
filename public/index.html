@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Precision Labeling</title>
+<style>
+  :root{
+    --bg:#0B0F14;
+    --panel:#111820;
+    --panel2:#0E141B;
+    --line:#1E2A36;
+    --line2:#2A3A4A;
+    --tx:#FFFFFF;
+    --dim:#FFFFFF;
+    --neon:#39FF14;
+    --cust:#38BDF8;
+    --cust2:#1D6FD0;
+    --slab:#C4A5F5;
+    --slab2:#8B5CF6;
+    --unatt:#F5A524;
+    --warn:#FF5C5C;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+    --sans:"Helvetica Neue",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--tx);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    padding:0 0 40px;
+  }
+  a{color:var(--neon)}
+
+  /* ---------- header ---------- */
+  header{
+    padding:18px 22px 16px;
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  }
+  .logo{height:64px;width:auto;display:block;flex:0 0 auto}
+  .brandwrap{flex:1 1 auto;min-width:220px}
+  h1{
+    margin:0;font-size:40px;line-height:1;letter-spacing:-1.2px;
+    font-weight:800;
+  }
+  h1 .g{color:var(--neon)}
+  .sub{
+    margin-top:8px;font-family:var(--mono);font-size:13.5px;
+    color:var(--dim);letter-spacing:.3px;
+  }
+  .sub b{color:var(--tx);font-weight:500}
+  .livedot{
+    display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--neon);margin-right:6px;vertical-align:middle;
+  }
+  .livedot.stale{background:var(--unatt)}
+  .livedot.err{background:var(--warn)}
+  @media (prefers-reduced-motion:no-preference){
+    .livedot.on{animation:pulse 2.4s ease-in-out infinite}
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ---------- custom select ---------- */
+  .csel{position:relative;display:inline-block}
+  .csel select{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+  .cselbtn{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--panel);color:var(--tx);
+    border:1px solid var(--line2);border-radius:999px;
+    padding:9px 16px;font-family:var(--mono);font-size:14.5px;
+    min-width:172px;cursor:pointer;text-align:left;letter-spacing:0;
+    text-transform:none;font-weight:500;
+  }
+  .cselbtn:hover{border-color:var(--neon)}
+  .cselbtn[aria-expanded=true]{border-color:var(--neon);color:var(--neon)}
+  .cselbtn .caret{font-size:11px;opacity:.8;flex:0 0 auto}
+  .cselmenu{
+    position:absolute;top:calc(100% + 6px);left:0;z-index:40;
+    min-width:100%;max-height:300px;overflow-y:auto;
+    background:var(--panel);border:1px solid var(--neon);border-radius:12px;
+    padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.7);
+  }
+  .cselmenu[hidden]{display:none}
+  .cselopt{
+    display:block;width:100%;text-align:left;background:transparent;
+    border:0;border-radius:999px;color:var(--tx);cursor:pointer;
+    padding:9px 14px;font-family:var(--mono);font-size:14px;
+    white-space:nowrap;letter-spacing:0;text-transform:none;font-weight:500;
+  }
+  .cselopt:hover{background:var(--line)}
+  .cselopt[aria-selected=true]{background:var(--neon);color:#06240A;font-weight:700}
+
+  /* ---------- tabs ---------- */
+  .tabs{
+    display:flex;gap:0;padding:0 22px;background:var(--panel2);
+    border-bottom:1px solid var(--line);
+  }
+  .tab{
+    background:transparent;border:0;border-bottom:3px solid transparent;
+    border-radius:0;padding:14px 22px;cursor:pointer;
+    font-family:var(--mono);font-size:15px;font-weight:600;
+    letter-spacing:1.1px;text-transform:uppercase;color:var(--tx);
+    opacity:.55;
+  }
+  .tab:hover{opacity:.85}
+  .tab[aria-selected=true]{
+    opacity:1;color:var(--neon);border-bottom-color:var(--neon);
+  }
+  .tab:focus-visible{outline:2px solid var(--neon);outline-offset:-2px}
+  [hidden]{display:none !important}
+
+  /* ---------- filters ---------- */
+  .filters{
+    display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+    background:var(--panel2);
+  }
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld label{
+    font-family:var(--mono);font-size:12px;letter-spacing:.9px;
+    text-transform:uppercase;color:var(--dim);
+  }
+  select,input[type=date]{
+    background:var(--panel);color:var(--tx);
+    border:1px solid var(--line2);border-radius:3px;
+    padding:9px 11px;font-family:var(--mono);font-size:14.5px;
+    min-width:152px;
+  }
+  select:focus,input:focus,button:focus-visible{
+    outline:2px solid var(--neon);outline-offset:1px;
+  }
+  button{
+    background:var(--neon);color:#06240A;border:0;border-radius:999px;
+    padding:10px 22px;font-family:var(--mono);font-size:14.5px;font-weight:700;
+    letter-spacing:.6px;text-transform:uppercase;cursor:pointer;
+  }
+  button.ghost{
+    background:transparent;color:var(--tx);border:1px solid var(--line2);
+    font-weight:500;border-radius:999px;
+  }
+  button.ghost[aria-pressed=true]{
+    background:var(--neon);border-color:var(--neon);
+    color:#06240A;font-weight:700;
+  }
+  button:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ---------- sub-tabs ---------- */
+  .subtabs{display:flex;gap:10px;padding:16px 22px 0}
+  .subtab{
+    background:transparent;color:var(--tx);border:1px solid var(--line2);
+    border-radius:999px;padding:9px 20px;cursor:pointer;
+    font-family:var(--mono);font-size:14px;font-weight:500;
+    letter-spacing:.8px;text-transform:uppercase;
+  }
+  .subtab[aria-selected=true]{
+    background:var(--neon);border-color:var(--neon);color:#06240A;font-weight:700;
+  }
+  .subtab:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
+
+  /* ---------- aging grid ---------- */
+  .aging{display:block}
+  .agegrid{
+    display:grid;grid-template-columns:190px repeat(3,1fr);
+    gap:0 20px;align-items:center;
+  }
+  .agehead{
+    font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:1px;
+    text-transform:uppercase;color:var(--tx);
+    padding:0 0 12px;border-bottom:1px solid var(--line2);
+  }
+  .agegrid .cell{
+    padding:13px 0;border-bottom:1px solid var(--line);
+  }
+  .agegrid .cat{
+    font-family:var(--mono);font-size:15px;font-weight:600;color:var(--tx);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    padding:13px 0;border-bottom:1px solid var(--line);
+  }
+  .agecell{display:flex;align-items:center;gap:12px}
+  .agetrack{
+    display:block;flex:1 1 auto;height:20px;background:var(--panel);
+    border-radius:4px;overflow:hidden;border:1px solid var(--line);
+  }
+  .agefill{display:block;height:100%;border-radius:3px}
+  .agecell .val{
+    font-family:var(--mono);font-size:15px;font-weight:600;color:var(--tx);
+    width:62px;flex:0 0 62px;text-align:right;font-variant-numeric:tabular-nums;
+  }
+
+  /* ---------- grouped bars (EV age) ---------- */
+  .col .grp{display:flex;align-items:flex-end;gap:3px;width:100%;max-width:78px;height:100%}
+  .col .grp .gb{flex:1 1 0;border-radius:2px 2px 0 0;min-height:2px}
+
+  /* ---------- kpis ---------- */
+  .kpis{
+    display:flex;flex-wrap:wrap;
+    gap:1px;background:var(--line);border-bottom:1px solid var(--line);
+  }
+  .kpi{flex:1 1 186px;min-width:0;background:var(--panel2);padding:18px 20px 17px}
+  .kpi .k{
+    font-family:var(--mono);font-size:12px;letter-spacing:.9px;
+    text-transform:uppercase;color:var(--dim);white-space:nowrap;
+  }
+  .kpi .v{
+    font-family:var(--mono);font-size:44px;font-weight:700;
+    line-height:1.06;margin-top:7px;letter-spacing:-1.5px;
+    font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .kpi .n{font-family:var(--mono);font-size:12.5px;color:var(--tx);margin-top:6px;white-space:nowrap}
+  .kpi.total{flex:1.7 1 262px}
+  .kpi.total .v{font-size:62px;color:var(--tx)}
+  .kpi.cust .v{color:var(--cust)}
+  .kpi.slab .v{color:var(--slab)}
+  .swatch{display:inline-block;width:8px;height:8px;margin-right:5px}
+
+  /* ---------- sections ---------- */
+  section{padding:22px 22px 0}
+  .shead{
+    display:flex;justify-content:space-between;align-items:baseline;
+    gap:14px;flex-wrap:wrap;margin-bottom:12px;
+  }
+  h2{
+    margin:0;font-family:var(--mono);font-size:18px;letter-spacing:1.6px;
+    text-transform:uppercase;color:var(--tx);font-weight:700;
+  }
+  h2 .hint{color:var(--tx);letter-spacing:.4px;font-size:14.5px;text-transform:none;font-weight:400;margin-left:10px;opacity:.9}
+  .card{
+    background:var(--panel2);border:1px solid var(--line);border-radius:4px;
+    padding:16px;
+  }
+
+  /* ---------- signature: shift rail ---------- */
+  .rail{display:flex;align-items:flex-end;gap:0;height:180px;padding-top:20px;position:relative}
+  .slot{
+    flex:1 1 0;display:flex;flex-direction:column;justify-content:flex-end;
+    align-items:center;height:100%;position:relative;padding:0 2px;
+  }
+  .slot .bar{
+    width:100%;max-width:44px;background:var(--line2);border-radius:2px 2px 0 0;
+    display:flex;flex-direction:column-reverse;overflow:hidden;min-height:2px;
+  }
+  .slot .seg{width:100%}
+  .slot .num{
+    font-family:var(--mono);font-size:15px;font-weight:600;color:var(--tx);
+    margin-bottom:7px;font-variant-numeric:tabular-nums;
+  }
+  .slot.empty .num{color:var(--tx);opacity:.55}
+  .rail-x{display:flex;margin-top:9px;border-top:1px solid var(--line2)}
+  .rail-x div{
+    flex:1 1 0;text-align:center;padding-top:11px;
+    font-family:var(--mono);font-size:16px;font-weight:600;color:var(--tx);letter-spacing:.4px;
+  }
+  .rail-x div.mid{color:var(--neon);font-weight:700}
+  .midnight{
+    position:absolute;top:0;bottom:-40px;width:1px;
+    background:repeating-linear-gradient(to bottom,var(--neon) 0 3px,transparent 3px 7px);
+    opacity:.55;
+  }
+  .midnight span{
+    position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+    font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1.2px;
+    color:var(--neon);white-space:nowrap;background:var(--panel2);padding:0 5px;
+  }
+
+  /* ---------- chart ---------- */
+  .chartwrap{overflow-x:auto}
+  .chart{display:flex;align-items:flex-end;gap:10px;height:310px;min-width:min-content}
+  .col{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:46px;flex:1 1 0}
+  .col .stack{
+    width:100%;max-width:74px;display:flex;flex-direction:column-reverse;
+    border-radius:2px 2px 0 0;overflow:hidden;min-height:2px;
+  }
+  .col .stack .seg{width:100%;transition:opacity .12s}
+  .col .stack:hover .seg{opacity:.78}
+  .col .tot{
+    font-family:var(--mono);font-size:15px;font-weight:600;margin-bottom:8px;
+    font-variant-numeric:tabular-nums;
+  }
+  .chart-x{display:flex;gap:10px;margin-top:9px;border-top:1px solid var(--line2);min-width:min-content}
+  .chart-x div{
+    flex:1 1 0;min-width:46px;text-align:center;padding-top:11px;
+    font-family:var(--mono);font-size:15px;font-weight:600;color:var(--tx);
+  }
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px}
+  .legend span{font-family:var(--mono);font-size:13px;color:var(--tx)}
+  .legend b{color:var(--tx);font-weight:500}
+
+  /* ---------- table ---------- */
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px}
+  th{
+    text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2);
+    color:var(--tx);font-weight:500;font-size:12px;letter-spacing:.8px;
+    text-transform:uppercase;position:sticky;top:0;background:var(--panel2);
+  }
+  td{padding:9px 12px;border-bottom:1px solid var(--line);color:var(--tx)}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:hover td{background:var(--panel)}
+  .tblwrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:4px}
+  .pill{
+    display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;
+    letter-spacing:.4px;
+  }
+  .pill.customer{background:rgba(56,189,248,.14);color:var(--cust)}
+  .pill.slab_pack{background:rgba(196,165,245,.14);color:var(--slab)}
+  .pill.unattributed{background:rgba(245,165,36,.14);color:var(--unatt)}
+
+  /* ---------- states ---------- */
+  .msg{
+    font-family:var(--mono);font-size:14px;color:var(--tx);
+    padding:30px;text-align:center;border:1px dashed var(--line2);border-radius:4px;
+  }
+  .msg b{color:var(--tx);display:block;margin-bottom:6px;font-weight:500}
+  .banner{
+    margin:0 22px 0;padding:10px 14px;border-radius:3px;
+    font-family:var(--mono);font-size:13.5px;line-height:1.6;
+    border:1px solid var(--unatt);color:var(--unatt);
+    background:rgba(245,165,36,.07);
+  }
+  .banner.err{border-color:var(--warn);color:var(--warn);background:rgba(255,92,92,.07)}
+  .banner.hide{display:none}
+  footer{
+    margin-top:26px;padding:14px 22px 0;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:13px;color:var(--tx);
+    display:flex;gap:24px;flex-wrap:wrap;
+  }
+  .railcard{overflow:hidden}
+  .railscroll{overflow-x:auto;overflow-y:hidden}
+  .railscroll .rail,.railscroll .rail-x{min-width:100%}
+
+  @media(max-width:900px){
+    .railscroll .rail,.railscroll .rail-x{min-width:820px}
+  }
+  @media(max-width:640px){
+    .agegrid{grid-template-columns:1fr}
+    .agehead{display:none}
+    .agegrid .cat{padding:14px 0 6px;border-bottom:0;font-size:14px}
+    .agegrid .cell{padding:5px 0;border-bottom:0}
+    .agegrid .cell.last{border-bottom:1px solid var(--line);padding-bottom:14px}
+    .agecell::before{
+      content:attr(data-tag);font-family:var(--mono);font-size:13px;
+      color:var(--tx);width:66px;flex:0 0 66px;
+    }
+    .agecell .val{width:56px;flex:0 0 56px;font-size:14px}
+    .subtabs{flex-wrap:wrap}
+
+    h1{font-size:30px}
+    .kpi.total .v{font-size:46px}
+    .kpi .v{font-size:34px}
+    .rail{height:142px;padding-top:20px}
+    .rail-x div{font-size:14px;padding-top:9px}
+    .slot .num{font-size:13px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img class="logo" src="data:image/png;base64,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" alt="Precision Labeling">
+  <div class="brandwrap">
+    <h1><span class="g">D</span>ash<span class="g">b</span>oard</h1>
+    <div class="sub">
+      <span class="livedot on" id="dot"></span>
+      <span id="statusline"><b>Precision Labeling</b> · cards entering pending_release · 2 PM–3 AM PT · Mon–Fri</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Dashboard sections">
+  <button class="tab" id="tab-cards"  role="tab" aria-selected="true"  aria-controls="panel-body">Cards</button>
+  <button class="tab" id="tab-recomp" role="tab" aria-selected="false" aria-controls="panel-body">Recomp</button>
+</nav>
+
+<div class="filters">
+  <div class="fld">
+    <label for="grain">Grain</label>
+    <select id="grain">
+      <option value="day" selected>Day</option>
+      <option value="week">Week</option>
+      <option value="month">Month</option>
+    </select>
+  </div>
+  <div class="fld">
+    <label for="start_date">Start date</label>
+    <input type="date" id="start_date">
+  </div>
+  <div class="fld">
+    <label for="end_date">End date</label>
+    <input type="date" id="end_date">
+  </div>
+  <div class="fld" data-cards-only>
+    <label for="source">Source</label>
+    <select id="source">
+      <option value="">All</option>
+      <option value="customer">Customer</option>
+      <option value="slab_pack">Slab pack</option>
+      <option value="unattributed">Unattributed</option>
+    </select>
+  </div>
+  <div class="fld" data-cards-only>
+    <label for="card_type">Card type</label>
+    <select id="card_type">
+      <option value="">All</option>
+      <option value="raw">Raw</option>
+      <option value="pre_graded">Pre-graded</option>
+    </select>
+  </div>
+  <div class="fld" data-recomp-total hidden>
+    <label for="grader">Grader</label>
+    <select id="grader"><option value="">All graders</option></select>
+  </div>
+  <div class="fld" data-recomp-age hidden>
+    <label for="sport">Sport</label>
+    <select id="sport"><option value="">All</option></select>
+  </div>
+  <div class="fld" data-recomp-age hidden>
+    <label for="pack_category">Pack category</label>
+    <select id="pack_category"><option value="">All</option></select>
+  </div>
+  <div class="fld">
+    <label>&nbsp;</label>
+    <button id="run">Enter</button>
+  </div>
+  <div class="fld">
+    <label>&nbsp;</label>
+    <button class="ghost" id="auto" aria-pressed="false">Auto 60s</button>
+  </div>
+</div>
+
+<div class="banner hide" id="banner"></div>
+
+<div id="panel-body">
+<div class="kpis" id="kpis"></div>
+
+<section>
+  <div class="shead">
+    <h2>Shift rail <span class="hint railhint">cards per hour across the 2 PM–3 AM window</span></h2>
+    <span class="sub" id="railnote"></span>
+  </div>
+  <div class="card railcard">
+    <div class="railscroll">
+      <div class="rail" id="rail"></div>
+      <div class="rail-x" id="railx"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <h2 id="charttitle">Volume by period</h2>
+    <div style="display:flex;gap:8px">
+      <button class="ghost" id="vPeriod" aria-pressed="true">By period</button>
+      <button class="ghost" id="vHour" aria-pressed="false">By hour</button>
+      <button class="ghost" id="vAvg" aria-pressed="false">Avg per shift</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="chartwrap">
+      <div class="chart" id="chart"></div>
+      <div class="chart-x" id="chartx"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <h2>Rows <span class="hint">as returned by the query</span></h2>
+    <span class="sub" id="rowcount"></span>
+  </div>
+  <div class="tblwrap">
+    <table>
+      <thead><tr>
+        <th>Period</th><th>Hour</th><th>Source</th><th>Card type</th>
+        <th style="text-align:right">Cards</th>
+        <th style="text-align:right">Shift days</th>
+        <th style="text-align:right">Avg/shift</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</section>
+</div>
+
+<div id="panel-recomp" hidden>
+
+  <div class="subtabs">
+    <button class="subtab" id="sub-total" aria-selected="true">Total Recomps</button>
+    <button class="subtab" id="sub-age"   aria-selected="false">Avg EV Age</button>
+  </div>
+
+  <div class="kpis" id="rkpis" style="margin-top:16px"></div>
+
+  <!-- ===== Total Recomps (grader productivity) ===== -->
+  <div id="rpanel-total">
+    <section>
+      <div class="shead">
+        <h2>Shift rail <span class="hint">recomps per hour · shift runs 3 PM–11 PM</span></h2>
+        <span class="sub" id="grailnote"></span>
+      </div>
+      <div class="card railcard">
+        <div class="railscroll">
+          <div class="rail" id="grail"></div>
+          <div class="rail-x" id="grailx"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shead">
+        <h2 id="gcharttitle">Total recomps by grader</h2>
+        <div style="display:flex;gap:8px">
+          <button class="ghost" id="gvGrader" aria-pressed="true">By grader</button>
+          <button class="ghost" id="gvPeriod" aria-pressed="false">By period</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="chartwrap">
+          <div class="chart" id="gchart"></div>
+          <div class="chart-x" id="gchartx"></div>
+        </div>
+        <div class="legend" id="glegend"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shead">
+        <h2>Graders <span class="hint">as returned by the query</span></h2>
+        <span class="sub" id="growcount"></span>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <thead><tr id="gthead"></tr></thead>
+          <tbody id="gtbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Avg EV Age (pack categories) ===== -->
+  <div id="rpanel-age" hidden>
+  <section>
+    <div class="shead">
+      <h2 id="rcharttitle">Cards sold by pack category</h2>
+      <div style="display:flex;gap:8px" id="rviewtoggle">
+        <button class="ghost" id="rvCat"    aria-pressed="true">By category</button>
+        <button class="ghost" id="rvPeriod" aria-pressed="false">By period</button>
+      </div>
+      <div style="display:flex;gap:8px" id="rgrouptoggle" hidden>
+        <button class="ghost" id="rgPack"  aria-pressed="true">By pack</button>
+        <button class="ghost" id="rgSport" aria-pressed="false">By sport</button>
+      </div>
+      <div style="display:flex;gap:8px" id="rmetrictoggle" hidden>
+        <button class="ghost" id="rmAvg" aria-pressed="true">Average</button>
+        <button class="ghost" id="rmMed" aria-pressed="false">Median</button>
+        <button class="ghost" id="rmP90" aria-pressed="false">90th pct</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chartwrap">
+        <div class="chart" id="rchart"></div>
+        <div class="chart-x" id="rchartx"></div>
+      </div>
+      <div class="legend" id="rlegend"></div>
+    </div>
+  </section>
+
+  <section id="ragingsec" hidden>
+    <div class="shead">
+      <h2>Aging <span class="hint">share of cards sold past each EV age threshold</span></h2>
+      <span class="sub" id="ragingnote"></span>
+    </div>
+    <div class="card">
+      <div class="aging" id="raging"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>Rows <span class="hint">as returned by the query</span></h2>
+      <span class="sub" id="rrowcount"></span>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr id="rthead"></tr></thead>
+        <tbody id="rtbody"></tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+
+</div>
+
+<div id="panel-setup" hidden>
+  <section>
+    <div class="card">
+      <div class="msg" id="setupmsg"></div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span id="f-updated">Not loaded yet</span>
+  <span id="f-source">Source: —</span>
+  <span id="f-window">Window: 2 PM–3 AM PT, Mon–Fri shift start</span>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var API = "/api/ticker";
+  var TAB = "cards";
+
+  var TABS = {
+    cards: {
+      label: "Cards",
+      subtitle: "cards entering pending_release · 2 PM–3 AM PT · Mon–Fri",
+      railHint: "cards per hour across the 2 PM–3 AM window",
+      unit: "cards",
+      showSourceFilters: true
+    },
+    recomp: {
+      label: "Recomp",
+      subtitle: "grader recomp throughput · shift 3 PM–11 PM",
+      railHint: "recomps per hour across the 2 PM–3 AM window",
+      unit: "recomps",
+      showSourceFilters: false
+    }
+  };
+  var SLOTS = 13;                 // 2 PM .. 2 AM
+  var AUTO_MS = 60000;
+  var autoTimer = null;
+  var rows = [];
+  var view = "period";
+
+  var SERIES = [
+    {key:"customer / raw",            color:"var(--cust)",  label:"Customer · raw"},
+    {key:"customer / pre_graded",     color:"var(--cust2)", label:"Customer · pre-graded"},
+    {key:"slab_pack / raw",           color:"var(--slab)",  label:"Slab pack · raw"},
+    {key:"slab_pack / pre_graded",    color:"var(--slab2)", label:"Slab pack · pre-graded"},
+    {key:"unattributed / raw",        color:"var(--unatt)", label:"Unattributed · raw"},
+    {key:"unattributed / pre_graded", color:"#C77F14",      label:"Unattributed · pre-graded"}
+  ];
+  function colorFor(k){
+    for(var i=0;i<SERIES.length;i++){ if(SERIES[i].key===k) return SERIES[i].color; }
+    return "var(--line2)";
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ---- recomp state ----
+  var SUB = "total";
+  var rrows = [];
+  var rview = "cat";
+
+  // Pack tiers, ordered low -> high. Order drives stacking and legend.
+  // Tier order as defined by ops. Special Series sits last — it's a separate
+  // line rather than a rung on the Misc.-to-Crown-Jewel ladder.
+  var PACKS = [
+    {key:"Misc.",          color:"#8FA3B8"},
+    {key:"Silver",         color:"#C8D2DE"},
+    {key:"Gold",           color:"#E8B923"},
+    {key:"Ruby",           color:"#E0245E"},
+    {key:"Emerald",        color:"#2ECC71"},
+    {key:"Diamond",        color:"#38BDF8"},
+    {key:"Legendary",      color:"#8B5CF6"},
+    {key:"Crown Jewel",    color:"#FF4FD8"},
+    {key:"Special Series", color:"#F5822A"}
+  ];
+  function packColor(k){
+    for(var i=0;i<PACKS.length;i++){ if(PACKS[i].key===k) return PACKS[i].color; }
+    return "#8FA3B8";
+  }
+  function packRank(k){
+    for(var i=0;i<PACKS.length;i++){ if(PACKS[i].key===k) return i; }
+    return 99;
+  }
+  var AGE_COLORS = {7:"#38BDF8", 30:"#F5A524", 90:"#FF5C5C"};
+
+  // Keys are the raw admin.cards.sport values (snake_case), verified against
+  // a 290-row sample. Aliases with spaces are kept in case the column is ever
+  // normalized upstream.
+  var SPORT_COLORS = {
+    "baseball":"#38BDF8", "basketball":"#F5822A", "football":"#8B5CF6",
+    "pokemon":"#FFD84D",  "soccer":"#2ECC71",     "one_piece":"#E0245E",
+    "disney":"#7DD3FC",   "star_wars":"#C8D2DE",  "dc":"#1D6FD0",
+    "marvel":"#E23636",   "hockey":"#00C2C7",     "combat":"#FF8A3D",
+    // tolerated aliases
+    "one piece":"#E0245E","star wars":"#C8D2DE",  "wrestling":"#C4A5F5",
+    "ufc":"#FF5C5C",      "multi sports":"#8FA3B8","yu-gi-oh!":"#A78BFA",
+    "grail":"#FFD700"
+  };
+  var SPORT_FALLBACK = ["#38BDF8","#F5822A","#8B5CF6","#2ECC71","#E0245E",
+                        "#FFD84D","#FF4FD8","#7DD3FC","#C4A5F5","#8FA3B8"];
+  function sportColor(s){
+    var k = String(s||"").toLowerCase();
+    if(SPORT_COLORS[k]) return SPORT_COLORS[k];
+    var n=0; for(var i=0;i<k.length;i++) n=(n*31+k.charCodeAt(i))>>>0;
+    return SPORT_FALLBACK[n % SPORT_FALLBACK.length];
+  }
+
+  // grouping dimension for the EV age views
+  var rgroup = "pack";
+  function groupKey(r){ return rgroup==="sport" ? (r.sport||"—") : r.pack; }
+  // one_piece -> One Piece, star_wars -> Star Wars, dc -> DC
+  function sportLabel(s){
+    var k = String(s||"");
+    if(k.toLowerCase()==="dc") return "DC";
+    if(k.toLowerCase()==="ufc") return "UFC";
+    return k.replace(/_/g," ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  }
+  function groupLabel(k){ return rgroup==="sport" ? sportLabel(k) : k; }
+  function groupColor(k){ return rgroup==="sport" ? sportColor(k) : packColor(k); }
+  function groupSort(a,b){
+    return rgroup==="sport" ? (a<b?-1:a>b?1:0) : (packRank(a)-packRank(b));
+  }
+
+  // Recomp hour buckets, in the order the query emits them.
+  // shift = the 3 PM–11 PM window the "shift total" column measures.
+  var GHOURS = [
+    {k:"12-1pm",  label:"12 PM", block:"12–1 PM",  shift:false},
+    {k:"1-2pm",   label:"1 PM",  block:"1–2 PM",   shift:false},
+    {k:"2-3pm",   label:"2 PM",  block:"2–3 PM",   shift:false},
+    {k:"3-4pm",   label:"3 PM",  block:"3–4 PM",   shift:true},
+    {k:"4-5pm",   label:"4 PM",  block:"4–5 PM",   shift:true},
+    {k:"5-6pm",   label:"5 PM",  block:"5–6 PM",   shift:true},
+    {k:"6-7pm",   label:"6 PM",  block:"6–7 PM",   shift:true},
+    {k:"7-8pm",   label:"7 PM",  block:"7–8 PM",   shift:true},
+    {k:"8-9pm",   label:"8 PM",  block:"8–9 PM",   shift:true},
+    {k:"9-10pm",  label:"9 PM",  block:"9–10 PM",  shift:true},
+    {k:"10-11pm", label:"10 PM", block:"10–11 PM", shift:true}
+  ];
+  var GRADER_COLOR = "#C4A5F5";
+  var grows = [], gview = "grader";
+  var rmetric = "avg";
+
+  // The query emits a "★ TEAM TOTAL" aggregate row alongside the individual
+  // graders. Summing it with the rest would double every number.
+  function isTeamTotal(name){
+    return /team\s*total/i.test(String(name||"")) || /^\s*★/.test(String(name||""));
+  }
+
+  // Lighten toward white. Dimming with opacity on a near-black background
+  // pushes bars toward the panel color and they stop reading as data.
+  function lighten(hex, amt){
+    var n = parseInt(hex.slice(1),16);
+    var r = (n>>16)&255, g = (n>>8)&255, b = n&255;
+    r = Math.round(r+(255-r)*amt);
+    g = Math.round(g+(255-g)*amt);
+    b = Math.round(b+(255-b)*amt);
+    return "rgb("+r+","+g+","+b+")";
+  }
+
+  function fmt(n){ return (n==null?0:n).toLocaleString("en-US"); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  // hour 14..23,0..2  ->  slot 0..12
+  function slotOf(h){ return h>=14 ? h-14 : h+10; }
+  function slotLabel(i){
+    var h = i<10 ? 14+i : i-10;
+    var ampm = h<12 ? "AM" : "PM";
+    var h12 = h%12===0 ? 12 : h%12;
+    return h12+" "+ampm;
+  }
+
+  // ---- normalize Metabase column names -> our keys ----
+  function pick(row, names){
+    for(var i=0;i<names.length;i++){
+      if(Object.prototype.hasOwnProperty.call(row,names[i])) return row[names[i]];
+      var lower = names[i].toLowerCase();
+      for(var k in row){ if(k.toLowerCase()===lower) return row[k]; }
+    }
+    return null;
+  }
+  function normalize(raw){
+    return (raw||[]).map(function(r){
+      var src  = pick(r,["source","Source"]) || "unattributed";
+      var ct   = pick(r,["card_type","Card Type"]) || "raw";
+      var hour = pick(r,["shift_hour","Shift Hour"]);
+      var slot = pick(r,["shift_slot","Shift Slot"]);
+      if(slot==null && hour!=null) slot = slotOf(Number(hour));
+      return {
+        period: String(pick(r,["period","Period"])||"").slice(0,10),
+        slot: slot==null?null:Number(slot),
+        hour: hour==null?null:Number(hour),
+        hour_label: pick(r,["hour_label","Hour Label"]) || (slot!=null?slotLabel(Number(slot)):"—"),
+        hour_block: pick(r,["hour_block","Hour Block"]) || "",
+        source: src,
+        card_type: ct,
+        series: pick(r,["series","Series"]) || (src+" / "+ct),
+        cards: Number(pick(r,["cards","Cards"])||0),
+        shift_days: Number(pick(r,["shift_days","Shift Days"])||0),
+        avg_per_shift: Number(pick(r,["avg_per_shift","Avg Per Shift"])||0)
+      };
+    });
+  }
+
+  // ---- grader recomp normalize ----
+  function normalizeGrader(raw){
+    return (raw||[]).map(function(r){
+      var num = function(names){
+        var v = pick(r, names);
+        if(v===null || v===undefined || v==="") return 0;
+        var n = Number(String(v).replace(/[%,]/g,""));
+        return isNaN(n) ? 0 : n;
+      };
+      var hours = {};
+      GHOURS.forEach(function(hh){
+        hours[hh.k] = num([hh.k, hh.k.replace("-","\u2013"), hh.k.toUpperCase()]);
+      });
+      var name = pick(r,["grader","Grader"]) || "—";
+      return {
+        period:  String(pick(r,["period","Period"])||"").slice(0,10),
+        grader:  String(name),
+        isTotal: isTeamTotal(name),
+        total:   num(["total_comps","total comps","Total Comps"]),
+        shift:   num(["shift_total","shift total (3pm-11pm)","shift total","Shift Total (3Pm-11Pm)"]),
+        outside: num(["outside_window","outside 12pm-11pm","Outside 12Pm-11Pm"]),
+        hours:   hours
+      };
+    });
+  }
+  // every aggregation runs on this, never the raw list
+  function gData(){
+    var list = grows.filter(function(r){ return !r.isTotal; });
+    var sel = $("grader").value;
+    return sel ? list.filter(function(r){ return r.grader===sel; }) : list;
+  }
+
+  // ---- recomp normalize ----
+  // Tolerates Metabase display names ("avg ev age (days)") and snake_case aliases.
+  function normalizeRecomp(raw){
+    return (raw||[]).map(function(r){
+      var num = function(names){
+        var v = pick(r, names);
+        if(v===null || v===undefined || v==="") return null;
+        var n = Number(String(v).replace(/[%,]/g,""));
+        return isNaN(n) ? null : n;
+      };
+      return {
+        period: String(pick(r,["period","Period"])||"").slice(0,10),
+        pack:   pick(r,["pack_category","pack category","Pack Category","pack"]) || "Misc.",
+        sport:  pick(r,["sport","Sport"]) || "",
+        sold:        num(["cards_sold","cards sold","Cards Sold"]) || 0,
+        avg_age:     num(["avg_ev_age","avg ev age (days)","avg ev age","Avg Ev Age (Days)"]),
+        median_age:  num(["median_ev_age","median ev age (days)","median ev age"]),
+        p75_age:     num(["p75_ev_age","75th pct ev age (days)","75th pct ev age"]),
+        p90_age:     num(["p90_ev_age","90th pct ev age (days)","90th pct ev age"]),
+        oldest_age:  num(["oldest_ev_age","oldest ev age (days)","oldest ev age"]),
+        pct7:        num(["pct_over_7","percent over 7 days"]),
+        pct30:       num(["pct_over_30","percent over 30 days"]),
+        pct90:       num(["pct_over_90","percent over 90 days"])
+      };
+    });
+  }
+
+  // weighted by cards sold — a simple mean would let a 1-card pack
+  // swing the number as hard as a 561-card one
+  function wavg(list, field){
+    var num=0, den=0;
+    list.forEach(function(r){
+      if(r[field]==null || !r.sold) return;
+      num += r[field]*r.sold; den += r.sold;
+    });
+    return den ? num/den : null;
+  }
+  function d1(n){ return n==null ? "—" : (Math.round(n*10)/10).toLocaleString("en-US"); }
+
+  // ---- populate recomp filter dropdowns from returned data ----
+  function fillSelect(id, values){
+    var el=$(id), cur=el.value;
+    var opts='<option value="">All</option>';
+    values.forEach(function(v){
+      var txt = (id==="sport") ? sportLabel(v) : v;
+      opts += '<option value="'+esc(v)+'">'+esc(txt)+'</option>';
+    });
+    el.innerHTML=opts;
+    if(values.indexOf(cur)>=0) el.value=cur;
+  }
+  function refreshGraderFilter(){
+    var names={};
+    grows.forEach(function(r){ if(!r.isTotal) names[r.grader]=1; });
+    var el=$("grader"), cur=el.value;
+    el.innerHTML = '<option value="">All graders</option>' +
+      Object.keys(names).sort().map(function(v){
+        return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join("");
+    if(names[cur]) el.value=cur;
+  }
+
+  function refreshRecompFilters(){
+    var sports={}, packs={};
+    rrows.forEach(function(r){ if(r.sport) sports[r.sport]=1; if(r.pack) packs[r.pack]=1; });
+    fillSelect("sport", Object.keys(sports).sort());
+    fillSelect("pack_category", Object.keys(packs).sort(function(a,b){
+      return packRank(a)-packRank(b);
+    }));
+  }
+
+  // ---- KPIs ----
+  function renderKpis(){
+    var total=0, bySrc={}, byType={}, days={};
+    rows.forEach(function(r){
+      total += r.cards;
+      bySrc[r.source] = (bySrc[r.source]||0)+r.cards;
+      byType[r.card_type] = (byType[r.card_type]||0)+r.cards;
+      days[r.period+"|"+r.slot] = 1;
+    });
+    var shiftDays = {};
+    rows.forEach(function(r){ shiftDays[r.period]=Math.max(shiftDays[r.period]||0, r.shift_days||0); });
+    var totalShiftDays = Object.keys(shiftDays).reduce(function(a,k){ return a+shiftDays[k]; },0);
+    var avg = totalShiftDays ? Math.round(total/totalShiftDays) : 0;
+
+    var cards = [
+      {c:"total", k:"Total cards", v:fmt(total), n:Object.keys(shiftDays).length+" period"+(Object.keys(shiftDays).length===1?"":"s")},
+      {c:"cust",  k:'<span class="swatch" style="background:var(--cust)"></span>Customer', v:fmt(bySrc.customer||0), n:pct(bySrc.customer||0,total)},
+      {c:"slab",  k:'<span class="swatch" style="background:var(--slab)"></span>Slab pack', v:fmt(bySrc.slab_pack||0), n:pct(bySrc.slab_pack||0,total)},
+      {c:"",      k:"Avg per shift", v:fmt(avg), n:totalShiftDays+" shift day"+(totalShiftDays===1?"":"s")},
+      {c:"",      k:"Raw", v:fmt(byType.raw||0), n:pct(byType.raw||0,total)},
+      {c:"",      k:"Pre-graded", v:fmt(byType.pre_graded||0), n:pct(byType.pre_graded||0,total)}
+    ];
+    if(bySrc.unattributed){
+      cards.push({c:"",k:"Unattributed",v:fmt(bySrc.unattributed),n:"no matching order"});
+    }
+    $("kpis").innerHTML = cards.map(function(c){
+      return '<div class="kpi '+c.c+'"><div class="k">'+c.k+'</div>'+
+             '<div class="v">'+c.v+'</div><div class="n">'+esc(c.n)+'</div></div>';
+    }).join("");
+  }
+  function pct(a,b){ return b? Math.round(a/b*100)+"% of total" : "—"; }
+
+  // ---- shift rail ----
+  function renderRail(){
+    var bySlot=[], max=0;
+    for(var i=0;i<SLOTS;i++) bySlot.push({total:0, seg:{}});
+    rows.forEach(function(r){
+      if(r.slot==null || r.slot<0 || r.slot>=SLOTS) return;
+      bySlot[r.slot].total += r.cards;
+      bySlot[r.slot].seg[r.series] = (bySlot[r.slot].seg[r.series]||0)+r.cards;
+    });
+    bySlot.forEach(function(s){ if(s.total>max) max=s.total; });
+
+    $("rail").innerHTML = bySlot.map(function(s,i){
+      var h = max? Math.max(2, Math.round(s.total/max*96)) : 2;
+      var segs = Object.keys(s.seg).map(function(k){
+        var ph = s.total? (s.seg[k]/s.total*100) : 0;
+        return '<div class="seg" style="height:'+ph+'%;background:'+colorFor(k)+'"></div>';
+      }).join("");
+      var mid = i===10 ? '<div class="midnight"><span>MIDNIGHT</span></div>' : '';
+      return '<div class="slot'+(s.total?'':' empty')+'" title="'+esc(slotLabel(i))+' · '+fmt(s.total)+' cards">'+
+             mid+'<div class="num">'+(s.total?fmt(s.total):'·')+'</div>'+
+             '<div class="bar" style="height:'+h+'px">'+segs+'</div></div>';
+    }).join("");
+
+    $("railx").innerHTML = bySlot.map(function(s,i){
+      return '<div'+(i===10?' class="mid"':'')+'>'+slotLabel(i)+'</div>';
+    }).join("");
+
+    var late = bySlot.slice(10).reduce(function(a,s){ return a+s.total; },0);
+    var all  = bySlot.reduce(function(a,s){ return a+s.total; },0);
+    $("railnote").innerHTML = all
+      ? fmt(late)+" cards after midnight ("+Math.round(late/all*100)+"% of window)"
+      : "";
+  }
+
+  // ---- chart ----
+  function renderChart(){
+    var groups = {}, order = [];
+    rows.forEach(function(r){
+      var key, lbl;
+      if(view==="hour"){ if(r.slot==null) return; key=String(r.slot).padStart(2,"0"); lbl=r.hour_label; }
+      else { key=r.period; lbl=r.period; }
+      if(!groups[key]){ groups[key]={label:lbl, total:0, seg:{}, days:{}}; order.push(key); }
+      groups[key].total += r.cards;
+      groups[key].seg[r.series] = (groups[key].seg[r.series]||0)+r.cards;
+      groups[key].days[r.period] = Math.max(groups[key].days[r.period]||0, r.shift_days||0);
+    });
+    order.sort();
+
+    order.forEach(function(k){
+      var g=groups[k];
+      var d=Object.keys(g.days).reduce(function(a,p){ return a+g.days[p]; },0);
+      g.value = (view==="avg" && d) ? Math.round(g.total/d*10)/10 : g.total;
+      g.scale = g.total ? g.value/g.total : 1;
+    });
+
+    var max=0; order.forEach(function(k){ if(groups[k].value>max) max=groups[k].value; });
+
+    $("chart").innerHTML = order.map(function(k){
+      var g=groups[k];
+      var h = max? Math.max(2, Math.round(g.value/max*248)) : 2;
+      var segs = Object.keys(g.seg).sort().map(function(s){
+        var ph = g.total? (g.seg[s]/g.total*100) : 0;
+        return '<div class="seg" style="height:'+ph+'%;background:'+colorFor(s)+'" title="'+
+               esc(s)+': '+fmt(g.seg[s])+'"></div>';
+      }).join("");
+      return '<div class="col"><div class="tot">'+fmt(g.value)+'</div>'+
+             '<div class="stack" style="height:'+h+'px">'+segs+'</div></div>';
+    }).join("") || '<div class="msg" style="flex:1">No rows in this window.</div>';
+
+    $("chartx").innerHTML = order.map(function(k){
+      return '<div>'+esc(groups[k].label)+'</div>';
+    }).join("");
+
+    var present = {};
+    rows.forEach(function(r){ present[r.series]=1; });
+    $("legend").innerHTML = SERIES.filter(function(s){ return present[s.key]; })
+      .map(function(s){
+        return '<span><span class="swatch" style="background:'+s.color+'"></span><b>'+
+               esc(s.label)+'</b></span>';
+      }).join("");
+
+    $("charttitle").textContent =
+      view==="hour" ? "Volume by hour of shift" :
+      view==="avg"  ? "Average cards per shift day" : "Volume by period";
+  }
+
+  // ---- table ----
+  function renderTable(){
+    var sorted = rows.slice().sort(function(a,b){
+      if(a.period!==b.period) return a.period<b.period?1:-1;
+      if(a.slot!==b.slot) return (a.slot||0)-(b.slot||0);
+      return a.series<b.series?-1:1;
+    });
+    $("tbody").innerHTML = sorted.map(function(r){
+      return "<tr><td>"+esc(r.period)+"</td><td>"+esc(r.hour_block||r.hour_label)+"</td>"+
+        '<td><span class="pill '+esc(r.source)+'">'+esc(r.source)+"</span></td>"+
+        "<td>"+esc(r.card_type)+"</td>"+
+        '<td class="n">'+fmt(r.cards)+"</td>"+
+        '<td class="n">'+fmt(r.shift_days)+"</td>"+
+        '<td class="n">'+(r.avg_per_shift||0)+"</td></tr>";
+    }).join("") || '<tr><td colspan="7" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
+    $("rowcount").textContent = fmt(rows.length)+" rows";
+  }
+
+  function renderAll(){ renderKpis(); renderRail(); renderChart(); renderTable(); }
+
+  // =========================================================
+  //  RECOMP
+  // =========================================================
+  // =========================================================
+  //  RECOMP — Total (grader productivity)
+  // =========================================================
+  function renderGraderKpis(){
+    var d = gData();
+    var total=0, shift=0, outside=0, periods={}, byGrader={};
+    d.forEach(function(r){
+      total+=r.total; shift+=r.shift; outside+=r.outside;
+      periods[r.period]=1;
+      byGrader[r.grader]=(byGrader[r.grader]||0)+r.total;
+    });
+    var nPer = Object.keys(periods).length;
+    var names = Object.keys(byGrader);
+    var top = names.sort(function(a,b){ return byGrader[b]-byGrader[a]; })[0];
+
+    var cards = [
+      {c:"total", k:"Total recomps", v:fmt(total), n:nPer+" period"+(nPer===1?"":"s")},
+      {c:"", k:"Shift total", v:fmt(shift), n:total?Math.round(shift/total*100)+"% in 3–11 PM":"—"},
+      {c:"", k:"Outside window", v:fmt(outside), n:total?Math.round(outside/total*100)+"% of total":"—"},
+      {c:"", k:"Graders", v:fmt(names.length), n:"with recomps"},
+      {c:"", k:"Avg per grader", v:fmt(names.length?Math.round(total/names.length):0), n:"recomps"}
+    ];
+    if(top){
+      cards.splice(4,0,{c:"", k:"Top grader", v:esc(top.split(" ")[0]),
+        n:fmt(byGrader[top])+" recomps", small:true});
+    }
+    $("rkpis").innerHTML = cards.map(function(c){
+      var st = c.small ? ' style="font-size:30px;letter-spacing:-.6px"' : '';
+      return '<div class="kpi '+c.c+'"><div class="k">'+c.k+'</div>'+
+             '<div class="v"'+st+'>'+c.v+'</div><div class="n">'+esc(c.n)+'</div></div>';
+    }).join("");
+  }
+
+  function renderGraderRail(){
+    var d = gData(), max=0;
+    var totals = GHOURS.map(function(hh){
+      var t=0; d.forEach(function(r){ t += r.hours[hh.k]||0; });
+      if(t>max) max=t;
+      return t;
+    });
+
+    $("grail").innerHTML = GHOURS.map(function(hh,i){
+      var t=totals[i];
+      var ht = max? Math.max(2, Math.round(t/max*96)) : 2;
+      // divider where the measured shift begins
+      var div = (hh.k==="3-4pm")
+        ? '<div class="midnight"><span>SHIFT 3 PM</span></div>' : '';
+      var col = hh.shift ? GRADER_COLOR : "#5C6B7A";
+      return '<div class="slot'+(t?'':' empty')+'" title="'+esc(hh.block)+' · '+fmt(t)+' recomps">'+
+             div+'<div class="num">'+(t?fmt(t):'·')+'</div>'+
+             '<div class="bar" style="height:'+ht+'px"><div class="seg" style="height:100%;background:'+col+'"></div></div></div>';
+    }).join("");
+
+    $("grailx").innerHTML = GHOURS.map(function(hh){
+      return '<div'+(hh.k==="3-4pm"?' class="mid"':'')+'>'+hh.label+'</div>';
+    }).join("");
+
+    var inShift=0, all=0, outside=0;
+    GHOURS.forEach(function(hh,i){ all+=totals[i]; if(hh.shift) inShift+=totals[i]; });
+    d.forEach(function(r){ outside+=r.outside; });
+    $("grailnote").textContent = all
+      ? fmt(inShift)+" in shift · "+fmt(outside)+" outside 12–11 PM entirely"
+      : "";
+  }
+
+  function renderGraderChart(){
+    var d = gData(), groups={}, order=[];
+
+    if(gview==="period"){
+      d.forEach(function(r){
+        if(!groups[r.period]){ groups[r.period]={label:r.period,total:0,shift:0}; order.push(r.period); }
+        groups[r.period].total += r.total;
+        groups[r.period].shift += r.shift;
+      });
+      order.sort();
+    } else {
+      d.forEach(function(r){
+        if(!groups[r.grader]){ groups[r.grader]={label:r.grader,total:0,shift:0}; order.push(r.grader); }
+        groups[r.grader].total += r.total;
+        groups[r.grader].shift += r.shift;
+      });
+      order.sort(function(a,b){ return groups[b].total-groups[a].total; });
+    }
+
+    var max=0; order.forEach(function(k){ if(groups[k].total>max) max=groups[k].total; });
+
+    $("gchart").innerHTML = order.map(function(k){
+      var g=groups[k];
+      var ht = max? Math.max(2, Math.round(g.total/max*248)) : 2;
+      var sp = g.total? (g.shift/g.total*100) : 0;
+      return '<div class="col"><div class="tot">'+fmt(g.total)+'</div>'+
+             '<div class="stack" style="height:'+ht+'px">'+
+             '<div class="seg" style="height:'+sp+'%;background:'+GRADER_COLOR+
+             '" title="in shift: '+fmt(g.shift)+'"></div>'+
+             '<div class="seg" style="height:'+(100-sp)+'%;background:#5C6B7A'+
+             '" title="outside shift: '+fmt(g.total-g.shift)+'"></div>'+
+             '</div></div>';
+    }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
+
+    $("gchartx").innerHTML = order.map(function(k){
+      var lbl = gview==="period" ? groups[k].label
+              : groups[k].label.split(" ").slice(0,2).join(" ");
+      return '<div>'+esc(lbl)+'</div>';
+    }).join("");
+
+    $("glegend").innerHTML =
+      '<span><span class="swatch" style="background:'+GRADER_COLOR+'"></span><b>In shift (3–11 PM)</b></span>'+
+      '<span><span class="swatch" style="background:#5C6B7A"></span><b>Outside shift</b></span>';
+
+    $("gcharttitle").textContent = gview==="period"
+      ? "Total recomps by period" : "Total recomps by grader";
+  }
+
+  function renderGraderTable(){
+    var cols = [["Period","period"],["Grader","grader"],["Total","total",1],
+                ["Shift 3–11 PM","shift",1],["Outside","outside",1]]
+      .concat(GHOURS.map(function(hh){ return [hh.label, "h:"+hh.k, 1]; }));
+
+    $("gthead").innerHTML = cols.map(function(c){
+      return '<th'+(c[2]?' style="text-align:right"':'')+'>'+esc(c[0])+'</th>'; }).join("");
+
+    var sorted = grows.slice().sort(function(a,b){
+      if(a.isTotal!==b.isTotal) return a.isTotal?-1:1;   // team total pinned on top
+      if(a.period!==b.period) return a.period<b.period?1:-1;
+      return b.total-a.total;
+    });
+    var sel = $("grader").value;
+    if(sel) sorted = sorted.filter(function(r){ return r.grader===sel || r.isTotal; });
+
+    $("gtbody").innerHTML = sorted.map(function(r){
+      var style = r.isTotal ? ' style="background:rgba(196,165,245,.08);font-weight:700"' : '';
+      return "<tr"+style+">"+cols.map(function(c){
+        var key=c[1];
+        if(key.indexOf("h:")===0) return '<td class="n">'+fmt(r.hours[key.slice(2)]||0)+'</td>';
+        if(c[2]) return '<td class="n">'+fmt(r[key])+'</td>';
+        return "<td>"+esc(r[key])+"</td>";
+      }).join("")+"</tr>";
+    }).join("") || '<tr><td colspan="'+cols.length+'" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
+
+    $("growcount").textContent = fmt(gData().length)+" grader rows";
+  }
+
+  function renderGrader(){
+    renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
+  }
+
+  function renderRecompKpis(){
+    var sold=0, periods={}, byPack={};
+    rrows.forEach(function(r){
+      sold += r.sold;
+      periods[r.period]=1;
+      byPack[r.pack]=(byPack[r.pack]||0)+r.sold;
+    });
+    var nPer = Object.keys(periods).length;
+    var top = Object.keys(byPack).sort(function(a,b){ return byPack[b]-byPack[a]; })[0];
+    var cards;
+
+    if(SUB==="total"){
+      cards = [
+        {c:"total", k:"Total recomps", v:fmt(sold),
+         n:nPer+" period"+(nPer===1?"":"s")},
+        {c:"", k:"Top pack", v:esc(top||"—"),
+         n:top? pct(byPack[top],sold) : "—", small:true},
+        {c:"", k:"Pack categories", v:fmt(Object.keys(byPack).length), n:"with sales"},
+        {c:"", k:"Avg per period", v:fmt(nPer?Math.round(sold/nPer):0), n:"cards sold"}
+      ];
+    } else {
+      var avg = wavg(rrows,"avg_age");
+      var med = wavg(rrows,"median_age");
+      var p90 = wavg(rrows,"p90_age");
+      var oldest = rrows.reduce(function(a,r){
+        return (r.oldest_age!=null && r.oldest_age>a) ? r.oldest_age : a; }, 0);
+      var o30 = wavg(rrows,"pct30");
+      cards = [
+        {c:"total", k:"Avg EV age", v:d1(avg), n:"days · weighted by cards sold"},
+        {c:"", k:"Median EV age", v:d1(med), n:"days"},
+        {c:"", k:"90th pct", v:d1(p90), n:"days"},
+        {c:"", k:"Oldest", v:d1(oldest), n:"days"},
+        {c:"", k:"Over 30 days", v:(o30==null?"—":d1(o30)+"%"), n:"of cards sold"}
+      ];
+    }
+
+    $("rkpis").innerHTML = cards.map(function(c){
+      var style = c.small ? ' style="font-size:30px;letter-spacing:-.6px"' : '';
+      return '<div class="kpi '+c.c+'"><div class="k">'+c.k+'</div>'+
+             '<div class="v"'+style+'>'+c.v+'</div><div class="n">'+esc(c.n)+'</div></div>';
+    }).join("");
+  }
+
+  function renderRecompChart(){
+    var groups={}, order=[];
+
+    if(SUB==="age"){
+      // one bar per pack category, showing whichever metric is selected
+      var FIELD = {avg:"avg_age", med:"median_age", p90:"p90_age"};
+      var MNAME = {avg:"Average", med:"Median", p90:"90th percentile"};
+      var field = FIELD[rmetric];
+
+      rrows.forEach(function(r){
+        var k = groupKey(r);
+        if(!groups[k]){ groups[k]={label:k, rows:[]}; order.push(k); }
+        groups[k].rows.push(r);
+      });
+      order.sort(groupSort);
+
+      var max=0;
+      order.forEach(function(k){
+        var g=groups[k];
+        g.val = wavg(g.rows, field);
+        g.sold = g.rows.reduce(function(a,r){ return a+r.sold; },0);
+        if(g.val!=null && g.val>max) max=g.val;
+      });
+
+      $("rchart").innerHTML = order.map(function(k){
+        var g=groups[k];
+        var hh = (max && g.val!=null) ? Math.max(2, Math.round(g.val/max*248)) : 2;
+        return '<div class="col"><div class="tot">'+d1(g.val)+'</div>'+
+               '<div class="stack" style="height:'+hh+'px">'+
+               '<div class="seg" style="height:100%;background:'+groupColor(k)+
+               '" title="'+esc(k)+' — '+MNAME[rmetric]+': '+d1(g.val)+
+               ' days · '+fmt(g.sold)+' cards sold"></div></div></div>';
+      }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
+
+      $("rchartx").innerHTML = order.map(function(k){
+        return '<div>'+esc(groupLabel(k))+'</div>'; }).join("");
+
+      $("rlegend").innerHTML =
+        '<span><b>Bar height = days.</b></span>'+
+        '<span><b>Color = '+(rgroup==="sport"?"sport":"pack tier")+'.</b></span>'+
+        '<span><b>Weighted by cards sold — see the table for the full spread.</b></span>';
+
+      $("rcharttitle").textContent = MNAME[rmetric] + " EV age by " +
+        (rgroup==="sport" ? "sport" : "pack category");
+      return;
+    }
+
+    // ---- Total recomps ----
+    if(rview==="period"){
+      rrows.forEach(function(r){
+        if(!groups[r.period]){ groups[r.period]={label:r.period,total:0,seg:{}}; order.push(r.period); }
+        groups[r.period].total += r.sold;
+        groups[r.period].seg[r.pack] = (groups[r.period].seg[r.pack]||0)+r.sold;
+      });
+      order.sort();
+    } else {
+      rrows.forEach(function(r){
+        if(!groups[r.pack]){ groups[r.pack]={label:r.pack,total:0,seg:{}}; order.push(r.pack); }
+        groups[r.pack].total += r.sold;
+        groups[r.pack].seg[r.pack] = (groups[r.pack].seg[r.pack]||0)+r.sold;
+      });
+      order.sort(function(a,b){ return packRank(a)-packRank(b); });
+    }
+
+    var mx=0; order.forEach(function(k){ if(groups[k].total>mx) mx=groups[k].total; });
+
+    $("rchart").innerHTML = order.map(function(k){
+      var g=groups[k];
+      var hh = mx? Math.max(2, Math.round(g.total/mx*248)) : 2;
+      var segs = Object.keys(g.seg).sort(function(a,b){ return packRank(a)-packRank(b); })
+        .map(function(s){
+          var ph = g.total? (g.seg[s]/g.total*100) : 0;
+          return '<div class="seg" style="height:'+ph+'%;background:'+packColor(s)+
+                 '" title="'+esc(s)+': '+fmt(g.seg[s])+'"></div>';
+        }).join("");
+      return '<div class="col"><div class="tot">'+fmt(g.total)+'</div>'+
+             '<div class="stack" style="height:'+hh+'px">'+segs+'</div></div>';
+    }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
+
+    $("rchartx").innerHTML = order.map(function(k){
+      return '<div>'+esc(groups[k].label)+'</div>'; }).join("");
+
+    var present={}; rrows.forEach(function(r){ present[r.pack]=1; });
+    $("rlegend").innerHTML = PACKS.filter(function(p){ return present[p.key]; })
+      .map(function(p){
+        return '<span><span class="swatch" style="background:'+p.color+'"></span><b>'+
+               esc(p.key)+'</b></span>'; }).join("");
+
+    $("rcharttitle").textContent = rview==="period"
+      ? "Cards sold by period" : "Cards sold by pack category";
+  }
+
+  function renderAging(){
+    if(SUB!=="age"){ $("ragingsec").hidden = true; return; }
+    $("ragingsec").hidden = false;
+
+    var groups={}, order=[];
+    rrows.forEach(function(r){
+      var k = groupKey(r);
+      if(!groups[k]){ groups[k]={rows:[]}; order.push(k); }
+      groups[k].rows.push(r);
+    });
+    order.sort(groupSort);
+
+    function cell(v,col,tag,last){
+      var w = v==null ? 0 : Math.max(0, Math.min(100, v));
+      if(w>0 && w<0.8) w = 0.8;   // hairline stays visible; a true 0 stays empty
+      return '<div class="cell'+(last?" last":"")+'"><div class="agecell" data-tag="'+tag+'">'+
+             '<span class="agetrack"><span class="agefill" style="width:'+w+
+             '%;background:'+col+'"></span></span>'+
+             '<span class="val">'+(v==null?"—":d1(v)+"%")+'</span></div></div>';
+    }
+
+    var head = '<div class="agehead">'+(rgroup==="sport"?"Sport":"Pack")+'</div>'+
+               '<div class="agehead">Over 7 days</div>'+
+               '<div class="agehead">Over 30 days</div>'+
+               '<div class="agehead">Over 90 days</div>';
+
+    var body = order.map(function(k){
+      var rs=groups[k].rows;
+      return '<div class="cat"><span class="swatch" style="background:'+groupColor(k)+
+             '"></span>'+esc(groupLabel(k))+'</div>'+
+             cell(wavg(rs,"pct7"),  AGE_COLORS[7],  "Over 7d")+
+             cell(wavg(rs,"pct30"), AGE_COLORS[30], "Over 30d")+
+             cell(wavg(rs,"pct90"), AGE_COLORS[90], "Over 90d", true);
+    }).join("");
+
+    $("raging").innerHTML = order.length
+      ? '<div class="agegrid">'+head+body+'</div>'
+      : '<div class="msg">No rows.</div>';
+
+    var w90=wavg(rrows,"pct90");
+    $("ragingnote").textContent = w90==null ? "" : d1(w90)+"% of cards sold were over 90 days old";
+  }
+
+  function renderRecompTable(){
+    var cols = SUB==="age"
+      ? [["Period","period"],["Pack","pack"],["Sport","sport"],["Sold","sold",1],
+         ["Avg","avg_age",1],["Median","median_age",1],["75th","p75_age",1],
+         ["90th","p90_age",1],["Oldest","oldest_age",1],
+         ["&gt;7d","pct7",1],["&gt;30d","pct30",1],["&gt;90d","pct90",1]]
+      : [["Period","period"],["Pack","pack"],["Sport","sport"],["Cards sold","sold",1],
+         ["Avg EV age","avg_age",1],["Oldest","oldest_age",1]];
+
+    $("rthead").innerHTML = cols.map(function(c){
+      return '<th'+(c[2]?' style="text-align:right"':'')+'>'+c[0]+'</th>'; }).join("");
+
+    var sorted = rrows.slice().sort(function(a,b){
+      if(a.period!==b.period) return a.period<b.period?1:-1;
+      return b.sold-a.sold;
+    });
+
+    $("rtbody").innerHTML = sorted.map(function(r){
+      return "<tr>"+cols.map(function(c){
+        var key=c[1], v=r[key];
+        if(key==="pack"){
+          return '<td><span class="pill" style="background:'+packColor(r.pack)+
+                 '22;color:'+packColor(r.pack)+'">'+esc(r.pack)+'</span></td>';
+        }
+        if(c[2]) return '<td class="n">'+(key==="sold"?fmt(v):d1(v))+'</td>';
+        return "<td>"+esc(v)+"</td>";
+      }).join("")+"</tr>";
+    }).join("") || '<tr><td colspan="'+cols.length+'" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
+
+    $("rrowcount").textContent = fmt(rrows.length)+" rows";
+  }
+
+  function renderRecomp(){
+    var isAge = (SUB==="age");
+    $("rpanel-total").hidden = isAge;
+    $("rpanel-age").hidden   = !isAge;
+    if(isAge){
+      $("rviewtoggle").hidden = true;
+      $("rmetrictoggle").hidden = false;
+      $("rgrouptoggle").hidden = false;
+      renderRecompKpis(); renderRecompChart(); renderAging(); renderRecompTable();
+    } else {
+      $("rmetrictoggle").hidden = true;
+      $("rgrouptoggle").hidden = true;
+      renderGrader();
+    }
+  }
+
+  // ---- banner / status ----
+  function banner(msg, kind){
+    var b=$("banner");
+    if(!msg){ b.className="banner hide"; b.textContent=""; return; }
+    b.className = "banner"+(kind==="err"?" err":"");
+    b.innerHTML = msg;
+  }
+  function setDot(cls){ $("dot").className = "livedot on "+(cls||""); }
+
+  // ---- fetch ----
+  function params(){
+    var q = new URLSearchParams();
+    q.set("tab", TAB);
+    q.set("grain", $("grain").value);
+    q.set("start_date", $("start_date").value);
+    q.set("end_date", $("end_date").value);
+    if(TAB==="cards"){
+      if($("source").value)    q.set("source", $("source").value);
+      if($("card_type").value) q.set("card_type", $("card_type").value);
+    } else if(TAB==="recomp"){
+      q.set("view", SUB);
+      if(SUB==="age"){
+        if($("sport").value)         q.set("sport", $("sport").value);
+        if($("pack_category").value) q.set("pack_category", $("pack_category").value);
+      }
+    }
+    return q;
+  }
+
+  function load(){
+    if(!$("start_date").value || !$("end_date").value){
+      banner("Pick a start and end date to run the query.","err"); return;
+    }
+    if($("start_date").value > $("end_date").value){
+      banner("Start date is after end date.","err"); return;
+    }
+    $("run").disabled = true;
+    $("run").textContent = "Loading";
+    setDot("");
+
+    fetch(API+"?"+params().toString(), {headers:{"Accept":"application/json"}})
+      .then(function(res){
+        return res.text().then(function(t){
+          var j=null; try{ j=JSON.parse(t); }catch(e){}
+          if(j===null && /^\s*<(!doctype|html)/i.test(t)){
+            throw new Error("ROUTE_NOT_DEPLOYED");
+          }
+          if(res.status===501 || (j && j.code==="NOT_CONFIGURED")){
+            throw new Error("NOT_CONFIGURED");
+          }
+          if(!res.ok){
+            var m = (j && (j.error||j.detail||j.message)) || t.slice(0,220) || ("HTTP "+res.status);
+            throw new Error(m);
+          }
+          return j;
+        });
+      })
+      .then(function(data){
+        var arr = Array.isArray(data) ? data
+                : (data && Array.isArray(data.rows)) ? data.rows
+                : (data && Array.isArray(data.data)) ? data.data : [];
+        $("panel-setup").hidden = true;
+
+        // Shape guard: a question wired to the wrong tab returns valid JSON
+        // with the wrong columns, which would otherwise render as an empty
+        // dashboard rather than an error.
+        var shapeWarn = "";
+        if(arr.length){
+          var cols = Object.keys(arr[0]).map(function(c){ return c.toLowerCase(); });
+          var has = function(c){ return cols.indexOf(c)>=0; };
+          var looks = has("grader") ? "recomp-total"
+                    : (has("pack category")||has("pack_category")) ? "recomp-age"
+                    : (has("source")&&has("card_type")) ? "cards" : "unknown";
+          var want = TAB==="cards" ? "cards"
+                   : (SUB==="age" ? "recomp-age" : "recomp-total");
+          var ENVOF = {"cards":"METABASE_CARD_ID",
+                       "recomp-total":"METABASE_RECOMP_CARD_ID",
+                       "recomp-age":"METABASE_EV_AGE_CARD_ID"};
+          if(looks!=="unknown" && looks!==want){
+            shapeWarn = "<b>This tab is pointed at the wrong question.</b>" +
+              "It returned columns matching the <code>"+looks+"</code> query. " +
+              "Swap <code>"+ENVOF[want]+"</code> and <code>"+ENVOF[looks]+"</code> " +
+              "on the deployment, or run <code>/api/verify</code> for a full check.";
+          }
+        }
+
+        var empty;
+        if(TAB==="recomp"){
+          if(SUB==="age"){
+            rrows = normalizeRecomp(arr);
+            refreshRecompFilters();
+            empty = !rrows.length;
+          } else {
+            grows = normalizeGrader(arr);
+            refreshGraderFilter();
+            empty = !gData().length;
+          }
+          $("panel-body").hidden = true;
+          $("panel-recomp").hidden = false;
+          renderRecomp();
+        } else {
+          rows = normalize(arr);
+          $("panel-recomp").hidden = true;
+          $("panel-body").hidden = false;
+          renderAll();
+          empty = !rows.length;
+        }
+        var now = new Date();
+        $("f-updated").textContent = "Updated "+now.toLocaleTimeString("en-US");
+        $("f-source").textContent  = "Source: Metabase question";
+        if(shapeWarn){
+          banner(shapeWarn,"err");
+          setDot("err");
+        } else if(empty){
+          banner("Query ran but returned no rows for this date range.","");
+          setDot("stale");
+        } else {
+          banner("");
+          setDot("");
+        }
+      })
+      .catch(function(err){
+        if(err.message==="NOT_CONFIGURED"){
+          showSetup();
+          return;
+        }
+        if(err.message==="ROUTE_NOT_DEPLOYED"){
+          banner("<b>The API route isn't live yet.</b> "+
+                 "<code>/api/ticker</code> returned the app's HTML instead of JSON, "+
+                 "which means the request fell through to the page router. "+
+                 "In a Next.js App Router project the handler belongs at "+
+                 "<code>app/api/ticker/route.js</code>; in Pages Router, "+
+                 "<code>pages/api/ticker.js</code>.","err");
+        } else {
+          banner("<b>Could not load data.</b> "+esc(err.message)+
+                 "<br>Check that METABASE_HOST, METABASE_API_KEY and "+
+                 "METABASE_CARD_ID are set on the deployment.","err");
+        }
+        setDot("err");
+        $("f-updated").textContent = "Load failed";
+      })
+      .then(function(){
+        $("run").disabled=false; $("run").textContent="Enter";
+      });
+  }
+
+  // ---- wiring ----
+  function setView(v){
+    view=v;
+    $("vPeriod").setAttribute("aria-pressed", v==="period");
+    $("vHour").setAttribute("aria-pressed", v==="hour");
+    $("vAvg").setAttribute("aria-pressed", v==="avg");
+    renderChart();
+  }
+  $("vPeriod").onclick=function(){ setView("period"); };
+  $("vHour").onclick  =function(){ setView("hour"); };
+  $("vAvg").onclick   =function(){ setView("avg"); };
+  // ---- tabs ----
+  function showSetup(){
+    $("panel-body").hidden = true;
+    $("panel-recomp").hidden = true;
+    $("panel-setup").hidden = false;
+    banner("");
+    setDot("stale");
+    $("setupmsg").innerHTML =
+      "<b>The " + TABS[TAB].label + " tab has no Metabase question yet.</b>" +
+      "Set <code>METABASE_" + TAB.toUpperCase() + "_CARD_ID</code> on the deployment " +
+      "and point it at a question that returns the same columns as the Cards question " +
+      "(period, shift_slot, hour_label, source, card_type, cards, shift_days, avg_per_shift).";
+    $("f-updated").textContent = "Not configured";
+  }
+
+  function setTab(name){
+    if(!TABS[name]) return;
+    TAB = name;
+    var cfg = TABS[name];
+    $("tab-cards").setAttribute("aria-selected", name==="cards");
+    $("tab-recomp").setAttribute("aria-selected", name==="recomp");
+    $("statusline").innerHTML = "<b>Precision Labeling</b> · " + cfg.subtitle;
+    $("f-window").textContent = (name==="recomp")
+      ? "Window: shift total measures 3 PM–11 PM PT"
+      : "Window: 2 PM–3 AM PT, Mon–Fri shift start";
+    document.querySelectorAll("[data-cards-only]").forEach(function(el){
+      el.hidden = !cfg.showSourceFilters;
+    });
+    document.querySelectorAll(".railhint").forEach(function(el){
+      el.textContent = cfg.railHint;
+    });
+    syncFilterVisibility();
+    $("panel-setup").hidden = true;
+    $("panel-body").hidden   = (name!=="cards");
+    $("panel-recomp").hidden = (name!=="recomp");
+    rows = []; rrows = [];
+    if(name==="recomp") renderRecomp(); else renderAll();
+    load();
+  }
+  function syncFilterVisibility(){
+    var isRecomp = (TAB==="recomp");
+    document.querySelectorAll("[data-recomp-total]").forEach(function(el){
+      el.hidden = !(isRecomp && SUB==="total");
+    });
+    document.querySelectorAll("[data-recomp-age]").forEach(function(el){
+      el.hidden = !(isRecomp && SUB==="age");
+    });
+  }
+  function setSub(name){
+    SUB = name;
+    $("sub-total").setAttribute("aria-selected", name==="total");
+    $("sub-age").setAttribute("aria-selected", name==="age");
+    syncFilterVisibility();
+    grows = []; rrows = [];
+    load();
+  }
+  $("sub-total").onclick = function(){ setSub("total"); };
+  $("sub-age").onclick   = function(){ setSub("age"); };
+
+  function setRGroup(g){
+    rgroup = g;
+    $("rgPack").setAttribute("aria-pressed", g==="pack");
+    $("rgSport").setAttribute("aria-pressed", g==="sport");
+    renderRecompChart(); renderAging();
+  }
+  $("rgPack").onclick  = function(){ setRGroup("pack"); };
+  $("rgSport").onclick = function(){ setRGroup("sport"); };
+
+  function setRMetric(m){
+    rmetric = m;
+    $("rmAvg").setAttribute("aria-pressed", m==="avg");
+    $("rmMed").setAttribute("aria-pressed", m==="med");
+    $("rmP90").setAttribute("aria-pressed", m==="p90");
+    renderRecompChart();
+  }
+  $("rmAvg").onclick = function(){ setRMetric("avg"); };
+  $("rmMed").onclick = function(){ setRMetric("med"); };
+  $("rmP90").onclick = function(){ setRMetric("p90"); };
+
+  function setRView(v){
+    rview=v;
+    $("rvCat").setAttribute("aria-pressed", v==="cat");
+    $("rvPeriod").setAttribute("aria-pressed", v==="period");
+    renderRecompChart();
+  }
+  $("rvCat").onclick    = function(){ setRView("cat"); };
+  $("rvPeriod").onclick = function(){ setRView("period"); };
+
+  function setGView(v){
+    gview=v;
+    $("gvGrader").setAttribute("aria-pressed", v==="grader");
+    $("gvPeriod").setAttribute("aria-pressed", v==="period");
+    renderGraderChart();
+  }
+  $("gvGrader").onclick = function(){ setGView("grader"); };
+  $("gvPeriod").onclick = function(){ setGView("period"); };
+
+  // grader filtering is client-side — the query already returns every grader
+  $("grader").onchange = function(){ renderGrader(); };
+  ["sport","pack_category"].forEach(function(id){ $(id).onchange = load; });
+
+  $("tab-cards").onclick  = function(){ setTab("cards"); };
+  $("tab-recomp").onclick = function(){ setTab("recomp"); };
+
+  $("run").onclick = load;
+  ["grain","source","card_type"].forEach(function(id){ $(id).onchange = load; });
+
+  // Enter runs the query from anywhere except the Auto toggle
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Enter" || e.isComposing) return;
+    var t = e.target;
+    if(t && t.id === "auto") return;              // let Enter toggle Auto normally
+    if(t && t.classList && t.classList.contains("cselopt")) return;
+    if(t && t.classList && t.classList.contains("cselbtn")) return;
+    if(t && t.tagName === "BUTTON" && t.id !== "run") return;
+    e.preventDefault();
+    if(!$("run").disabled) load();
+  });
+
+  $("auto").onclick = function(){
+    var on = this.getAttribute("aria-pressed")==="true";
+    if(on){ clearInterval(autoTimer); autoTimer=null; this.setAttribute("aria-pressed","false"); }
+    else { autoTimer = setInterval(load, AUTO_MS); this.setAttribute("aria-pressed","true"); load(); }
+  };
+
+  // ---- styled dropdowns ----
+  // The native <select> stays in the DOM and remains the source of truth, so
+  // every existing $("sport").value read and .onchange handler keeps working.
+  // A MutationObserver rebuilds the menu when options are repopulated.
+  function enhanceSelect(sel){
+    var wrap = document.createElement("div");
+    wrap.className = "csel";
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cselbtn";
+    btn.setAttribute("aria-haspopup","listbox");
+    btn.setAttribute("aria-expanded","false");
+    if(sel.id) btn.id = "btn-"+sel.id;
+
+    var label = document.createElement("span");
+    var caret = document.createElement("span");
+    caret.className = "caret"; caret.textContent = "\u25BC";
+    btn.appendChild(label); btn.appendChild(caret);
+
+    var menu = document.createElement("div");
+    menu.className = "cselmenu";
+    menu.setAttribute("role","listbox");
+    menu.hidden = true;
+    if(sel.id) menu.id = "menu-"+sel.id;
+
+    wrap.appendChild(btn); wrap.appendChild(menu);
+
+    function syncLabel(){
+      var o = sel.options[sel.selectedIndex];
+      label.textContent = o ? o.textContent : "";
+    }
+    function build(){
+      menu.innerHTML = "";
+      Array.prototype.forEach.call(sel.options, function(o,i){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "cselopt";
+        b.setAttribute("role","option");
+        b.setAttribute("aria-selected", String(i===sel.selectedIndex));
+        b.textContent = o.textContent;
+        b.onclick = function(){
+          sel.selectedIndex = i;
+          sel.dispatchEvent(new Event("change", {bubbles:true}));
+          syncLabel(); build(); close(); btn.focus();
+        };
+        menu.appendChild(b);
+      });
+      syncLabel();
+    }
+    function open(){
+      closeAll();
+      menu.hidden = false;
+      btn.setAttribute("aria-expanded","true");
+      var cur = menu.querySelector('[aria-selected=true]');
+      if(cur) cur.focus();
+    }
+    function close(){
+      menu.hidden = true;
+      btn.setAttribute("aria-expanded","false");
+    }
+    btn.onclick = function(e){
+      e.stopPropagation();
+      if(menu.hidden) open(); else close();
+    };
+    menu.addEventListener("click", function(e){ e.stopPropagation(); });
+    menu.addEventListener("keydown", function(e){
+      var opts = Array.prototype.slice.call(menu.querySelectorAll(".cselopt"));
+      var i = opts.indexOf(document.activeElement);
+      if(e.key==="ArrowDown"){ e.preventDefault(); (opts[i+1]||opts[0]).focus(); }
+      else if(e.key==="ArrowUp"){ e.preventDefault(); (opts[i-1]||opts[opts.length-1]).focus(); }
+      else if(e.key==="Escape"){ e.preventDefault(); close(); btn.focus(); }
+    });
+    btn.addEventListener("keydown", function(e){
+      if(e.key==="ArrowDown"||e.key===" "){ e.preventDefault(); open(); }
+    });
+
+    new MutationObserver(build).observe(sel, {childList:true});
+    sel.addEventListener("change", function(){ syncLabel(); });
+
+    wrap._close = close;
+    build();
+  }
+  function closeAll(){
+    document.querySelectorAll(".csel").forEach(function(w){ if(w._close) w._close(); });
+  }
+  document.addEventListener("click", closeAll);
+
+  document.querySelectorAll(".filters select").forEach(enhanceSelect);
+
+  // default range: last 14 days, ending today (PT)
+  function ptToday(){
+    var s = new Date().toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
+    return s;
+  }
+  function minusDays(iso,n){
+    var d=new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()-n);
+    return d.toISOString().slice(0,10);
+  }
+  var today = ptToday();
+  $("end_date").value = today;
+  $("start_date").value = minusDays(today,13);
+
+  renderAll();
+  load();
+})();
+</script>
+</body>
+</html>
