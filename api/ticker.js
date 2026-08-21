@@ -94,16 +94,59 @@ export async function runQuery(key, query) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
 
+  // Metabase's export endpoints (/query/json, /query/csv, /query/xlsx) take
+  // parameters as a FORM FIELD holding a JSON string — not as a JSON body.
+  // Posting Content-Type: application/json there returns 400 no matter how
+  // correct the parameters are. That was the original failure.
+  const form = new URLSearchParams();
+  form.set('parameters', JSON.stringify(parameters));
+
   let upstream, text;
   try {
     upstream = await fetch(`${host}/api/card/${cardId}/query/json`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-      body: JSON.stringify({ parameters }),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-API-KEY': apiKey,
+      },
+      body: form.toString(),
       signal: controller.signal,
     });
     text = await upstream.text();
+
+    // Fallback: the interactive endpoint does take a JSON body. It caps at
+    // ~2000 rows, so it is second choice, but it keeps the app alive if the
+    // export endpoint is unavailable on this instance.
+    if (!upstream.ok) {
+      const alt = await fetch(`${host}/api/card/${cardId}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+        body: JSON.stringify({ parameters }),
+        signal: controller.signal,
+      });
+      const altText = await alt.text();
+      if (alt.ok) {
+        const payload = JSON.parse(altText);
+        if (payload?.status === 'failed') {
+          const err = new Error(payload.error || 'Metabase query failed');
+          err.status = 400;
+          err.detail = JSON.stringify(payload).slice(0, 1200);
+          throw err;
+        }
+        const cols = (payload?.data?.cols || []).map(
+          (c) => c.display_name || c.name
+        );
+        const objs = (payload?.data?.rows || []).map((r) => {
+          const o = {};
+          cols.forEach((name, i) => { o[name] = r[i]; });
+          return o;
+        });
+        clearTimeout(timeout);
+        return { rows: objs, cardId, via: 'query' };
+      }
+    }
   } catch (e) {
+    if (e.status) { clearTimeout(timeout); throw e; }
     clearTimeout(timeout);
     const err = new Error(
       e.name === 'AbortError' ? 'Metabase query timed out' : 'Could not reach Metabase'
@@ -140,7 +183,7 @@ export async function runQuery(key, query) {
     throw err;
   }
 
-  return { rows, cardId };
+  return { rows, cardId, via: 'query/json' };
 }
 
 export default async function handler(req, res) {
@@ -166,4 +209,4 @@ export default async function handler(req, res) {
       detail: err.detail,
     });
   }
-} 
+}

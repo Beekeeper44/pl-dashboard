@@ -1463,8 +1463,12 @@
             throw new Error("NOT_CONFIGURED");
           }
           if(!res.ok){
-            var m = (j && (j.error||j.detail||j.message)) || t.slice(0,220) || ("HTTP "+res.status);
-            throw new Error(m);
+            var m = (j && (j.error||j.message)) || t.slice(0,220) || ("HTTP "+res.status);
+            var e = new Error(m);
+            // Metabase's own complaint lives here — it names the offending
+            // parameter, which is the only thing that makes a 400 actionable.
+            if(j && j.detail) e.detail = String(j.detail);
+            throw e;
           }
           return j;
         });
@@ -1546,9 +1550,21 @@
                  "<code>app/api/ticker/route.js</code>; in Pages Router, "+
                  "<code>pages/api/ticker.js</code>.","err");
         } else {
-          banner("<b>Could not load data.</b> "+esc(err.message)+
-                 "<br>Check that METABASE_HOST, METABASE_API_KEY and "+
-                 "METABASE_CARD_ID are set on the deployment.","err");
+          var msg = "<b>Could not load data.</b> "+esc(err.message);
+          if(err.detail){
+            msg += "<br><br><b>Metabase said:</b><br>"+
+                   '<span style="opacity:.9">'+esc(err.detail.slice(0,700))+"</span>";
+            if(/parameter|template.?tag|variable/i.test(err.detail)){
+              msg += "<br><br>That usually means the question's variables don't match "+
+                     "what this tab sends. Cards needs: <code>start_date</code>, "+
+                     "<code>end_date</code>, <code>grain</code>, <code>source</code>, "+
+                     "<code>card_type</code>.";
+            }
+          } else {
+            msg += "<br>Check that METABASE_HOST, METABASE_API_KEY and the card ID "+
+                   "are set on the deployment.";
+          }
+          banner(msg,"err");
         }
         setDot("err");
         $("f-updated").textContent = "Load failed";

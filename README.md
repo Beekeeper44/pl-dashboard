@@ -101,6 +101,15 @@ Sports (`SPORT_COLORS`) — keyed on raw snake_case values from
 Unmapped values get a stable hash color. Display labels are title-cased
 (`one_piece` → "One Piece") but the raw value is what reaches the query.
 
+## Metabase API note
+
+The export endpoints (`/api/card/:id/query/json`) take parameters as a
+**form field** holding a JSON string, not as a JSON request body. Posting
+`Content-Type: application/json` there returns 400 regardless of how correct
+the parameters are. `api/ticker.js` sends form-encoded, and falls back to the
+interactive `/api/card/:id/query` endpoint (JSON body, ~2000 row cap) if the
+export endpoint is unavailable.
+
 ## Notes
 
 - On Redshift-PROD, `admin.cards` runs roughly 3 hours behind. Repoint at db364
