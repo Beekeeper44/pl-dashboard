@@ -146,6 +146,53 @@
   }
   button:disabled{opacity:.4;cursor:not-allowed}
 
+  /* ---------- source breakdown groups ---------- */
+  .groups{
+    display:flex;flex-wrap:wrap;gap:1px;
+    background:var(--line);border-bottom:1px solid var(--line);
+  }
+  .grp-card{flex:1 1 340px;min-width:0;background:var(--panel2);padding:18px 20px 17px}
+  .grp-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:14px;padding-bottom:13px;margin-bottom:14px;
+    border-bottom:2px solid var(--line2);
+  }
+  .grp-head .name{
+    font-family:var(--mono);font-size:13px;letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--tx);font-weight:700;white-space:nowrap;
+  }
+  .grp-head .tot{
+    font-family:var(--mono);font-size:40px;font-weight:700;letter-spacing:-1.4px;
+    line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .grp-head .pct{
+    font-family:var(--mono);font-size:12px;color:var(--tx);
+    white-space:nowrap;opacity:.8;
+  }
+  .grp-split{display:flex;gap:26px}
+  .grp-split > div{flex:1 1 0;min-width:0}
+  .grp-split .k{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.9px;
+    text-transform:uppercase;color:var(--tx);white-space:nowrap;opacity:.8;
+  }
+  .grp-split .v{
+    font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-.9px;
+    margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .grp-split .n{
+    font-family:var(--mono);font-size:11.5px;color:var(--tx);
+    margin-top:4px;white-space:nowrap;opacity:.8;
+  }
+  .grp-bar{
+    display:flex;height:8px;margin-top:14px;border-radius:999px;overflow:hidden;
+    background:var(--panel);
+  }
+  .grp-bar span{display:block;height:100%}
+  @media(max-width:640px){
+    .grp-head .tot{font-size:32px}
+    .grp-split .v{font-size:24px}
+  }
+
   /* ---------- sub-tabs ---------- */
   .subtabs{display:flex;gap:10px;padding:16px 22px 0}
   .subtab{
@@ -209,7 +256,7 @@
     font-variant-numeric:tabular-nums;white-space:nowrap;
   }
   .kpi .n{font-family:var(--mono);font-size:12.5px;color:var(--tx);margin-top:6px;white-space:nowrap}
-  .kpi.total{flex:1.7 1 262px}
+  .kpi.total{flex:0 1 300px}
   .kpi.total .v{font-size:62px;color:var(--tx)}
   .kpi.cust .v{color:var(--cust)}
   .kpi.slab .v{color:var(--slab)}
@@ -289,6 +336,10 @@
 
   /* ---------- table ---------- */
   table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px}
+  /* Columns hug their content; a trailing spacer absorbs the slack so data
+     stays grouped on the left instead of stretching across a wide monitor. */
+  th, td{white-space:nowrap}
+  th.sp, td.sp{width:100%;padding:0;border-bottom:1px solid var(--line)}
   th{
     text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2);
     color:var(--tx);font-weight:500;font-size:12px;letter-spacing:.8px;
@@ -432,6 +483,7 @@
 
 <div id="panel-body">
 <div class="kpis" id="kpis"></div>
+<div class="groups" id="groups"></div>
 
 <section>
   <div class="shead">
@@ -476,6 +528,7 @@
         <th style="text-align:right">Cards</th>
         <th style="text-align:right">Shift days</th>
         <th style="text-align:right">Avg/shift</th>
+        <th class="sp"></th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -908,16 +961,25 @@
       byType[r.card_type] = (byType[r.card_type]||0)+r.cards;
       days[r.period+"|"+r.slot] = 1;
     });
+    // Prefer the query's own shift_days, but fall back to counting distinct
+    // periods when the column is missing — otherwise the divisor is 0 and the
+    // KPI reads a misleading 0 rather than a real average.
     var shiftDays = {};
     rows.forEach(function(r){ shiftDays[r.period]=Math.max(shiftDays[r.period]||0, r.shift_days||0); });
-    var totalShiftDays = Object.keys(shiftDays).reduce(function(a,k){ return a+shiftDays[k]; },0);
+    var periodKeys = Object.keys(shiftDays);
+    var totalShiftDays = periodKeys.reduce(function(a,k){ return a+shiftDays[k]; },0);
+    var derived = false;
+    if(!totalShiftDays && periodKeys.length){
+      totalShiftDays = periodKeys.length;
+      derived = true;
+    }
     var avg = totalShiftDays ? Math.round(total/totalShiftDays) : 0;
 
     var cards = [
-      {c:"total", k:"Total cards", v:fmt(total), n:Object.keys(shiftDays).length+" period"+(Object.keys(shiftDays).length===1?"":"s")},
-      {c:"cust",  k:'<span class="swatch" style="background:var(--cust)"></span>Customer', v:fmt(bySrc.customer||0), n:pct(bySrc.customer||0,total)},
-      {c:"slab",  k:'<span class="swatch" style="background:var(--slab)"></span>Slab pack', v:fmt(bySrc.slab_pack||0), n:pct(bySrc.slab_pack||0,total)},
-      {c:"",      k:"Avg per shift", v:fmt(avg), n:totalShiftDays+" shift day"+(totalShiftDays===1?"":"s")},
+      {c:"total", k:"Total cards", v:fmt(total),
+       n:Object.keys(shiftDays).length+" period"+(Object.keys(shiftDays).length===1?"":"s")},
+      {c:"",      k:"Avg per shift", v:fmt(avg),
+       n:derived ? totalShiftDays+" periods" : totalShiftDays+" shift day"+(totalShiftDays===1?"":"s")},
       {c:"",      k:"Raw", v:fmt(byType.raw||0), n:pct(byType.raw||0,total)},
       {c:"",      k:"Pre-graded", v:fmt(byType.pre_graded||0), n:pct(byType.pre_graded||0,total)}
     ];
@@ -928,8 +990,52 @@
       return '<div class="kpi '+c.c+'"><div class="k">'+c.k+'</div>'+
              '<div class="v">'+c.v+'</div><div class="n">'+esc(c.n)+'</div></div>';
     }).join("");
+
+    renderGroups(total);
   }
   function pct(a,b){ return b? Math.round(a/b*100)+"% of total" : "—"; }
+
+  // Customer and slab pack each get a card: group total, then the raw /
+  // pre-graded split beneath it with a share bar.
+  function renderGroups(total){
+    var g = {customer:{raw:0,pre_graded:0}, slab_pack:{raw:0,pre_graded:0}};
+    rows.forEach(function(r){
+      if(!g[r.source]) return;
+      g[r.source][r.card_type] = (g[r.source][r.card_type]||0) + r.cards;
+    });
+
+    var defs = [
+      {key:"customer",  label:"Customer",  color:"var(--cust)",  alt:"var(--cust2)"},
+      {key:"slab_pack", label:"Slab pack", color:"var(--slab)",  alt:"var(--slab2)"}
+    ];
+
+    $("groups").innerHTML = defs.map(function(d){
+      var raw = g[d.key].raw||0, pre = g[d.key].pre_graded||0, sub = raw+pre;
+      var rp = sub? Math.round(raw/sub*100) : 0;
+      return '<div class="grp-card">'+
+        '<div class="grp-head">'+
+          '<span class="name"><span class="swatch" style="background:'+d.color+'"></span>'+
+            d.label+'</span>'+
+          '<span style="text-align:right">'+
+            '<span class="tot" style="color:'+d.color+'">'+fmt(sub)+'</span><br>'+
+            '<span class="pct">'+(total?Math.round(sub/total*100)+"% of all cards":"—")+'</span>'+
+          '</span>'+
+        '</div>'+
+        '<div class="grp-split">'+
+          '<div><div class="k">Raw</div>'+
+            '<div class="v" style="color:'+d.color+'">'+fmt(raw)+'</div>'+
+            '<div class="n">'+(sub?rp+"% of "+d.label.toLowerCase():"—")+'</div></div>'+
+          '<div><div class="k">Pre-graded</div>'+
+            '<div class="v" style="color:'+d.alt+'">'+fmt(pre)+'</div>'+
+            '<div class="n">'+(sub?(100-rp)+"% of "+d.label.toLowerCase():"—")+'</div></div>'+
+        '</div>'+
+        '<div class="grp-bar">'+
+          '<span style="width:'+rp+'%;background:'+d.color+'"></span>'+
+          '<span style="width:'+(100-rp)+'%;background:'+d.alt+'"></span>'+
+        '</div>'+
+      '</div>';
+    }).join("");
+  }
 
   // ---- shift rail ----
   function renderRail(){
@@ -960,9 +1066,9 @@
 
     var late = bySlot.slice(10).reduce(function(a,s){ return a+s.total; },0);
     var all  = bySlot.reduce(function(a,s){ return a+s.total; },0);
-    $("railnote").innerHTML = all
-      ? fmt(late)+" cards after midnight ("+Math.round(late/all*100)+"% of window)"
-      : "";
+    $("railnote").innerHTML = loadFailed
+      ? '<span style="color:var(--warn)">no data — request failed</span>'
+      : (all ? fmt(late)+" cards after midnight ("+Math.round(late/all*100)+"% of window)" : "");
   }
 
   // ---- chart ----
@@ -998,7 +1104,9 @@
       }).join("");
       return '<div class="col"><div class="tot">'+fmt(g.value)+'</div>'+
              '<div class="stack" style="height:'+h+'px">'+segs+'</div></div>';
-    }).join("") || '<div class="msg" style="flex:1">No rows in this window.</div>';
+    }).join("") || '<div class="msg" style="flex:1">'+(loadFailed
+        ? '<b style="color:var(--warn)">No data — the request failed.</b>See the message above.'
+        : 'No rows in this window.')+'</div>';
 
     $("chartx").innerHTML = order.map(function(k){
       return '<div>'+esc(groups[k].label)+'</div>';
@@ -1030,11 +1138,12 @@
         "<td>"+esc(r.card_type)+"</td>"+
         '<td class="n">'+fmt(r.cards)+"</td>"+
         '<td class="n">'+fmt(r.shift_days)+"</td>"+
-        '<td class="n">'+(r.avg_per_shift||0)+"</td></tr>";
-    }).join("") || '<tr><td colspan="7" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
+        '<td class="n">'+(r.avg_per_shift||0)+'</td><td class="sp"></td></tr>';
+    }).join("") || '<tr><td colspan="8" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
     $("rowcount").textContent = fmt(rows.length)+" rows";
   }
 
+  var loadFailed = false;
   function renderAll(){ renderKpis(); renderRail(); renderChart(); renderTable(); }
 
   // =========================================================
@@ -1159,7 +1268,8 @@
       .concat(GHOURS.map(function(hh){ return [hh.label, "h:"+hh.k, 1]; }));
 
     $("gthead").innerHTML = cols.map(function(c){
-      return '<th'+(c[2]?' style="text-align:right"':'')+'>'+esc(c[0])+'</th>'; }).join("");
+      return '<th'+(c[2]?' style="text-align:right"':'')+'>'+esc(c[0])+'</th>'; }).join("")
+      + '<th class="sp"></th>';
 
     var sorted = grows.slice().sort(function(a,b){
       if(a.isTotal!==b.isTotal) return a.isTotal?-1:1;   // team total pinned on top
@@ -1176,8 +1286,8 @@
         if(key.indexOf("h:")===0) return '<td class="n">'+fmt(r.hours[key.slice(2)]||0)+'</td>';
         if(c[2]) return '<td class="n">'+fmt(r[key])+'</td>';
         return "<td>"+esc(r[key])+"</td>";
-      }).join("")+"</tr>";
-    }).join("") || '<tr><td colspan="'+cols.length+'" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
+      }).join("")+'<td class="sp"></td></tr>';
+    }).join("") || '<tr><td colspan="'+(cols.length+1)+'" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
 
     $("growcount").textContent = fmt(gData().length)+" grader rows";
   }
@@ -1374,7 +1484,8 @@
          ["Avg EV age","avg_age",1],["Oldest","oldest_age",1]];
 
     $("rthead").innerHTML = cols.map(function(c){
-      return '<th'+(c[2]?' style="text-align:right"':'')+'>'+c[0]+'</th>'; }).join("");
+      return '<th'+(c[2]?' style="text-align:right"':'')+'>'+c[0]+'</th>'; }).join("")
+      + '<th class="sp"></th>';
 
     var sorted = rrows.slice().sort(function(a,b){
       if(a.period!==b.period) return a.period<b.period?1:-1;
@@ -1390,8 +1501,8 @@
         }
         if(c[2]) return '<td class="n">'+(key==="sold"?fmt(v):d1(v))+'</td>';
         return "<td>"+esc(v)+"</td>";
-      }).join("")+"</tr>";
-    }).join("") || '<tr><td colspan="'+cols.length+'" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
+      }).join("")+'<td class="sp"></td></tr>';
+    }).join("") || '<tr><td colspan="'+(cols.length+1)+'" style="color:var(--tx);padding:24px;text-align:center">No rows.</td></tr>';
 
     $("rrowcount").textContent = fmt(rrows.length)+" rows";
   }
@@ -1474,6 +1585,7 @@
         });
       })
       .then(function(data){
+        loadFailed = false;
         var arr = Array.isArray(data) ? data
                 : (data && Array.isArray(data.rows)) ? data.rows
                 : (data && Array.isArray(data.data)) ? data.data : [];
@@ -1514,12 +1626,14 @@
             empty = !gData().length;
           }
           $("panel-body").hidden = true;
+          $("groups").hidden = true;
           $("panel-recomp").hidden = false;
           renderRecomp();
         } else {
           rows = normalize(arr);
           $("panel-recomp").hidden = true;
           $("panel-body").hidden = false;
+          $("groups").hidden = false;
           renderAll();
           empty = !rows.length;
         }
@@ -1538,6 +1652,9 @@
         }
       })
       .catch(function(err){
+        loadFailed = true;
+        rows = []; grows = []; rrows = [];
+        if(TAB==="recomp") renderRecomp(); else renderAll();
         if(err.message==="NOT_CONFIGURED"){
           showSetup();
           return;
@@ -1622,6 +1739,7 @@
     syncFilterVisibility();
     $("panel-setup").hidden = true;
     $("panel-body").hidden   = (name!=="cards");
+    $("groups").hidden       = (name!=="cards");
     $("panel-recomp").hidden = (name!=="recomp");
     rows = []; rrows = [];
     if(name==="recomp") renderRecomp(); else renderAll();

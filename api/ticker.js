@@ -63,7 +63,7 @@ async function getTagIds(host, apiKey, cardId) {
       if (tags && typeof tags === 'object' && !Array.isArray(tags)) {
         const map = {};
         for (const [name, tag] of Object.entries(tags)) {
-          if (tag?.id) map[name] = tag.id;
+          if (tag?.id) map[name] = { id: tag.id, type: tag.type };
         }
         if (Object.keys(map).length) {
           out.map = map; out.ok = true; out.source = path;
@@ -73,16 +73,26 @@ async function getTagIds(host, apiKey, cardId) {
       }
     }
 
-    // Fall back to the card's `parameters` array, keyed by slug or name.
+    // The card's `parameters` array is authoritative on modern Metabase
+    // (mbql/query "stages" format has no dataset_query.native.template-tags).
+    // Entries are keyed by DISPLAY name — "Start Date", not "start_date" — so
+    // normalize before matching, and carry each declared type: text variables
+    // are "string/=", not "category".
     if (!out.ok && Array.isArray(card?.parameters) && card.parameters.length) {
+      const norm = (n) =>
+        String(n || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
       const map = {};
       for (const p of card.parameters) {
-        const n = p?.slug || p?.name;
-        if (n && p?.id) map[n] = p.id;
+        const key = norm(p?.slug || p?.name);
+        if (key && p?.id) map[key] = { id: p.id, type: p.type };
       }
       if (Object.keys(map).length) {
-        out.map = map; out.ok = true; out.source = 'parameters[]';
-        out.note = `Read ${Object.keys(map).length} ids from parameters[]: ${Object.keys(map).join(', ')}`;
+        out.map = map;
+        out.ok = true;
+        out.source = 'parameters[]';
+        out.note =
+          `Read ${Object.keys(map).length} ids from parameters[]: ` +
+          Object.entries(map).map(([k, v]) => `${k}(${v.type})`).join(', ');
       }
     }
 
@@ -108,8 +118,8 @@ function buildParameters(query, key, tagIds) {
     if (!value) throw new Error(`Missing required filter: ${name}`);
     if (!ISO_DATE.test(value)) throw new Error(`${name} must be YYYY-MM-DD`);
     parameters.push({
-      id: tagIds[name] || name,
-      type: 'date/single',
+      id: tagIds[name]?.id || name,
+      type: tagIds[name]?.type || 'date/single',
       value,
       target: ['variable', ['template-tag', name]],
     });
@@ -122,8 +132,8 @@ function buildParameters(query, key, tagIds) {
       // grain has no [[ ]] wrapper in the SQL, so it must always be sent
       if (name === 'grain') {
         parameters.push({
-          id: tagIds['grain'] || 'grain',
-          type: 'category',
+          id: tagIds['grain']?.id || 'grain',
+          type: tagIds['grain']?.type || 'string/=',
           value: 'day',
           target: ['variable', ['template-tag', 'grain']],
         });
@@ -136,8 +146,8 @@ function buildParameters(query, key, tagIds) {
     }
 
     parameters.push({
-      id: tagIds[name] || name,
-      type: 'category',
+      id: tagIds[name]?.id || name,
+      type: tagIds[name]?.type || 'string/=',
       value,
       target: ['variable', ['template-tag', name]],
     });
