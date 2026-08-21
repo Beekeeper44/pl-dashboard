@@ -35,23 +35,30 @@ const tagIdCache = new Map();
 
 async function getTagIds(host, apiKey, cardId) {
   if (tagIdCache.has(cardId)) return tagIdCache.get(cardId);
-  let map = {};
+  const out = { map: {}, ok: false, note: '' };
   try {
     const r = await fetch(`${host}/api/card/${cardId}`, {
       headers: { 'X-API-KEY': apiKey },
     });
-    if (r.ok) {
+    if (!r.ok) {
+      out.note = `GET /api/card/${cardId} returned ${r.status} — cannot read template-tag ids.`;
+    } else {
       const card = await r.json();
       const tags = card?.dataset_query?.native?.['template-tags'] || {};
+      const names = Object.keys(tags);
       for (const [name, tag] of Object.entries(tags)) {
-        if (tag?.id) map[name] = tag.id;
+        if (tag?.id) out.map[name] = tag.id;
       }
+      out.ok = Object.keys(out.map).length > 0;
+      out.note = out.ok
+        ? `Read ${Object.keys(out.map).length} template-tag ids: ${Object.keys(out.map).join(', ')}`
+        : `Card has no template tags with ids (found tags: ${names.join(', ') || 'none'}).`;
     }
-  } catch {
-    // fall through — the name is an acceptable id for most instances
+  } catch (e) {
+    out.note = `GET /api/card/${cardId} threw: ${e.message}`;
   }
-  tagIdCache.set(cardId, map);
-  return map;
+  tagIdCache.set(cardId, out);
+  return out;
 }
 
 function buildParameters(query, key, tagIds) {
@@ -118,7 +125,8 @@ export async function runQuery(key, query) {
   }
 
   const cardId = process.env[spec.env] || spec.fallback;
-  const tagIds = await getTagIds(host, apiKey, cardId);
+  const tagInfo = await getTagIds(host, apiKey, cardId);
+  const tagIds = tagInfo.map;
   const parameters = buildParameters(query, key, tagIds);
 
   const controller = new AbortController();
@@ -131,42 +139,17 @@ export async function runQuery(key, query) {
   // A 200 is not sufficient — /api/card/:id/query returns 200 with
   // status:"failed" when parameters were dropped, so each strategy must
   // confirm the query actually ran parameterized.
-  const form = new URLSearchParams();
-  form.set('parameters', JSON.stringify(parameters));
-
+  // Form-encoding is not viable: Metabase receives `parameters` as a string
+  // and rejects it with "invalid type, received: \"[{...". Both remaining
+  // strategies send a proper JSON array.
   const strategies = [
     {
-      name: 'query/json+json',
+      name: 'query/json',
       url: `${host}/api/card/${cardId}/query/json`,
-      init: {
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parameters }),
-      },
     },
     {
-      name: 'query/json+form',
-      url: `${host}/api/card/${cardId}/query/json`,
-      init: {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString(),
-      },
-    },
-    {
-      name: 'query+json',
+      name: 'query',
       url: `${host}/api/card/${cardId}/query`,
-      init: {
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parameters }),
-      },
-      shape: 'cols',
-    },
-    {
-      name: 'query+form',
-      url: `${host}/api/card/${cardId}/query`,
-      init: {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString(),
-      },
       shape: 'cols',
     },
   ];
@@ -178,8 +161,8 @@ export async function runQuery(key, query) {
     try {
       res = await fetch(s.url, {
         method: 'POST',
-        headers: { ...s.init.headers, 'X-API-KEY': apiKey },
-        body: s.init.body,
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+        body: JSON.stringify({ parameters }),
         signal: controller.signal,
       });
       text = await res.text();
@@ -221,7 +204,7 @@ export async function runQuery(key, query) {
         return o;
       });
       clearTimeout(timeout);
-      return { rows: objs, cardId, via: s.name, attempts };
+      return { rows: objs, cardId, via: s.name, attempts, tagInfo, parameters };
     }
 
     if (!Array.isArray(payload)) {
@@ -230,13 +213,17 @@ export async function runQuery(key, query) {
     }
 
     clearTimeout(timeout);
-    return { rows: payload, cardId, via: s.name, attempts };
+    return { rows: payload, cardId, via: s.name, attempts, tagInfo, parameters };
   }
 
   clearTimeout(timeout);
   const err = new Error(`All Metabase transports failed for question ${cardId}`);
   err.status = 502;
-  err.detail = attempts.join('\n\n');
+  err.tagInfo = tagInfo;
+  err.parameters = parameters;
+  err.detail =
+    (tagInfo.ok ? '' : 'TEMPLATE-TAG IDS UNAVAILABLE — ' + tagInfo.note + '\n\n') +
+    attempts.join('\n\n');
   throw err;
 }
 
