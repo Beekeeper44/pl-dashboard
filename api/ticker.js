@@ -28,7 +28,33 @@ const ALLOWED = {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function buildParameters(query, key) {
+// Metabase requires a non-blank `id` on every parameter object. For a native
+// question that id is the template tag's UUID, which lives on the card
+// definition. Fetched once per warm instance and cached.
+const tagIdCache = new Map();
+
+async function getTagIds(host, apiKey, cardId) {
+  if (tagIdCache.has(cardId)) return tagIdCache.get(cardId);
+  let map = {};
+  try {
+    const r = await fetch(`${host}/api/card/${cardId}`, {
+      headers: { 'X-API-KEY': apiKey },
+    });
+    if (r.ok) {
+      const card = await r.json();
+      const tags = card?.dataset_query?.native?.['template-tags'] || {};
+      for (const [name, tag] of Object.entries(tags)) {
+        if (tag?.id) map[name] = tag.id;
+      }
+    }
+  } catch {
+    // fall through — the name is an acceptable id for most instances
+  }
+  tagIdCache.set(cardId, map);
+  return map;
+}
+
+function buildParameters(query, key, tagIds) {
   const parameters = [];
 
   for (const name of ['start_date', 'end_date']) {
@@ -36,6 +62,7 @@ function buildParameters(query, key) {
     if (!value) throw new Error(`Missing required filter: ${name}`);
     if (!ISO_DATE.test(value)) throw new Error(`${name} must be YYYY-MM-DD`);
     parameters.push({
+      id: tagIds[name] || name,
       type: 'date/single',
       value,
       target: ['variable', ['template-tag', name]],
@@ -49,6 +76,7 @@ function buildParameters(query, key) {
       // grain has no [[ ]] wrapper in the SQL, so it must always be sent
       if (name === 'grain') {
         parameters.push({
+          id: tagIds['grain'] || 'grain',
           type: 'category',
           value: 'day',
           target: ['variable', ['template-tag', 'grain']],
@@ -62,6 +90,7 @@ function buildParameters(query, key) {
     }
 
     parameters.push({
+      id: tagIds[name] || name,
       type: 'category',
       value,
       target: ['variable', ['template-tag', name]],
@@ -89,7 +118,8 @@ export async function runQuery(key, query) {
   }
 
   const cardId = process.env[spec.env] || spec.fallback;
-  const parameters = buildParameters(query, key);
+  const tagIds = await getTagIds(host, apiKey, cardId);
+  const parameters = buildParameters(query, key, tagIds);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
