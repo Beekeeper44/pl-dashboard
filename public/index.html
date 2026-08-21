@@ -14,6 +14,7 @@
     --tx:#FFFFFF;
     --dim:#FFFFFF;
     --neon:#39FF14;
+    --tzblue:#4DA3FF;
     --cust:#38BDF8;
     --cust2:#1D6FD0;
     --slab:#C4A5F5;
@@ -55,6 +56,17 @@
     display:inline-block;width:7px;height:7px;border-radius:50%;
     background:var(--neon);margin-right:6px;vertical-align:middle;
   }
+  .tzbtn{
+    display:flex;align-items:center;gap:9px;flex:0 0 auto;
+    background:transparent;border:1.5px solid var(--neon);border-radius:999px;
+    padding:8px 15px;cursor:pointer;
+    font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:.06em;
+    color:var(--neon);
+    transition:color .12s ease,border-color .12s ease;
+  }
+  .tzbtn:hover{background:rgba(255,255,255,.04)}
+  .tzbtn[data-tz="manila"]{border-color:var(--tzblue);color:var(--tzblue)}
+  .tzflag{display:inline-flex;line-height:0}
   .livedot.stale{background:var(--unatt)}
   .livedot.err{background:var(--warn)}
   @media (prefers-reduced-motion:no-preference){
@@ -416,6 +428,10 @@
       <span id="statusline"><b>Precision Labeling</b> · cards entering pending_release · 2 PM–3 AM PT · Mon–Fri</span>
     </div>
   </div>
+  <button class="tzbtn" id="tzbtn" data-tz="pacific" aria-pressed="false" aria-label="Toggle timezone between Pacific and Manila">
+    <span class="tzflag" id="tzflag"></span>
+    <span id="tzlabel">PACIFIC</span>
+  </button>
 </header>
 
 <nav class="tabs" role="tablist" aria-label="Dashboard sections">
@@ -669,14 +685,14 @@
   var TABS = {
     cards: {
       label: "Cards",
-      subtitle: "cards entering pending_release · 2 PM–3 AM PT · Mon–Fri",
+      subtitle: "cards entering pending_release · {W14-3} {TZ} · Mon–Fri",
       railHint: "cards per hour across the 2 PM–3 AM window",
       unit: "cards",
       showSourceFilters: true
     },
     recomp: {
       label: "Recomp",
-      subtitle: "grader recomp throughput · shift 3 PM–11 PM",
+      subtitle: "grader recomp throughput · shift {W15-23} {TZ}",
       railHint: "recomps per hour across the 2 PM–3 AM window",
       unit: "recomps",
       showSourceFilters: false
@@ -773,18 +789,39 @@
   // Recomp hour buckets, in the order the query emits them.
   // shift = the 3 PM–11 PM window the "shift total" column measures.
   var GHOURS = [
-    {k:"12-1pm",  label:"12 PM", block:"12–1 PM",  shift:false},
-    {k:"1-2pm",   label:"1 PM",  block:"1–2 PM",   shift:false},
-    {k:"2-3pm",   label:"2 PM",  block:"2–3 PM",   shift:false},
-    {k:"3-4pm",   label:"3 PM",  block:"3–4 PM",   shift:true},
-    {k:"4-5pm",   label:"4 PM",  block:"4–5 PM",   shift:true},
-    {k:"5-6pm",   label:"5 PM",  block:"5–6 PM",   shift:true},
-    {k:"6-7pm",   label:"6 PM",  block:"6–7 PM",   shift:true},
-    {k:"7-8pm",   label:"7 PM",  block:"7–8 PM",   shift:true},
-    {k:"8-9pm",   label:"8 PM",  block:"8–9 PM",   shift:true},
-    {k:"9-10pm",  label:"9 PM",  block:"9–10 PM",  shift:true},
-    {k:"10-11pm", label:"10 PM", block:"10–11 PM", shift:true}
+    {k:"12-1pm",  label:"12 PM", block:"12–1 PM",  shift:false, h:12},
+    {k:"1-2pm",   label:"1 PM",  block:"1–2 PM",   shift:false, h:13},
+    {k:"2-3pm",   label:"2 PM",  block:"2–3 PM",   shift:false, h:14},
+    {k:"3-4pm",   label:"3 PM",  block:"3–4 PM",   shift:true, h:15},
+    {k:"4-5pm",   label:"4 PM",  block:"4–5 PM",   shift:true, h:16},
+    {k:"5-6pm",   label:"5 PM",  block:"5–6 PM",   shift:true, h:17},
+    {k:"6-7pm",   label:"6 PM",  block:"6–7 PM",   shift:true, h:18},
+    {k:"7-8pm",   label:"7 PM",  block:"7–8 PM",   shift:true, h:19},
+    {k:"8-9pm",   label:"8 PM",  block:"8–9 PM",   shift:true, h:20},
+    {k:"9-10pm",  label:"9 PM",  block:"9–10 PM",  shift:true, h:21},
+    {k:"10-11pm", label:"10 PM", block:"10–11 PM", shift:true, h:22}
   ];
+  function ghLabel(hh){ return hh.h==null ? hh.label : h12(hh.h); }
+  function ghBlock(hh){ return hh.h==null ? hh.block : blockOf(hh.h); }
+
+  // Rewrites {W<start>-<end>} windows and {TZ} in subtitle strings so the
+  // header text tracks the toggle. Hours in the template are PACIFIC.
+  function fillTz(s){
+    return String(s||"")
+      .replace(/\{W(\d+)-(\d+)\}/g, function(_, a, b){
+        return h12(Number(a)) + "\u2013" + h12(Number(b));
+      })
+      .replace(/\{TZ\}/g, tzTag());
+  }
+
+  function paintTz(){
+    var manila = TZ === "manila";
+    var b = $("tzbtn");
+    b.setAttribute("data-tz", manila ? "manila" : "pacific");
+    b.setAttribute("aria-pressed", manila ? "true" : "false");
+    $("tzflag").innerHTML = manila ? FLAG_PH : FLAG_US;
+    $("tzlabel").textContent = manila ? "MANILA" : "PACIFIC";
+  }
   var GRADER_COLOR = "#C4A5F5";
   var grows = [], gview = "grader";
   var rmetric = "avg";
@@ -810,6 +847,47 @@
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 
+  // ---------- timezone ----------
+  // Manila is UTC+8 year-round; Pacific is UTC-7 (PDT) / UTC-8 (PST), so the
+  // gap is +15h in summer and +16h in winter. Derived from the data's own
+  // date via Intl, never hardcoded -- a fixed +15 is wrong half the year.
+  var TZ = "pacific";
+  var TZOFF = 0;
+  var FLAG_US = '<svg width="22" height="14" viewBox="0 0 22 14" aria-hidden="true">'
+    + '<rect width="22" height="14" fill="#B22234"/>'
+    + '<rect y="2" width="22" height="2" fill="#fff"/>'
+    + '<rect y="6" width="22" height="2" fill="#fff"/>'
+    + '<rect y="10" width="22" height="2" fill="#fff"/>'
+    + '<rect width="9" height="8" fill="#3C3B6E"/></svg>';
+  var FLAG_PH = '<svg width="22" height="14" viewBox="0 0 22 14" aria-hidden="true">'
+    + '<rect width="22" height="7" fill="#0038A8"/>'
+    + '<rect y="7" width="22" height="7" fill="#CE1126"/>'
+    + '<path d="M0 0 L10 7 L0 14 Z" fill="#fff"/>'
+    + '<circle cx="3.2" cy="7" r="2" fill="#FCD116"/></svg>';
+
+  function zoneHour(d, zone){
+    return Number(new Intl.DateTimeFormat("en-US",
+      {timeZone:zone, hour:"numeric", hour12:false}).format(d));
+  }
+  function computeTzOff(dateStr){
+    if(TZ !== "manila") return 0;
+    var d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr||"")
+      ? new Date(dateStr+"T20:00:00Z") : new Date();
+    var diff = zoneHour(d,"Asia/Manila") - zoneHour(d,"America/Los_Angeles");
+    if(diff < 0) diff += 24;
+    return diff;
+  }
+  function refreshTzOff(dateStr){ TZOFF = computeTzOff(dateStr); }
+  function shiftH(h){ return ((Number(h) + TZOFF) % 24 + 24) % 24; }
+  function h12(h){
+    h = shiftH(h);
+    var ap = h < 12 ? "AM" : "PM";
+    var n  = h % 12 === 0 ? 12 : h % 12;
+    return n + " " + ap;
+  }
+  function blockOf(h){ return h12(h) + "\u2013" + h12(Number(h)+1); }
+  function tzTag(){ return TZ === "manila" ? "PHT" : "PT"; }
+
   // hour 14..23,0..2  ->  slot 0..12
   function slotOf(h){ return h>=14 ? h-14 : h+10; }
 
@@ -825,10 +903,10 @@
     return hh;
   }
   function slotLabel(i){
-    var h = i<10 ? 14+i : i-10;
-    var ampm = h<12 ? "AM" : "PM";
-    var h12 = h%12===0 ? 12 : h%12;
-    return h12+" "+ampm;
+    return h12(i<10 ? 14+i : i-10);
+  }
+  function slotBlock(i){
+    return blockOf(i<10 ? 14+i : i-10);
   }
 
   // ---- normalize Metabase column names -> our keys ----
@@ -855,8 +933,8 @@
         period: String(pick(r,["period","Period"])||"").slice(0,10),
         slot: slot==null?null:Number(slot),
         hour: hour==null?null:Number(hour),
-        hour_label: lbl || (slot!=null?slotLabel(Number(slot)):"—"),
-        hour_block: blk || "",
+        hour_label: hour!=null ? h12(Number(hour)) : (lbl || (slot!=null?slotLabel(Number(slot)):"—")),
+        hour_block: hour!=null ? blockOf(Number(hour)) : (blk || ""),
         source: src,
         card_type: ct,
         series: pick(r,["series","Series"]) || (src+" / "+ct),
@@ -1226,13 +1304,13 @@
       var div = (hh.k==="3-4pm")
         ? '<div class="midnight"><span>SHIFT 3 PM</span></div>' : '';
       var col = hh.shift ? GRADER_COLOR : "#5C6B7A";
-      return '<div class="slot'+(t?'':' empty')+'" title="'+esc(hh.block)+' · '+fmt(t)+' recomps">'+
+      return '<div class="slot'+(t?'':' empty')+'" title="'+esc(ghBlock(hh))+' · '+fmt(t)+' recomps">'+
              div+'<div class="num">'+(t?fmt(t):'·')+'</div>'+
              '<div class="bar" style="height:'+ht+'px"><div class="seg" style="height:100%;background:'+col+'"></div></div></div>';
     }).join("");
 
     $("grailx").innerHTML = GHOURS.map(function(hh){
-      return '<div'+(hh.k==="3-4pm"?' class="mid"':'')+'>'+hh.label+'</div>';
+      return '<div'+(hh.k==="3-4pm"?' class="mid"':'')+'>'+ghLabel(hh)+'</div>';
     }).join("");
 
     var inShift=0, all=0, outside=0;
@@ -1294,7 +1372,7 @@
   function renderGraderTable(){
     var cols = [["Period","period"],["Grader","grader"],["Total","total",1],
                 ["Shift 3–11 PM","shift",1],["Outside","outside",1]]
-      .concat(GHOURS.map(function(hh){ return [hh.label, "h:"+hh.k, 1]; }));
+      .concat(GHOURS.map(function(hh){ return [ghLabel(hh), "h:"+hh.k, 1]; }));
 
     $("gthead").innerHTML = cols.map(function(c){
       return '<th'+(c[2]?' style="text-align:right"':'')+'>'+esc(c[0])+'</th>'; }).join("")
@@ -1659,6 +1737,7 @@
           $("panel-recomp").hidden = false;
           renderRecomp();
         } else {
+          refreshTzOff((arr[0] && (arr[0].period || arr[0].Period)) || "");
           rows = normalize(arr);
           $("panel-recomp").hidden = true;
           $("panel-body").hidden = false;
@@ -1755,7 +1834,7 @@
     var cfg = TABS[name];
     $("tab-cards").setAttribute("aria-selected", name==="cards");
     $("tab-recomp").setAttribute("aria-selected", name==="recomp");
-    $("statusline").innerHTML = "<b>Precision Labeling</b> · " + cfg.subtitle;
+    $("statusline").innerHTML = "<b>Precision Labeling</b> · " + fillTz(cfg.subtitle);
     $("f-window").textContent = (name==="recomp")
       ? "Window: shift total measures 3 PM–11 PM PT"
       : "Window: 2 PM–3 AM PT, Mon–Fri shift start";
@@ -1793,6 +1872,25 @@
   }
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
+
+  // ---- timezone toggle ----
+  // Purely presentational: no refetch, no change to which rows are counted.
+  // Only the hour/block labels and the header window text move.
+  $("tzbtn").onclick = function(){
+    TZ = (TZ === "manila") ? "pacific" : "manila";
+    paintTz();
+    var ref = (rows[0] && rows[0].period) || (rrows[0] && rrows[0].period) || "";
+    refreshTzOff(ref);
+    rows = rows.map(function(r){
+      if(r.hour == null) return r;
+      r.hour_label = h12(r.hour);
+      r.hour_block = blockOf(r.hour);
+      return r;
+    });
+    $("statusline").innerHTML = "<b>Precision Labeling</b> \u00b7 " + fillTz(TABS[TAB].subtitle);
+    if(TAB === "recomp") renderRecomp(); else renderAll();
+  };
+  paintTz();
 
   function setRGroup(g){
     rgroup = g;

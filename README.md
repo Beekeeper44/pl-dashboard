@@ -131,3 +131,35 @@ one returned if all failed.
   for a genuinely live wall display.
 - Adding a tab: one entry in `TABS` (`index.html`) and one in `CARDS`
   (`api/ticker.js`).
+
+## Timezone toggle (Pacific / Manila)
+
+The button to the right of the header switches all hour labels between Pacific
+and Manila. It is **purely presentational** — no refetch, no change to which
+rows are counted, and the Metabase questions are untouched. Only the hour and
+block labels and the header's shift-window text move.
+
+- **Pacific** (default) — neon green border, US flag, `PT` suffix
+- **Manila** — blue border, Philippine flag, `PHT` suffix
+
+**Why the offset is computed, not hardcoded.** Manila is UTC+8 year-round;
+Pacific is UTC−7 (PDT) / UTC−8 (PST). The gap is +15h in summer and +16h in
+winter. `computeTzOff()` derives it via `Intl.DateTimeFormat` from the first
+row's own `period` date, so historical ranges spanning the DST boundary label
+correctly. A fixed `+15` would be wrong half the year.
+
+**What the windows become:**
+
+| View | Pacific | Manila |
+|---|---|---|
+| Cards (`pending_release`) | 2 PM – 3 AM | 5 AM – 6 PM |
+| Recomp shift | 3 PM – 11 PM | 6 AM – 2 PM |
+
+Note the Cards window straddles midnight in Pacific and does not in Manila —
+the `-3h` shift-date rollback in the SQL exists only because of that Pacific
+midnight crossing.
+
+**Where it hooks in:** `TZ` / `TZOFF` state near `slotOf()`; `h12()` and
+`blockOf()` do the formatting; `slotLabel()` / `ghLabel()` / `ghBlock()` route
+through them; `fillTz()` rewrites `{W<start>-<end>}` and `{TZ}` tokens in the
+`TABS[].subtitle` strings. Subtitle template hours are always **Pacific**.
