@@ -35,28 +35,67 @@ const tagIdCache = new Map();
 
 async function getTagIds(host, apiKey, cardId) {
   if (tagIdCache.has(cardId)) return tagIdCache.get(cardId);
-  const out = { map: {}, ok: false, note: '' };
+  const out = { map: {}, ok: false, note: '', source: null };
+
   try {
     const r = await fetch(`${host}/api/card/${cardId}`, {
       headers: { 'X-API-KEY': apiKey },
     });
     if (!r.ok) {
-      out.note = `GET /api/card/${cardId} returned ${r.status} — cannot read template-tag ids.`;
-    } else {
-      const card = await r.json();
-      const tags = card?.dataset_query?.native?.['template-tags'] || {};
-      const names = Object.keys(tags);
-      for (const [name, tag] of Object.entries(tags)) {
-        if (tag?.id) out.map[name] = tag.id;
+      out.note = `GET /api/card/${cardId} returned ${r.status}.`;
+      tagIdCache.set(cardId, out);
+      return out;
+    }
+
+    const card = await r.json();
+
+    // Metabase versions keep template tags in different places, and a card
+    // saved from a dashboard may expose them only via `parameters`.
+    const objSources = [
+      ['dataset_query.native.template-tags', card?.dataset_query?.native?.['template-tags']],
+      ['dataset_query.native.template_tags', card?.dataset_query?.native?.template_tags],
+      ['dataset_query.template-tags',        card?.dataset_query?.['template-tags']],
+      ['native.template-tags',               card?.native?.['template-tags']],
+      ['template-tags',                      card?.['template-tags']],
+    ];
+
+    for (const [path, tags] of objSources) {
+      if (tags && typeof tags === 'object' && !Array.isArray(tags)) {
+        const map = {};
+        for (const [name, tag] of Object.entries(tags)) {
+          if (tag?.id) map[name] = tag.id;
+        }
+        if (Object.keys(map).length) {
+          out.map = map; out.ok = true; out.source = path;
+          out.note = `Read ${Object.keys(map).length} ids from ${path}: ${Object.keys(map).join(', ')}`;
+          break;
+        }
       }
-      out.ok = Object.keys(out.map).length > 0;
-      out.note = out.ok
-        ? `Read ${Object.keys(out.map).length} template-tag ids: ${Object.keys(out.map).join(', ')}`
-        : `Card has no template tags with ids (found tags: ${names.join(', ') || 'none'}).`;
+    }
+
+    // Fall back to the card's `parameters` array, keyed by slug or name.
+    if (!out.ok && Array.isArray(card?.parameters) && card.parameters.length) {
+      const map = {};
+      for (const p of card.parameters) {
+        const n = p?.slug || p?.name;
+        if (n && p?.id) map[n] = p.id;
+      }
+      if (Object.keys(map).length) {
+        out.map = map; out.ok = true; out.source = 'parameters[]';
+        out.note = `Read ${Object.keys(map).length} ids from parameters[]: ${Object.keys(map).join(', ')}`;
+      }
+    }
+
+    if (!out.ok) {
+      out.note =
+        `Card "${card?.name || cardId}" exposed no template tags. ` +
+        `Top-level keys: ${Object.keys(card || {}).sort().join(', ').slice(0, 300)}. ` +
+        `Call /api/card?id=${cardId} for the full structure.`;
     }
   } catch (e) {
     out.note = `GET /api/card/${cardId} threw: ${e.message}`;
   }
+
   tagIdCache.set(cardId, out);
   return out;
 }
