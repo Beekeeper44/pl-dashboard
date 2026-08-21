@@ -101,14 +101,29 @@ Sports (`SPORT_COLORS`) — keyed on raw snake_case values from
 Unmapped values get a stable hash color. Display labels are title-cased
 (`one_piece` → "One Piece") but the raw value is what reaches the query.
 
-## Metabase API note
+## Metabase API notes
 
-The export endpoints (`/api/card/:id/query/json`) take parameters as a
-**form field** holding a JSON string, not as a JSON request body. Posting
-`Content-Type: application/json` there returns 400 regardless of how correct
-the parameters are. `api/ticker.js` sends form-encoded, and falls back to the
-interactive `/api/card/:id/query` endpoint (JSON body, ~2000 row cap) if the
-export endpoint is unavailable.
+**Every parameter needs an `id`.** Metabase rejects parameters without a
+non-blank `id`. `api/ticker.js` reads each question's template-tag UUIDs once
+via `GET /api/card/:id` and caches them per warm instance, falling back to the
+tag name if that endpoint is restricted.
+
+**Transport differs by instance.** Metabase versions disagree on whether the
+export endpoints take a JSON body or a form field. The proxy tries four
+transports in order and uses the first that genuinely works:
+
+1. `POST /query/json` with a JSON body
+2. `POST /query/json` form-encoded
+3. `POST /query` with a JSON body (~2000 row cap)
+4. `POST /query` form-encoded
+
+A 200 is not treated as success on its own — `/api/card/:id/query` returns 200
+with `status:"failed"` when parameters were dropped, so each strategy confirms
+the query actually ran before its result is accepted. The winner is reported in
+the `X-Metabase-Transport` response header.
+
+**`/api/debug`** runs the chain and reports which transport won, or what each
+one returned if all failed.
 
 ## Notes
 

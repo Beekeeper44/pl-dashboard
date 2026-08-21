@@ -124,96 +124,120 @@ export async function runQuery(key, query) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
 
-  // Metabase's export endpoints (/query/json, /query/csv, /query/xlsx) take
-  // parameters as a FORM FIELD holding a JSON string — not as a JSON body.
-  // Posting Content-Type: application/json there returns 400 no matter how
-  // correct the parameters are. That was the original failure.
+  // Metabase instances differ in how they accept parameters on the export
+  // endpoints. Rather than assume, try each transport in turn and use the
+  // first that works. `via` in the response header reports the winner.
+  //
+  // A 200 is not sufficient — /api/card/:id/query returns 200 with
+  // status:"failed" when parameters were dropped, so each strategy must
+  // confirm the query actually ran parameterized.
   const form = new URLSearchParams();
   form.set('parameters', JSON.stringify(parameters));
 
-  let upstream, text;
-  try {
-    upstream = await fetch(`${host}/api/card/${cardId}/query/json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-API-KEY': apiKey,
-      },
-      body: form.toString(),
-      signal: controller.signal,
-    });
-    text = await upstream.text();
-
-    // Fallback: the interactive endpoint does take a JSON body. It caps at
-    // ~2000 rows, so it is second choice, but it keeps the app alive if the
-    // export endpoint is unavailable on this instance.
-    if (!upstream.ok) {
-      const alt = await fetch(`${host}/api/card/${cardId}/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+  const strategies = [
+    {
+      name: 'query/json+json',
+      url: `${host}/api/card/${cardId}/query/json`,
+      init: {
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ parameters }),
+      },
+    },
+    {
+      name: 'query/json+form',
+      url: `${host}/api/card/${cardId}/query/json`,
+      init: {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      },
+    },
+    {
+      name: 'query+json',
+      url: `${host}/api/card/${cardId}/query`,
+      init: {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parameters }),
+      },
+      shape: 'cols',
+    },
+    {
+      name: 'query+form',
+      url: `${host}/api/card/${cardId}/query`,
+      init: {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      },
+      shape: 'cols',
+    },
+  ];
+
+  const attempts = [];
+
+  for (const s of strategies) {
+    let res, text;
+    try {
+      res = await fetch(s.url, {
+        method: 'POST',
+        headers: { ...s.init.headers, 'X-API-KEY': apiKey },
+        body: s.init.body,
         signal: controller.signal,
       });
-      const altText = await alt.text();
-      if (alt.ok) {
-        const payload = JSON.parse(altText);
-        if (payload?.status === 'failed') {
-          const err = new Error(payload.error || 'Metabase query failed');
-          err.status = 400;
-          err.detail = JSON.stringify(payload).slice(0, 1200);
-          throw err;
-        }
-        const cols = (payload?.data?.cols || []).map(
-          (c) => c.display_name || c.name
-        );
-        const objs = (payload?.data?.rows || []).map((r) => {
-          const o = {};
-          cols.forEach((name, i) => { o[name] = r[i]; });
-          return o;
-        });
+      text = await res.text();
+    } catch (e) {
+      if (e.name === 'AbortError') {
         clearTimeout(timeout);
-        return { rows: objs, cardId, via: 'query' };
+        const err = new Error('Metabase query timed out');
+        err.status = 504;
+        throw err;
       }
+      attempts.push(`${s.name}: ${e.message}`);
+      continue;
     }
-  } catch (e) {
-    if (e.status) { clearTimeout(timeout); throw e; }
+
+    if (!res.ok) {
+      attempts.push(`${s.name}: HTTP ${res.status} ${text.slice(0, 180)}`);
+      continue;
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      attempts.push(`${s.name}: non-JSON response`);
+      continue;
+    }
+
+    // 200 + status:"failed" means the query ran but parameters were dropped.
+    if (payload && !Array.isArray(payload) && payload.status === 'failed') {
+      attempts.push(`${s.name}: ${String(payload.error || 'failed').slice(0, 200)}`);
+      continue;
+    }
+
+    if (s.shape === 'cols') {
+      const cols = (payload?.data?.cols || []).map((c) => c.display_name || c.name);
+      const objs = (payload?.data?.rows || []).map((r) => {
+        const o = {};
+        cols.forEach((name, i) => { o[name] = r[i]; });
+        return o;
+      });
+      clearTimeout(timeout);
+      return { rows: objs, cardId, via: s.name, attempts };
+    }
+
+    if (!Array.isArray(payload)) {
+      attempts.push(`${s.name}: unexpected shape`);
+      continue;
+    }
+
     clearTimeout(timeout);
-    const err = new Error(
-      e.name === 'AbortError' ? 'Metabase query timed out' : 'Could not reach Metabase'
-    );
-    err.status = e.name === 'AbortError' ? 504 : 502;
-    err.detail = String(e.message || e).slice(0, 300);
-    throw err;
+    return { rows: payload, cardId, via: s.name, attempts };
   }
+
   clearTimeout(timeout);
-
-  if (!upstream.ok) {
-    // Metabase puts the SQL error text here — the single most useful thing
-    // when a query breaks, so pass it through rather than swallowing it.
-    const err = new Error(`Metabase returned ${upstream.status} for question ${cardId}`);
-    err.status = upstream.status;
-    err.detail = text.slice(0, 1200);
-    throw err;
-  }
-
-  let rows;
-  try {
-    rows = JSON.parse(text);
-  } catch {
-    const err = new Error('Metabase returned a non-JSON response');
-    err.status = 502;
-    err.detail = text.slice(0, 500);
-    throw err;
-  }
-
-  if (!Array.isArray(rows)) {
-    const err = new Error(rows?.error || 'Unexpected response shape from Metabase');
-    err.status = 502;
-    err.detail = JSON.stringify(rows).slice(0, 600);
-    throw err;
-  }
-
-  return { rows, cardId, via: 'query/json' };
+  const err = new Error(`All Metabase transports failed for question ${cardId}`);
+  err.status = 502;
+  err.detail = attempts.join('\n\n');
+  throw err;
 }
 
 export default async function handler(req, res) {
@@ -228,10 +252,11 @@ export default async function handler(req, res) {
   const key  = tab === 'recomp' ? `recomp:${view}` : tab;
 
   try {
-    const { rows, cardId } = await runQuery(key, q);
+    const { rows, cardId, via } = await runQuery(key, q);
     const ttl = Number(process.env.TICKER_CACHE_SECONDS || 30);
     res.setHeader('Cache-Control', `s-maxage=${ttl}, stale-while-revalidate=60`);
     res.setHeader('X-Metabase-Card-Id', cardId);
+    res.setHeader('X-Metabase-Transport', via);
     return res.status(200).json(rows);
   } catch (err) {
     return res.status(err.status || 500).json({

@@ -1554,7 +1554,10 @@
           if(err.detail){
             msg += "<br><br><b>Metabase said:</b><br>"+
                    '<span style="opacity:.9">'+esc(err.detail.slice(0,700))+"</span>";
-            if(/parameter|template.?tag|variable/i.test(err.detail)){
+            if(/All Metabase transports failed/i.test(err.message)){
+              msg += "<br><br>Every request format was rejected. Open "+
+                     "<code>/api/debug</code> — it reports what each attempt returned.";
+            } else if(/parameter|template.?tag|variable/i.test(err.detail)){
               msg += "<br><br>That usually means the question's variables don't match "+
                      "what this tab sends. Cards needs: <code>start_date</code>, "+
                      "<code>end_date</code>, <code>grain</code>, <code>source</code>, "+
