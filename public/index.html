@@ -812,6 +812,18 @@
 
   // hour 14..23,0..2  ->  slot 0..12
   function slotOf(h){ return h>=14 ? h-14 : h+10; }
+
+  // "2 PM", "12 AM–1 AM", "11 PM–12 AM" -> 24h hour of the START of the block.
+  // Lets the hour views work when the query omits shift_slot / shift_hour.
+  function hourFromLabel(s){
+    var m = String(s||"").match(/(\d{1,2})\s*(AM|PM)/i);
+    if(!m) return null;
+    var hh = parseInt(m[1],10);
+    var ap = m[2].toUpperCase();
+    if(ap==="PM" && hh!==12) hh += 12;
+    if(ap==="AM" && hh===12) hh = 0;
+    return hh;
+  }
   function slotLabel(i){
     var h = i<10 ? 14+i : i-10;
     var ampm = h<12 ? "AM" : "PM";
@@ -834,13 +846,17 @@
       var ct   = pick(r,["card_type","Card Type"]) || "raw";
       var hour = pick(r,["shift_hour","Shift Hour"]);
       var slot = pick(r,["shift_slot","Shift Slot"]);
+      var lbl  = pick(r,["hour_label","Hour Label"]);
+      var blk  = pick(r,["hour_block","Hour Block"]);
+      // fall back through hour -> label -> block so the hour views still work
+      if(hour==null) hour = hourFromLabel(lbl) ?? hourFromLabel(blk);
       if(slot==null && hour!=null) slot = slotOf(Number(hour));
       return {
         period: String(pick(r,["period","Period"])||"").slice(0,10),
         slot: slot==null?null:Number(slot),
         hour: hour==null?null:Number(hour),
-        hour_label: pick(r,["hour_label","Hour Label"]) || (slot!=null?slotLabel(Number(slot)):"—"),
-        hour_block: pick(r,["hour_block","Hour Block"]) || "",
+        hour_label: lbl || (slot!=null?slotLabel(Number(slot)):"—"),
+        hour_block: blk || "",
         source: src,
         card_type: ct,
         series: pick(r,["series","Series"]) || (src+" / "+ct),
@@ -975,13 +991,19 @@
     }
     var avg = totalShiftDays ? Math.round(total/totalShiftDays) : 0;
 
+    var pre = byType.pre_graded||0, raw = byType.raw||0;
+    var per = function(n){ return totalShiftDays ? Math.round(n/totalShiftDays) : 0; };
+    var share = function(n){ return total ? Math.round(n/total*100)+"%" : "—"; };
+
     var cards = [
       {c:"total", k:"Total cards", v:fmt(total),
-       n:Object.keys(shiftDays).length+" period"+(Object.keys(shiftDays).length===1?"":"s")},
+       n:totalShiftDays+(derived?" periods":" shift days")},
       {c:"",      k:"Avg per shift", v:fmt(avg),
-       n:derived ? totalShiftDays+" periods" : totalShiftDays+" shift day"+(totalShiftDays===1?"":"s")},
-      {c:"",      k:"Raw", v:fmt(byType.raw||0), n:pct(byType.raw||0,total)},
-      {c:"",      k:"Pre-graded", v:fmt(byType.pre_graded||0), n:pct(byType.pre_graded||0,total)}
+       n:"all cards"},
+      {c:"",      k:"Pre-graded / shift", v:fmt(per(pre)),
+       n:fmt(pre)+" total · "+share(pre)},
+      {c:"",      k:"Raw / shift", v:fmt(per(raw)),
+       n:fmt(raw)+" total · "+share(raw)}
     ];
     if(bySrc.unattributed){
       cards.push({c:"",k:"Unattributed",v:fmt(bySrc.unattributed),n:"no matching order"});
@@ -991,13 +1013,19 @@
              '<div class="v">'+c.v+'</div><div class="n">'+esc(c.n)+'</div></div>';
     }).join("");
 
-    renderGroups(total);
+    renderGroups(total, totalShiftDays);
   }
   function pct(a,b){ return b? Math.round(a/b*100)+"% of total" : "—"; }
+  // Totals are easy to mistake for averages, so every tile showing a total
+  // also shows what it works out to per shift.
+  function perShift(a,b,days){
+    var p = b ? Math.round(a/b*100)+"%" : "—";
+    return days ? p+" · "+fmt(Math.round(a/days))+"/shift" : p+" of total";
+  }
 
   // Customer and slab pack each get a card: group total, then the raw /
   // pre-graded split beneath it with a share bar.
-  function renderGroups(total){
+  function renderGroups(total, days){
     var g = {customer:{raw:0,pre_graded:0}, slab_pack:{raw:0,pre_graded:0}};
     rows.forEach(function(r){
       if(!g[r.source]) return;
@@ -1018,16 +1046,17 @@
             d.label+'</span>'+
           '<span style="text-align:right">'+
             '<span class="tot" style="color:'+d.color+'">'+fmt(sub)+'</span><br>'+
-            '<span class="pct">'+(total?Math.round(sub/total*100)+"% of all cards":"—")+'</span>'+
+            '<span class="pct">'+(total?Math.round(sub/total*100)+"% of all cards":"—")+
+              (days?' · '+fmt(Math.round(sub/days))+'/shift':'')+'</span>'+
           '</span>'+
         '</div>'+
         '<div class="grp-split">'+
           '<div><div class="k">Raw</div>'+
             '<div class="v" style="color:'+d.color+'">'+fmt(raw)+'</div>'+
-            '<div class="n">'+(sub?rp+"% of "+d.label.toLowerCase():"—")+'</div></div>'+
+            '<div class="n">'+(sub?rp+"%"+(days?" · "+fmt(Math.round(raw/days))+"/shift":""):"—")+'</div></div>'+
           '<div><div class="k">Pre-graded</div>'+
             '<div class="v" style="color:'+d.alt+'">'+fmt(pre)+'</div>'+
-            '<div class="n">'+(sub?(100-rp)+"% of "+d.label.toLowerCase():"—")+'</div></div>'+
+            '<div class="n">'+(sub?(100-rp)+"%"+(days?" · "+fmt(Math.round(pre/days))+"/shift":""):"—")+'</div></div>'+
         '</div>'+
         '<div class="grp-bar">'+
           '<span style="width:'+rp+'%;background:'+d.color+'"></span>'+
