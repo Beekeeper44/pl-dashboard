@@ -191,7 +191,7 @@ place in either view. There is no dashed rule; the shading carries the divide.
 Keeping them as two constants means the label and the shading can move
 independently if the schedule changes.
 
-## Bar gradients
+## Bar gradients & shift palette
 
 Stacked segments use a vertical gradient: lightened at the top, base colour at
 55%, slightly darkened at the bottom. Applied via `gradFor(color)` next to
@@ -210,3 +210,133 @@ base meets a dark segment's lightened top, the boundary softens, and thin
 segments can blur into their neighbours at distance. If that becomes a problem
 on the wall display, the fix is either a 1px separator on `.seg` or switching to
 the top-sheen variant (highlight on the top 22% only, flat below).
+
+## Recomp shift rail
+
+Identical to the cards rail: same 2 PM - 2 AM span, gradient bars, END OF SHIFT
+at 11 PM, amber EXTRA TIME band on the right, same note styling.
+
+`GHOURS` now runs 2 PM through 2 AM with `shift:true` through 10-11pm. The
+boundary is derived from the first `shift:false` entry, so changing the
+schedule means flipping flags and nothing else.
+
+### Shift-date attribution
+
+A shift starting 2 PM Aug 21 runs past midnight. Work at 12 AM, 1 AM, and 2 AM
+on Aug 22 belongs to the **Aug 21** shift. Both queries handle this with
+`DATEADD(hour, -3, completed_at)::date`:
+
+| clock time | -3h | shift_date |
+|---|---|---|
+| Aug 21 2:00 PM | Aug 21 11:00 AM | Aug 21 |
+| Aug 21 11:00 PM | Aug 21 8:00 PM | Aug 21 |
+| Aug 22 1:00 AM | Aug 21 10:00 PM | **Aug 21** |
+| Aug 22 2:59 AM | Aug 21 11:59 PM | **Aug 21** |
+| Aug 22 3:00 AM | Aug 22 12:00 AM | Aug 22 |
+
+The `+3h` on the upper date bound keeps the final shift's 12-3 AM tail from
+being clipped.
+
+### Column names must match
+
+`normalizeGrader` looks up each `GHOURS[].k` in the API response and falls back
+to **0 on a missing key rather than erroring**. A renamed SQL alias therefore
+shows up as an empty rail and all-grey grader bars, not an error. The matching
+query is `08_recomp_aligned_to_cards.sql`; its aliases are `2-3pm` ... `2-3am`
+plus `shift_total` and `extra_time`.
+
+## Card Type tab
+
+Third tab alongside Cards and Recomp, with two pills — **Data** and
+**Data Verify** — matching the Recomp sub-tab pattern.
+
+It reuses the Recomp "Total" panel wholesale (KPIs, shift rail, grader chart,
+grader table) because the column shape is the same. Only the data source, the
+pills, and the unit noun differ. `unit()` reads `TABS[TAB].unit`, so the shared
+panel says "recomps" on Recomp and "tasks" on Card Type.
+
+### Question IDs
+
+```
+'cardtype:data':   { env: 'METABASE_CARDTYPE_DATA_CARD_ID',   fallback: '34552' },
+'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '' },
+```
+
+Both are wired. Env vars override the fallbacks so IDs can change without a
+redeploy.
+
+The shift-window label ("59% in 2 PM-11 PM PT") is derived from the GHOURS
+`shift` flags via `shiftWindowLabel()`, so it tracks both the schedule and the
+Pacific/Manila toggle instead of being hardcoded.
+
+### Column naming
+
+The Card Type question names hour columns `2 pm`, `3 pm` … `2 am`, while the
+recomp question uses `2-3pm` … `2-3am`. `normalizeGrader` now tries both forms,
+so one normalizer serves both tabs. It also accepts `total tasks`,
+`shift total (2pm-11pm)`, `extra time (11pm-3am)`, and `outside window`.
+
+Lookups fall back to **0 on a missing key rather than erroring**, so a renamed
+alias shows up as an empty rail, not an error message.
+
+
+### Shift palette (Recomp + Card Type)
+
+```
+var GRADER_COLOR  = "#39FF14";   // in shift  -> neon green
+var OUTSIDE_COLOR = "#5C6B7A";   // outside / extra time -> grey
+```
+
+Both tabs share this, so Data and Data Verify read the same as Recomp.
+
+### Gradient coverage
+
+Every bar in the app is now gradient-filled. Two helpers, same stops:
+
+- `gradFor(c)` — vertical, for bars that grow bottom-up (shift rails, stacked
+  charts, grader/task charts)
+- `gradForX(c)` — horizontal, for bars that grow left-to-right (the raw /
+  pre-graded split bars on the Cards tab, the EV-age table fill bars)
+
+Rotating rather than reusing the vertical version matters: a horizontal bar
+filled with a top-to-bottom gradient reads as a different material than the
+vertical bars beside it.
+
+Legend swatches, pills, and the source-type chips stay flat so they still
+match a single named colour.
+
+## Grader filter (typeahead)
+
+The Grader control is a combobox (`<input list>` + `<datalist>`) rather than a
+plain select, so the full PL roster is browsable *and* typing narrows it.
+It appears on Recomp (Total) and on Card Type (both Data and Data Verify).
+
+- Rosters are **per tab**, since Card Type is graded by the full PL floor
+  (61 names, `CARDTYPE_ROSTER`) while Recomp is a smaller trained group
+  (16 names, `RECOMP_ROSTER`). `rosterFor()` picks by active tab.
+- Seeding means the list is populated before any query returns, and someone
+  with zero rows in the window is still selectable — their entry is labelled
+  "no rows in window", so a grader who logged nothing is visible rather than
+  silently absent.
+- `refreshGraderFilter()` merges the roster with whoever actually appears in the
+  response, so a new hire shows up without editing the array.
+- Switching tabs clears the selection and rebuilds the datalist, so a name from
+  one team never lingers as a filter on the other.
+- `gData()` matches fuzzily via `graderMatches()`, which tries progressively
+  looser rules and stops at the first hit:
+  1. exact (after normalising case, punctuation and whitespace)
+  2. name contains the query — typing "rod" finds Rodel / Rodelyne / Rodjie
+  3. **query contains the name** — this is the one that matters, because the
+     roster label and the value the query returns don't always agree. The
+     Metabase filter lists "Aaron Adrianne Joaquin" while
+     `first_name || ' ' || last_name` returns "Aaron Adrianne". One-directional
+     substring matching returns nothing here; bidirectional finds it.
+  4. token prefixes — every typed token must prefix some token in the name, so
+     "josh sac" finds Joshua Sacramento
+- A match count sits under the field ("1 match", "2 matches"). An unmatched
+  query reads "no match in this window" in amber, so an empty chart is
+  explained rather than just blank.
+- `oninput` re-renders as you type; **Escape** clears the filter.
+
+Sorting is case-insensitive so lowercase entries like `dominic bediones` and
+`nelzon litrero` file alphabetically rather than at the end.

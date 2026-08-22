@@ -12,12 +12,17 @@ const CARDS = {
   'cards':        { env: 'METABASE_CARD_ID',        fallback: '34321' },
   'recomp:total': { env: 'METABASE_RECOMP_CARD_ID', fallback: '34354' },
   'recomp:age':   { env: 'METABASE_EV_AGE_CARD_ID', fallback: '34387' },
+  // Card Type — Data and Data Verify are separate saved questions.
+  'cardtype:data':   { env: 'METABASE_CARDTYPE_DATA_CARD_ID',   fallback: '34552' },
+  'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '34618' },
 };
 
 const TEXT_VARS = {
   'cards':        ['grain', 'source', 'card_type'],
   'recomp:total': ['grain'],
   'recomp:age':   ['grain', 'sport', 'pack_category'],
+  'cardtype:data':   ['grain'],
+  'cardtype:verify': ['grain'],
 };
 
 const ALLOWED = {
@@ -285,7 +290,7 @@ export default async function handler(req, res) {
   const q    = req.query || {};
   const tab  = String(q.tab  || 'cards').toLowerCase();
   const view = String(q.view || 'total').toLowerCase();
-  const key  = tab === 'recomp' ? `recomp:${view}` : tab;
+  const key  = (tab === 'recomp' || tab === 'cardtype') ? `${tab}:${view}` : tab;
 
   try {
     const { rows, cardId, via } = await runQuery(key, q);

@@ -134,12 +134,19 @@
     font-family:var(--mono);font-size:12px;letter-spacing:.9px;
     text-transform:uppercase;color:var(--dim);
   }
-  select,input[type=date]{
+  select,input[type=date],input[list]{
     background:var(--panel);color:var(--tx);
     border:1px solid var(--line2);border-radius:3px;
     padding:9px 11px;font-family:var(--mono);font-size:14.5px;
     min-width:152px;
   }
+  input[list]{min-width:220px}
+  .fldnote{
+    display:block;margin-top:5px;font-family:var(--mono);font-size:11.5px;
+    color:var(--tx);opacity:.75;min-height:14px;
+  }
+  .fldnote.miss{color:var(--warn);opacity:1}
+  input[list]::placeholder{color:var(--tx);opacity:.45}
   select:focus,input:focus,button:focus-visible{
     outline:2px solid var(--neon);outline-offset:1px;
   }
@@ -451,6 +458,7 @@
 <nav class="tabs" role="tablist" aria-label="Dashboard sections">
   <button class="tab" id="tab-cards"  role="tab" aria-selected="true"  aria-controls="panel-body">Cards</button>
   <button class="tab" id="tab-recomp" role="tab" aria-selected="false" aria-controls="panel-body">Recomp</button>
+  <button class="tab" id="tab-cardtype" role="tab" aria-selected="false" aria-controls="panel-body">Card Type</button>
 </nav>
 
 <div class="filters">
@@ -489,7 +497,10 @@
   </div>
   <div class="fld" data-recomp-total hidden>
     <label for="grader">Grader</label>
-    <select id="grader"><option value="">All graders</option></select>
+    <input id="grader" list="grader-list" autocomplete="off" spellcheck="false"
+           placeholder="All graders">
+    <datalist id="grader-list"></datalist>
+    <span class="fldnote" id="gradernote"></span>
   </div>
   <div class="fld" data-recomp-age hidden>
     <label for="sport">Sport</label>
@@ -568,9 +579,14 @@
 
 <div id="panel-recomp" hidden>
 
-  <div class="subtabs">
+  <div class="subtabs" id="recomp-subtabs">
     <button class="subtab" id="sub-total" aria-selected="true">Total Recomps</button>
     <button class="subtab" id="sub-age"   aria-selected="false">Avg EV Age</button>
+  </div>
+
+  <div class="subtabs" id="cardtype-subtabs" hidden>
+    <button class="subtab" id="sub-data"   aria-selected="true">Data</button>
+    <button class="subtab" id="sub-verify" aria-selected="false">Data Verify</button>
   </div>
 
   <div class="kpis" id="rkpis" style="margin-top:16px"></div>
@@ -579,7 +595,7 @@
   <div id="rpanel-total">
     <section>
       <div class="shead">
-        <h2>Shift rail <span class="hint">recomps per hour · shift runs 3 PM–11 PM</span></h2>
+        <h2>Shift rail <span class="hint railhint">recomps per hour across the 2 PM–3 AM PT window</span></h2>
         <span class="sub" id="grailnote"></span>
       </div>
       <div class="card railcard">
@@ -704,10 +720,17 @@
       unit: "cards",
       showSourceFilters: true
     },
+    cardtype: {
+      label: "Card Type",
+      subtitle: "card type task throughput · shift {W14-23} {TZ}",
+      railHint: "tasks per hour across the {W14-3} {TZ} window",
+      unit: "tasks",
+      showSourceFilters: false
+    },
     recomp: {
       label: "Recomp",
-      subtitle: "grader recomp throughput · shift {W15-23} {TZ}",
-      railHint: "recomps per hour across the {W12-22} {TZ} window",
+      subtitle: "grader recomp throughput · shift {W14-23} {TZ}",
+      railHint: "recomps per hour across the {W14-3} {TZ} window",
       unit: "recomps",
       showSourceFilters: false
     }
@@ -740,6 +763,14 @@
   // via color-mix so each series keeps a single source of truth (the CSS var).
   // Emitted as `background:<flat>;background-image:<gradient>` so a browser
   // without color-mix simply falls back to the flat fill.
+  // Horizontal variant, for bars that grow left-to-right. Same stops, rotated,
+  // so a horizontal bar reads as the same material as a vertical one.
+  function gradForX(c){
+    return "background:"+c+";background-image:linear-gradient(to right,"+
+      "color-mix(in srgb,"+c+" 66%,#fff) 0%,"+
+      c+" 55%,"+
+      "color-mix(in srgb,"+c+" 88%,#000) 100%)";
+  }
   function gradFor(c){
     return "background:"+c+";background-image:linear-gradient(to bottom,"+
       "color-mix(in srgb,"+c+" 66%,#fff) 0%,"+
@@ -748,9 +779,23 @@
   }
 
   var $ = function(id){ return document.getElementById(id); };
+  // Unit noun for the shared grader panel: "recomps" on Recomp, "tasks" on
+  // Card Type. Both tabs render through the same rail/chart/table code.
+  function unit(){ return (TABS[TAB] && TABS[TAB].unit) || "recomps"; }
+  // Scheduled window as a label, derived from the GHOURS shift flags so it
+  // tracks both the schedule and the Pacific/Manila toggle.
+  function shiftWindowLabel(){
+    var first=null, last=null;
+    for(var i=0;i<GHOURS.length;i++){
+      if(GHOURS[i].shift){ if(first===null) first=GHOURS[i]; last=GHOURS[i]; }
+    }
+    if(!first) return "";
+    return h12(first.h)+"\u2013"+h12(Number(last.h)+1)+" "+tzTag();
+  }
 
   // ---- recomp state ----
   var SUB = "total";
+  var CTSUB = "data";
   var rrows = [];
   var rview = "cat";
 
@@ -818,18 +863,23 @@
 
   // Recomp hour buckets, in the order the query emits them.
   // shift = the 3 PM–11 PM window the "shift total" column measures.
+  // Hour buckets for the recomp rail. Mirrors the cards rail: 2 PM - 2 AM,
+  // scheduled through 11 PM, then extra time. Keys must match the SQL column
+  // aliases exactly -- a mismatch reads 0 silently rather than erroring.
   var GHOURS = [
-    {k:"12-1pm",  label:"12 PM", block:"12–1 PM",  shift:false, h:12},
-    {k:"1-2pm",   label:"1 PM",  block:"1–2 PM",   shift:false, h:13},
-    {k:"2-3pm",   label:"2 PM",  block:"2–3 PM",   shift:false, h:14},
-    {k:"3-4pm",   label:"3 PM",  block:"3–4 PM",   shift:true, h:15},
-    {k:"4-5pm",   label:"4 PM",  block:"4–5 PM",   shift:true, h:16},
-    {k:"5-6pm",   label:"5 PM",  block:"5–6 PM",   shift:true, h:17},
-    {k:"6-7pm",   label:"6 PM",  block:"6–7 PM",   shift:true, h:18},
-    {k:"7-8pm",   label:"7 PM",  block:"7–8 PM",   shift:true, h:19},
-    {k:"8-9pm",   label:"8 PM",  block:"8–9 PM",   shift:true, h:20},
-    {k:"9-10pm",  label:"9 PM",  block:"9–10 PM",  shift:true, h:21},
-    {k:"10-11pm", label:"10 PM", block:"10–11 PM", shift:true, h:22}
+    {k:"2-3pm",   label:"2 PM",  block:"2–3 PM",       shift:true,  h:14},
+    {k:"3-4pm",   label:"3 PM",  block:"3–4 PM",       shift:true,  h:15},
+    {k:"4-5pm",   label:"4 PM",  block:"4–5 PM",       shift:true,  h:16},
+    {k:"5-6pm",   label:"5 PM",  block:"5–6 PM",       shift:true,  h:17},
+    {k:"6-7pm",   label:"6 PM",  block:"6–7 PM",       shift:true,  h:18},
+    {k:"7-8pm",   label:"7 PM",  block:"7–8 PM",       shift:true,  h:19},
+    {k:"8-9pm",   label:"8 PM",  block:"8–9 PM",       shift:true,  h:20},
+    {k:"9-10pm",  label:"9 PM",  block:"9–10 PM",      shift:true,  h:21},
+    {k:"10-11pm", label:"10 PM", block:"10–11 PM",     shift:true,  h:22},
+    {k:"11-12am", label:"11 PM", block:"11 PM–12 AM",  shift:false, h:23},
+    {k:"12-1am",  label:"12 AM", block:"12–1 AM",      shift:false, h:0},
+    {k:"1-2am",   label:"1 AM",  block:"1–2 AM",       shift:false, h:1},
+    {k:"2-3am",   label:"2 AM",  block:"2–3 AM",       shift:false, h:2}
   ];
   function ghLabel(hh){ return hh.h==null ? hh.label : h12(hh.h); }
   function ghBlock(hh){ return hh.h==null ? hh.block : blockOf(hh.h); }
@@ -852,7 +902,42 @@
     $("tzflag").innerHTML = manila ? FLAG_PH : FLAG_US;
     $("tzlabel").textContent = manila ? "MANILA" : "PACIFIC";
   }
-  var GRADER_COLOR = "#C4A5F5";
+  // Shift palette, shared by Recomp and Card Type.
+  // In shift -> neon green; outside/extra time -> grey.
+  // Rosters are per-tab: Card Type is graded by the full PL floor, Recomp by a
+  // smaller trained group. Seeded so each dropdown lists its own team before a
+  // query returns, and so someone with zero rows in the window is still
+  // selectable. Names present in the response are merged in, so anyone new
+  // shows up without editing these arrays.
+  var RECOMP_ROSTER = ["Alan Bailey","Anjello Bumanglag","Aaron Adrianne Joaquin",
+    "Blaise Endico","Charles Pellas","Gino Policarpio","Ian Benedict Banua",
+    "Jason Mills","Jensen Manalastas","John Thomas Arcilla","Jose Marie Arcilla",
+    "Joshua Sacramento","Neil Tepora","Raquel Valdecantos","Rusty Khent Saludo",
+    "Ryan Borsigue"];
+
+  var CARDTYPE_ROSTER = ["Abe Dato","Abigael Calasin","Abraham Salisi","Adrian Carlo","Aljen Magat",
+    "Anjello Bumanglag","Benedict Bueno","Calvin Caceres","Camille Meneses","Carmen Cortez",
+    "Charles Pellas","Donald Quinones","dominic bediones","Ehm Crucillo","Eloisa Joyce Moyo",
+    "Emmanuel Queipo","Erys De Leon","Eugene Acaba","Gerson Joseph Muyot","Ian f",
+    "Irish Gonzales","Jamaica Bangcat","Jan Raymond Padrinao","Jay-R Salili",
+    "Jhon Ruzzel Gagaring","John Michael Vincent Costales","John Paulo",
+    "Jommel Nichole Javier","Joseph Anthony Somera","Kayser florence Wenceslao",
+    "Kean Sta. Ana","Khim Pauline Arcilla","Laurence Dapon","Ma. Julaila Castillo",
+    "Maher Calingasan","Maria Regina Moreto","Mark Jonel Najera","Mark Salvador",
+    "Marsen Lauren Hernandez","Mhike Joshua Mendoza","Michaela Cruz","nelzon litrero",
+    "One David Dizon","Patrick Emerson","Peter Magat","Quennie Rose lozano",
+    "Ramoncito Lacaba","Ramy De Jesus","Raquel Valdecantos","Remzen Karla Palo",
+    "Rica Marie Reyes","Richard Cater","Rodel Ian Oliver Borromeo","Rodelyne Santos",
+    "Rodjie Escuro","Romelynn Faith Anches","Ron Earlnick Opelanio","Russell Cabang",
+    "Sheila Marie Doldig","Steven John Ignacio","Tyrone Jerome Moraleda",
+    "Vince Alfred Fernandez"];
+
+  function rosterFor(){
+    return TAB === "recomp" ? RECOMP_ROSTER : CARDTYPE_ROSTER;
+  }
+
+  var GRADER_COLOR  = "#39FF14";
+  var OUTSIDE_COLOR = "#5C6B7A";
   var grows = [], gview = "grader";
   var rmetric = "avg";
 
@@ -986,26 +1071,63 @@
       };
       var hours = {};
       GHOURS.forEach(function(hh){
-        hours[hh.k] = num([hh.k, hh.k.replace("-","\u2013"), hh.k.toUpperCase()]);
+        var alt = (function(hr){
+          var ap = hr < 12 ? "am" : "pm";
+          var n  = hr % 12 === 0 ? 12 : hr % 12;
+          return n + " " + ap;
+        })(hh.h);
+        hours[hh.k] = num([hh.k, hh.k.replace("-","\u2013"), hh.k.toUpperCase(),
+                           alt, alt.toUpperCase(), alt.replace(" ","")]);
       });
       var name = pick(r,["grader","Grader"]) || "—";
       return {
         period:  String(pick(r,["period","Period"])||"").slice(0,10),
         grader:  String(name),
         isTotal: isTeamTotal(name),
-        total:   num(["total_comps","total comps","Total Comps"]),
-        shift:   num(["shift_total","shift total (3pm-11pm)","shift total","Shift Total (3Pm-11Pm)"]),
-        outside: num(["outside_window","outside 12pm-11pm","Outside 12Pm-11Pm"]),
+        total:   num(["total_comps","total comps","Total Comps",
+                      "total_tasks","total tasks","Total Tasks"]),
+        shift:   num(["shift_total","shift total","Shift Total",
+                      "shift total (2pm-11pm)","shift total (3pm-11pm)"]),
+        outside: num(["extra_time","Extra Time","extra time (11pm-3am)",
+                      "outside_window","outside window","outside 12pm-11pm"]),
         hours:   hours
       };
     });
   }
   // every aggregation runs on this, never the raw list
+  // Fuzzy grader matching. The roster label and the value the query returns
+  // don't always agree ("Aaron Adrianne Joaquin" in the Metabase filter list vs
+  // "Aaron Adrianne" from first_name || last_name), so plain substring matching
+  // in one direction silently returns nothing. This tries progressively looser
+  // rules and stops at the first that hits.
+  function normName(s){
+    return String(s||"").toLowerCase()
+      .replace(/[.,'\u2019\-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  function graderMatches(name, q){
+    var n = normName(name), s = normName(q);
+    if(!s) return true;
+    if(n === s) return true;
+    if(n.indexOf(s) >= 0) return true;   // typed a prefix / partial
+    if(s.indexOf(n) >= 0) return true;   // roster label longer than the data value
+    // Every typed token must prefix-match some token in the name, so "rod bor"
+    // finds "Rodel Ian Oliver Borromeo" and initials-style typing works.
+    var qt = s.split(" "), nt = n.split(" ");
+    return qt.every(function(t){
+      return nt.some(function(w){ return w.indexOf(t) === 0; });
+    });
+  }
   function gData(){
     var list = grows.filter(function(r){ return !r.isTotal; });
-    var sel = $("grader").value;
-    return sel ? list.filter(function(r){ return r.grader===sel; }) : list;
+    var q = ($("grader").value || "").trim();
+    if(!q) return list;
+    var exact = list.filter(function(r){ return normName(r.grader) === normName(q); });
+    if(exact.length) return exact;
+    return list.filter(function(r){ return graderMatches(r.grader, q); });
   }
+
 
   // ---- recomp normalize ----
   // Tolerates Metabase display names ("avg ev age (days)") and snake_case aliases.
@@ -1058,13 +1180,21 @@
     if(values.indexOf(cur)>=0) el.value=cur;
   }
   function refreshGraderFilter(){
-    var names={};
-    grows.forEach(function(r){ if(!r.isTotal) names[r.grader]=1; });
-    var el=$("grader"), cur=el.value;
-    el.innerHTML = '<option value="">All graders</option>' +
-      Object.keys(names).sort().map(function(v){
-        return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join("");
-    if(names[cur]) el.value=cur;
+    var inWindow={};
+    grows.forEach(function(r){ if(!r.isTotal) inWindow[r.grader]=1; });
+    // Union of the roster and whoever actually appears, so a new hire shows up
+    // without a code change and a quiet grader is still selectable.
+    var all={};
+    rosterFor().forEach(function(n){ all[n]=1; });
+    Object.keys(inWindow).forEach(function(n){ all[n]=1; });
+    var names = Object.keys(all).sort(function(a,b){
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+    $("grader-list").innerHTML = names.map(function(v){
+      // The label shows who has no rows in the current window; the value stays
+      // clean so it still matches on selection.
+      return '<option value="'+esc(v)+'">'+(inWindow[v]?"":"no rows in window")+'</option>';
+    }).join("");
   }
 
   function refreshRecompFilters(){
@@ -1167,8 +1297,8 @@
             '<div class="n">'+(sub?(100-rp)+"%"+(days?" · "+fmt(Math.round(pre/days))+"/shift":""):"—")+'</div></div>'+
         '</div>'+
         '<div class="grp-bar">'+
-          '<span style="width:'+rp+'%;background:'+d.color+'"></span>'+
-          '<span style="width:'+(100-rp)+'%;background:'+d.alt+'"></span>'+
+          '<span style="width:'+rp+'%;'+gradForX(d.color)+'"></span>'+
+          '<span style="width:'+(100-rp)+'%;'+gradForX(d.alt)+'"></span>'+
         '</div>'+
       '</div>';
     }).join("");
@@ -1308,15 +1438,15 @@
     var top = names.sort(function(a,b){ return byGrader[b]-byGrader[a]; })[0];
 
     var cards = [
-      {c:"total", k:"Total recomps", v:fmt(total), n:nPer+" period"+(nPer===1?"":"s")},
-      {c:"", k:"Shift total", v:fmt(shift), n:total?Math.round(shift/total*100)+"% in 3–11 PM":"—"},
+      {c:"total", k:"Total "+unit(), v:fmt(total), n:nPer+" period"+(nPer===1?"":"s")},
+      {c:"", k:"Shift total", v:fmt(shift), n:total?Math.round(shift/total*100)+"% in "+shiftWindowLabel():"—"},
       {c:"", k:"Outside window", v:fmt(outside), n:total?Math.round(outside/total*100)+"% of total":"—"},
-      {c:"", k:"Graders", v:fmt(names.length), n:"with recomps"},
-      {c:"", k:"Avg per grader", v:fmt(names.length?Math.round(total/names.length):0), n:"recomps"}
+      {c:"", k:"Graders", v:fmt(names.length), n:null},
+      {c:"", k:"Avg per grader", v:fmt(names.length?Math.round(total/names.length):0), n:unit()}
     ];
     if(top){
       cards.splice(4,0,{c:"", k:"Top grader", v:esc(top.split(" ")[0]),
-        n:fmt(byGrader[top])+" recomps", small:true});
+        n:fmt(byGrader[top])+" "+unit(), small:true});
     }
     $("rkpis").innerHTML = cards.map(function(c){
       var st = c.small ? ' style="font-size:30px;letter-spacing:-.6px"' : '';
@@ -1333,27 +1463,37 @@
       return t;
     });
 
+    // First bucket past the schedule -- same treatment the cards rail gives
+    // its extra-time hours. Derived from the shift flags, not hardcoded.
+    var GEXTRA = GHOURS.length;
+    for(var gi=0; gi<GHOURS.length; gi++){ if(!GHOURS[gi].shift){ GEXTRA=gi; break; } }
+
     $("grail").innerHTML = GHOURS.map(function(hh,i){
       var t=totals[i];
       var ht = max? Math.max(2, Math.round(t/max*96)) : 2;
-      // divider where the measured shift begins
-      var div = (hh.k==="3-4pm")
-        ? '<div class="midnight"><span>SHIFT 3 PM</span></div>' : '';
-      var col = hh.shift ? GRADER_COLOR : "#5C6B7A";
-      return '<div class="slot'+(t?'':' empty')+'" title="'+esc(ghBlock(hh))+' · '+fmt(t)+' recomps">'+
-             div+'<div class="num">'+(t?fmt(t):'·')+'</div>'+
-             '<div class="bar" style="height:'+ht+'px"><div class="seg" style="height:100%;background:'+col+'"></div></div></div>';
+      var lab = i===GEXTRA
+        ? '<div class="midnight"><span>END OF SHIFT</span></div>' : '';
+      var band = i===GEXTRA
+        ? '<div class="xtraband" style="left:0;width:'+((GHOURS.length-GEXTRA)*100)+'%"><span>EXTRA TIME</span></div>'
+        : '';
+      var xt = hh.shift ? '' : ' xtra';
+      var col = hh.shift ? GRADER_COLOR : OUTSIDE_COLOR;
+      return '<div class="slot'+(t?'':' empty')+xt+'" title="'+esc(ghBlock(hh))+' · '+fmt(t)+' '+unit()+(hh.shift?'':' · extra time')+'">'+
+             band+lab+'<div class="num">'+(t?fmt(t):'·')+'</div>'+
+             '<div class="bar" style="height:'+ht+'px"><div class="seg" style="height:100%;'+gradFor(col)+'"></div></div></div>';
     }).join("");
 
-    $("grailx").innerHTML = GHOURS.map(function(hh){
-      return '<div'+(hh.k==="3-4pm"?' class="mid"':'')+'>'+ghLabel(hh)+'</div>';
+    $("grailx").innerHTML = GHOURS.map(function(hh,i){
+      return '<div'+(hh.shift?'':' class="xtra"')+'>'+ghLabel(hh)+'</div>';
     }).join("");
 
     var inShift=0, all=0, outside=0;
     GHOURS.forEach(function(hh,i){ all+=totals[i]; if(hh.shift) inShift+=totals[i]; });
     d.forEach(function(r){ outside+=r.outside; });
-    $("grailnote").textContent = all
-      ? fmt(inShift)+" in shift · "+fmt(outside)+" outside 12–11 PM entirely"
+    $("grailnote").innerHTML = all
+      ? '<span style="color:var(--unatt)">'+fmt(all-inShift)+" "+unit()+" in extra time, from "
+        +esc(ghLabel(GHOURS[GEXTRA]))+" "+tzTag()
+        +" ("+Math.round((all-inShift)/all*100)+"% of window)</span>"
       : "";
   }
 
@@ -1384,9 +1524,9 @@
       var sp = g.total? (g.shift/g.total*100) : 0;
       return '<div class="col"><div class="tot">'+fmt(g.total)+'</div>'+
              '<div class="stack" style="height:'+ht+'px">'+
-             '<div class="seg" style="height:'+sp+'%;background:'+GRADER_COLOR+
+             '<div class="seg" style="height:'+sp+'%;'+gradFor(GRADER_COLOR)+
              '" title="in shift: '+fmt(g.shift)+'"></div>'+
-             '<div class="seg" style="height:'+(100-sp)+'%;background:#5C6B7A'+
+             '<div class="seg" style="height:'+(100-sp)+'%;'+gradFor(OUTSIDE_COLOR)+
              '" title="outside shift: '+fmt(g.total-g.shift)+'"></div>'+
              '</div></div>';
     }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
@@ -1398,16 +1538,16 @@
     }).join("");
 
     $("glegend").innerHTML =
-      '<span><span class="swatch" style="background:'+GRADER_COLOR+'"></span><b>In shift (3–11 PM)</b></span>'+
+      '<span><span class="swatch" style="background:'+GRADER_COLOR+'"></span><b>In shift ('+shiftWindowLabel()+')</b></span>'+
       '<span><span class="swatch" style="background:#5C6B7A"></span><b>Outside shift</b></span>';
 
     $("gcharttitle").textContent = gview==="period"
-      ? "Total recomps by period" : "Total recomps by grader";
+      ? "Total "+unit()+" by period" : "Total "+unit()+" by grader";
   }
 
   function renderGraderTable(){
     var cols = [["Period","period"],["Grader","grader"],["Total","total",1],
-                ["Shift 3–11 PM","shift",1],["Outside","outside",1]]
+                ["Shift "+shiftWindowLabel(),"shift",1],["Outside","outside",1]]
       .concat(GHOURS.map(function(hh){ return [ghLabel(hh), "h:"+hh.k, 1]; }));
 
     $("gthead").innerHTML = cols.map(function(c){
@@ -1435,7 +1575,18 @@
     $("growcount").textContent = fmt(gData().length)+" grader rows";
   }
 
+  function updateGraderNote(){
+    var el = $("gradernote"); if(!el) return;
+    var q = ($("grader").value || "").trim();
+    if(!q){ el.textContent = ""; el.className = "fldnote"; return; }
+    var names = {};
+    gData().forEach(function(r){ names[r.grader] = 1; });
+    var n = Object.keys(names).length;
+    el.textContent = n ? (n + (n===1 ? " match" : " matches")) : "no match in this window";
+    el.className = "fldnote" + (n ? "" : " miss");
+  }
   function renderGrader(){
+    updateGraderNote();
     renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
   }
 
@@ -1452,7 +1603,7 @@
 
     if(SUB==="total"){
       cards = [
-        {c:"total", k:"Total recomps", v:fmt(sold),
+        {c:"total", k:"Total "+unit(), v:fmt(sold),
          n:nPer+" period"+(nPer===1?"":"s")},
         {c:"", k:"Top pack", v:esc(top||"—"),
          n:top? pct(byPack[top],sold) : "—", small:true},
@@ -1591,7 +1742,7 @@
       if(w>0 && w<0.8) w = 0.8;   // hairline stays visible; a true 0 stays empty
       return '<div class="cell'+(last?" last":"")+'"><div class="agecell" data-tag="'+tag+'">'+
              '<span class="agetrack"><span class="agefill" style="width:'+w+
-             '%;background:'+col+'"></span></span>'+
+             '%;'+gradForX(col)+'"></span></span>'+
              '<span class="val">'+(v==null?"—":d1(v)+"%")+'</span></div></div>';
     }
 
@@ -1651,6 +1802,10 @@
   }
 
   function renderRecomp(){
+    if(TAB==="cardtype"){
+      renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
+      return;
+    }
     var isAge = (SUB==="age");
     $("rpanel-total").hidden = isAge;
     $("rpanel-age").hidden   = !isAge;
@@ -1685,6 +1840,8 @@
     if(TAB==="cards"){
       if($("source").value)    q.set("source", $("source").value);
       if($("card_type").value) q.set("card_type", $("card_type").value);
+    } else if(TAB==="cardtype"){
+      q.set("view", CTSUB);
     } else if(TAB==="recomp"){
       q.set("view", SUB);
       if(SUB==="age"){
@@ -1758,7 +1915,16 @@
         }
 
         var empty;
-        if(TAB==="recomp"){
+        if(TAB==="cardtype"){
+          refreshTzOff((arr[0] && (arr[0].period || arr[0].Period)) || "");
+          grows = normalizeGrader(arr);
+          refreshGraderFilter();
+          empty = !gData().length;
+          $("panel-body").hidden = true;
+          $("groups").hidden = true;
+          $("panel-recomp").hidden = false;
+          renderRecomp();
+        } else if(TAB==="recomp"){
           if(SUB==="age"){
             rrows = normalizeRecomp(arr);
             refreshRecompFilters();
@@ -1870,10 +2036,11 @@
     var cfg = TABS[name];
     $("tab-cards").setAttribute("aria-selected", name==="cards");
     $("tab-recomp").setAttribute("aria-selected", name==="recomp");
+    $("tab-cardtype").setAttribute("aria-selected", name==="cardtype");
     $("statusline").innerHTML = "<b>Precision Labeling</b> · " + fillTz(cfg.subtitle);
-    $("f-window").textContent = (name==="recomp")
-      ? "Window: shift total measures 3 PM–11 PM PT"
-      : "Window: 2 PM–3 AM PT, Mon–Fri shift start";
+    $("f-window").textContent = (name==="cards")
+      ? "Window: 2 PM–3 AM PT, Mon–Fri shift start"
+      : "Window: shift total measures 2 PM–11 PM PT, extra time to 3 AM";
     document.querySelectorAll("[data-cards-only]").forEach(function(el){
       el.hidden = !cfg.showSourceFilters;
     });
@@ -1884,15 +2051,30 @@
     $("panel-setup").hidden = true;
     $("panel-body").hidden   = (name!=="cards");
     $("groups").hidden       = (name!=="cards");
-    $("panel-recomp").hidden = (name!=="recomp");
-    rows = []; rrows = [];
-    if(name==="recomp") renderRecomp(); else renderAll();
+    // Card Type reuses the recomp Total panel: same column shape, same rail,
+    // chart and table. Only the data source and the pills differ.
+    var usesGraderPanel = (name==="recomp" || name==="cardtype");
+    $("panel-recomp").hidden    = !usesGraderPanel;
+    $("recomp-subtabs").hidden  = (name!=="recomp");
+    $("cardtype-subtabs").hidden= (name!=="cardtype");
+    if(name==="cardtype"){
+      $("rpanel-total").hidden = false;
+      if($("rpanel-age")) $("rpanel-age").hidden = true;
+    }
+    rows = []; rrows = []; grows = [];
+    // Roster differs per tab, so rebuild the datalist and drop any selection
+    // that belongs to the other team.
+    $("grader").value = "";
+    refreshGraderFilter();
+    if(usesGraderPanel) renderRecomp(); else renderAll();
     load();
   }
   function syncFilterVisibility(){
     var isRecomp = (TAB==="recomp");
+    // The grader filter belongs to any tab that uses the grader panel, which
+    // now includes Card Type (both Data and Data Verify).
     document.querySelectorAll("[data-recomp-total]").forEach(function(el){
-      el.hidden = !(isRecomp && SUB==="total");
+      el.hidden = !((isRecomp && SUB==="total") || TAB==="cardtype");
     });
     document.querySelectorAll("[data-recomp-age]").forEach(function(el){
       el.hidden = !(isRecomp && SUB==="age");
@@ -1908,6 +2090,17 @@
   }
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
+
+  function setCtSub(name){
+    CTSUB = name;
+    $("sub-data").setAttribute("aria-selected", name==="data");
+    $("sub-verify").setAttribute("aria-selected", name==="verify");
+    grows = []; rrows = [];
+    load();
+  }
+  $("sub-data").onclick   = function(){ setCtSub("data"); };
+  $("sub-verify").onclick = function(){ setCtSub("verify"); };
+  $("tab-cardtype").onclick = function(){ setTab("cardtype"); };
 
   // ---- timezone toggle ----
   // Purely presentational: no refetch, no change to which rows are counted.
@@ -1930,7 +2123,7 @@
     document.querySelectorAll(".railhint").forEach(function(el){
       el.textContent = fillTz(TABS[TAB].railHint);
     });
-    if(TAB === "recomp") renderRecomp(); else renderAll();
+    if(TAB === "recomp" || TAB === "cardtype") renderRecomp(); else renderAll();
   };
   paintTz();
 
@@ -1974,6 +2167,11 @@
 
   // grader filtering is client-side — the query already returns every grader
   $("grader").onchange = function(){ renderGrader(); };
+  $("grader").oninput  = function(){ renderGrader(); };
+  // Escape clears the filter without reaching for the mouse.
+  $("grader").onkeydown = function(e){
+    if(e.key === "Escape"){ this.value = ""; renderGrader(); }
+  };
   ["sport","pack_category"].forEach(function(id){ $(id).onchange = load; });
 
   $("tab-cards").onclick  = function(){ setTab("cards"); };
