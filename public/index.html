@@ -170,30 +170,31 @@
     border-bottom:2px solid var(--line2);
   }
   .grp-head .name{
-    font-family:var(--mono);font-size:13px;letter-spacing:1.2px;
+    font-family:var(--mono);font-size:22px;letter-spacing:2px;
     text-transform:uppercase;color:var(--tx);font-weight:700;white-space:nowrap;
+    display:flex;align-items:center;gap:12px;
   }
   .grp-head .tot{
     font-family:var(--mono);font-size:40px;font-weight:700;letter-spacing:-1.4px;
     line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;
   }
   .grp-head .pct{
-    font-family:var(--mono);font-size:12px;color:var(--tx);
-    white-space:nowrap;opacity:.8;
+    font-family:var(--mono);font-size:13px;color:var(--tx);
+    white-space:nowrap;
   }
   .grp-split{display:flex;gap:26px}
   .grp-split > div{flex:1 1 0;min-width:0}
   .grp-split .k{
-    font-family:var(--mono);font-size:11.5px;letter-spacing:.9px;
-    text-transform:uppercase;color:var(--tx);white-space:nowrap;opacity:.8;
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.9px;
+    text-transform:uppercase;color:var(--tx);white-space:nowrap;
   }
   .grp-split .v{
     font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-.9px;
     margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;
   }
   .grp-split .n{
-    font-family:var(--mono);font-size:11.5px;color:var(--tx);
-    margin-top:4px;white-space:nowrap;opacity:.8;
+    font-family:var(--mono);font-size:12.5px;color:var(--tx);
+    margin-top:4px;white-space:nowrap;
   }
   .grp-bar{
     display:flex;height:8px;margin-top:14px;border-radius:999px;overflow:hidden;
@@ -202,6 +203,8 @@
   .grp-bar span{display:block;height:100%}
   @media(max-width:640px){
     .grp-head .tot{font-size:32px}
+    .grp-head .name{font-size:18px;letter-spacing:1.4px}
+    .grp-head .name .swatch{width:15px;height:15px}
     .grp-split .v{font-size:24px}
   }
 
@@ -272,7 +275,8 @@
   .kpi.total .v{font-size:62px;color:var(--tx)}
   .kpi.cust .v{color:var(--cust)}
   .kpi.slab .v{color:var(--slab)}
-  .swatch{display:inline-block;width:8px;height:8px;margin-right:5px}
+  .swatch{display:inline-block;width:8px;height:8px;margin-right:5px;flex:0 0 auto}
+  .grp-head .name .swatch{width:18px;height:18px;margin-right:0;border-radius:2px}
 
   /* ---------- sections ---------- */
   section{padding:22px 22px 0}
@@ -284,7 +288,7 @@
     margin:0;font-family:var(--mono);font-size:18px;letter-spacing:1.6px;
     text-transform:uppercase;color:var(--tx);font-weight:700;
   }
-  h2 .hint{color:var(--tx);letter-spacing:.4px;font-size:14.5px;text-transform:none;font-weight:400;margin-left:10px;opacity:.9}
+  h2 .hint{color:var(--tx);letter-spacing:.4px;font-size:14.5px;text-transform:none;font-weight:400;margin-left:10px}
   .card{
     background:var(--panel2);border:1px solid var(--line);border-radius:4px;
     padding:16px;
@@ -305,22 +309,32 @@
     font-family:var(--mono);font-size:15px;font-weight:600;color:var(--tx);
     margin-bottom:7px;font-variant-numeric:tabular-nums;
   }
-  .slot.empty .num{color:var(--tx);opacity:.55}
+  .slot.empty .num{color:var(--tx)}
   .rail-x{display:flex;margin-top:9px;border-top:1px solid var(--line2)}
   .rail-x div{
     flex:1 1 0;text-align:center;padding-top:11px;
     font-family:var(--mono);font-size:16px;font-weight:600;color:var(--tx);letter-spacing:.4px;
   }
   .rail-x div.mid{color:var(--neon);font-weight:700}
-  .midnight{
-    position:absolute;top:0;bottom:-40px;width:1px;
-    background:repeating-linear-gradient(to bottom,var(--neon) 0 3px,transparent 3px 7px);
-    opacity:.55;
+  .rail-x div.xtra{color:var(--unatt)}
+  .slot.xtra .bar{opacity:.62}
+  .slot.xtra .num{color:var(--unatt)}
+  .xtraband{
+    position:absolute;top:0;bottom:-40px;
+    background:rgba(245,165,36,.09);
+    pointer-events:none;
   }
+  .xtraband span{
+    position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+    background:transparent;
+    font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1.2px;
+    color:var(--unatt);white-space:nowrap;padding:0 5px;
+  }
+  .midnight{position:absolute;top:0;left:0;right:0;height:0}
   .midnight span{
     position:absolute;top:-4px;left:50%;transform:translateX(-50%);
     font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1.2px;
-    color:var(--neon);white-space:nowrap;background:var(--panel2);padding:0 5px;
+    color:var(--neon);white-space:nowrap;padding:0 5px;
   }
 
   /* ---------- chart ---------- */
@@ -503,7 +517,7 @@
 
 <section>
   <div class="shead">
-    <h2>Shift rail <span class="hint railhint">cards per hour across the 2 PM–3 AM window</span></h2>
+    <h2>Shift rail <span class="hint railhint">cards per hour across the 2 PM–3 AM PT window</span></h2>
     <span class="sub" id="railnote"></span>
   </div>
   <div class="card railcard">
@@ -686,19 +700,25 @@
     cards: {
       label: "Cards",
       subtitle: "cards entering pending_release · {W14-3} {TZ} · Mon–Fri",
-      railHint: "cards per hour across the 2 PM–3 AM window",
+      railHint: "cards per hour across the {W14-3} {TZ} window",
       unit: "cards",
       showSourceFilters: true
     },
     recomp: {
       label: "Recomp",
       subtitle: "grader recomp throughput · shift {W15-23} {TZ}",
-      railHint: "recomps per hour across the 2 PM–3 AM window",
+      railHint: "recomps per hour across the {W12-22} {TZ} window",
       unit: "recomps",
       showSourceFilters: false
     }
   };
   var SLOTS = 13;                 // 2 PM .. 2 AM
+  // Slot 9 is the last bar of the shift -- 11 PM PT, 2 PM Manila. The
+  // END OF SHIFT label sits over it; the extra-time band begins at its
+  // right edge, i.e. slot 10 onward.
+  // Both are slot-indexed, so they are timezone-invariant.
+  var SHIFT_LAST  = 9;    // boundary bar -- END OF SHIFT label goes here
+  var EXTRA_START = 9;    // first extra-time bar (band starts at its left edge)
   var AUTO_MS = 60000;
   var autoTimer = null;
   var rows = [];
@@ -715,6 +735,16 @@
   function colorFor(k){
     for(var i=0;i<SERIES.length;i++){ if(SERIES[i].key===k) return SERIES[i].color; }
     return "var(--line2)";
+  }
+  // Vertical gradient for stacked bar segments. Derived from the base colour
+  // via color-mix so each series keeps a single source of truth (the CSS var).
+  // Emitted as `background:<flat>;background-image:<gradient>` so a browser
+  // without color-mix simply falls back to the flat fill.
+  function gradFor(c){
+    return "background:"+c+";background-image:linear-gradient(to bottom,"+
+      "color-mix(in srgb,"+c+" 66%,#fff) 0%,"+
+      c+" 55%,"+
+      "color-mix(in srgb,"+c+" 88%,#000) 100%)";
   }
 
   var $ = function(id){ return document.getElementById(id); };
@@ -1159,23 +1189,29 @@
       var h = max? Math.max(2, Math.round(s.total/max*96)) : 2;
       var segs = Object.keys(s.seg).map(function(k){
         var ph = s.total? (s.seg[k]/s.total*100) : 0;
-        return '<div class="seg" style="height:'+ph+'%;background:'+colorFor(k)+'"></div>';
+        return '<div class="seg" style="height:'+ph+'%;'+gradFor(colorFor(k))+'"></div>';
       }).join("");
-      var mid = i===10 ? '<div class="midnight"><span>MIDNIGHT</span></div>' : '';
-      return '<div class="slot'+(s.total?'':' empty')+'" title="'+esc(slotLabel(i))+' · '+fmt(s.total)+' cards">'+
-             mid+'<div class="num">'+(s.total?fmt(s.total):'·')+'</div>'+
+      var mid = i===SHIFT_LAST ? '<div class="midnight"><span>END OF SHIFT</span></div>' : '';
+      var band = i===EXTRA_START
+        ? '<div class="xtraband" style="left:0;width:'+((SLOTS-EXTRA_START)*100)+'%"><span>EXTRA TIME</span></div>'
+        : '';
+      var xt = i>=EXTRA_START ? ' xtra' : '';
+      return '<div class="slot'+(s.total?'':' empty')+xt+'" title="'+esc(slotLabel(i))+' · '+fmt(s.total)+' cards'+(i>=EXTRA_START?' · extra time':'')+'">'+
+             band+mid+'<div class="num">'+(s.total?fmt(s.total):'·')+'</div>'+
              '<div class="bar" style="height:'+h+'px">'+segs+'</div></div>';
     }).join("");
 
     $("railx").innerHTML = bySlot.map(function(s,i){
-      return '<div'+(i===10?' class="mid"':'')+'>'+slotLabel(i)+'</div>';
+      var c = i>=EXTRA_START ? ' class="xtra"' : '';
+      return '<div'+c+'>'+slotLabel(i)+'</div>';
     }).join("");
 
-    var late = bySlot.slice(10).reduce(function(a,s){ return a+s.total; },0);
+    var late = bySlot.slice(EXTRA_START).reduce(function(a,s){ return a+s.total; },0);
     var all  = bySlot.reduce(function(a,s){ return a+s.total; },0);
     $("railnote").innerHTML = loadFailed
       ? '<span style="color:var(--warn)">no data — request failed</span>'
-      : (all ? fmt(late)+" cards after midnight ("+Math.round(late/all*100)+"% of window)" : "");
+      : (all ? '<span style="color:var(--unatt)">'+fmt(late)+" cards in extra time, from "
+               +esc(slotLabel(SHIFT_LAST))+" "+tzTag()+" ("+Math.round(late/all*100)+"% of window)</span>" : "");
   }
 
   // ---- chart ----
@@ -1206,7 +1242,7 @@
       var h = max? Math.max(2, Math.round(g.value/max*248)) : 2;
       var segs = Object.keys(g.seg).sort().map(function(s){
         var ph = g.total? (g.seg[s]/g.total*100) : 0;
-        return '<div class="seg" style="height:'+ph+'%;background:'+colorFor(s)+'" title="'+
+        return '<div class="seg" style="height:'+ph+'%;'+gradFor(colorFor(s))+'" title="'+
                esc(s)+': '+fmt(g.seg[s])+'"></div>';
       }).join("");
       return '<div class="col"><div class="tot">'+fmt(g.value)+'</div>'+
@@ -1475,7 +1511,7 @@
         var hh = (max && g.val!=null) ? Math.max(2, Math.round(g.val/max*248)) : 2;
         return '<div class="col"><div class="tot">'+d1(g.val)+'</div>'+
                '<div class="stack" style="height:'+hh+'px">'+
-               '<div class="seg" style="height:100%;background:'+groupColor(k)+
+               '<div class="seg" style="height:100%;'+gradFor(groupColor(k))+
                '" title="'+esc(k)+' — '+MNAME[rmetric]+': '+d1(g.val)+
                ' days · '+fmt(g.sold)+' cards sold"></div></div></div>';
       }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
@@ -1518,7 +1554,7 @@
       var segs = Object.keys(g.seg).sort(function(a,b){ return packRank(a)-packRank(b); })
         .map(function(s){
           var ph = g.total? (g.seg[s]/g.total*100) : 0;
-          return '<div class="seg" style="height:'+ph+'%;background:'+packColor(s)+
+          return '<div class="seg" style="height:'+ph+'%;'+gradFor(packColor(s))+
                  '" title="'+esc(s)+': '+fmt(g.seg[s])+'"></div>';
         }).join("");
       return '<div class="col"><div class="tot">'+fmt(g.total)+'</div>'+
@@ -1842,7 +1878,7 @@
       el.hidden = !cfg.showSourceFilters;
     });
     document.querySelectorAll(".railhint").forEach(function(el){
-      el.textContent = cfg.railHint;
+      el.textContent = fillTz(cfg.railHint);
     });
     syncFilterVisibility();
     $("panel-setup").hidden = true;
@@ -1879,6 +1915,9 @@
   $("tzbtn").onclick = function(){
     TZ = (TZ === "manila") ? "pacific" : "manila";
     paintTz();
+  document.querySelectorAll(".railhint").forEach(function(el){
+    el.textContent = fillTz(TABS[TAB].railHint);
+  });
     var ref = (rows[0] && rows[0].period) || (rrows[0] && rrows[0].period) || "";
     refreshTzOff(ref);
     rows = rows.map(function(r){
@@ -1888,6 +1927,9 @@
       return r;
     });
     $("statusline").innerHTML = "<b>Precision Labeling</b> \u00b7 " + fillTz(TABS[TAB].subtitle);
+    document.querySelectorAll(".railhint").forEach(function(el){
+      el.textContent = fillTz(TABS[TAB].railHint);
+    });
     if(TAB === "recomp") renderRecomp(); else renderAll();
   };
   paintTz();

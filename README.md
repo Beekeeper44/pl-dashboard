@@ -163,3 +163,50 @@ midnight crossing.
 `blockOf()` do the formatting; `slotLabel()` / `ghLabel()` / `ghBlock()` route
 through them; `fillTz()` rewrites `{W<start>-<end>}` and `{TZ}` tokens in the
 `TABS[].subtitle` strings. Subtitle template hours are always **Pacific**.
+
+## End of shift / extra time
+
+Two slot-indexed constants sit next to `SLOTS`:
+
+```
+var SHIFT_LAST  = 9;    // boundary bar -- END OF SHIFT label goes here
+var EXTRA_START = 9;    // first extra-time bar (band starts at its left edge)
+```
+
+| | Pacific | Manila |
+|---|---|---|
+| Last scheduled bar | 10 PM | 1 PM |
+| Extra time | 11 PM, 12 AM, 1 AM, 2 AM | 2 PM, 3 PM, 4 PM, 5 PM |
+
+The shift ends at 11 PM PT / 2 PM Manila, so the 11 PM bar is the first hour
+past the schedule. The END OF SHIFT label is centered over it and the amber band
+starts at its left edge. Extra-time bars are dimmed to 62% with tinted axis
+labels; the rail note reads "from 11 PM PT" rather than "after", since the
+boundary bar is itself counted.
+
+Both constants are slot indices, not clock times, so the boundary is
+timezone-invariant -- slot 9 is 11 PM PT and 2 PM Manila, landing in the same
+place in either view. There is no dashed rule; the shading carries the divide.
+
+Keeping them as two constants means the label and the shading can move
+independently if the schedule changes.
+
+## Bar gradients
+
+Stacked segments use a vertical gradient: lightened at the top, base colour at
+55%, slightly darkened at the bottom. Applied via `gradFor(color)` next to
+`colorFor()`, and used by the shift rail, the cards chart, and both recomp
+charts. Legend swatches and table pills stay flat.
+
+Stops are derived with `color-mix()` from the existing CSS var, so each series
+keeps one source of truth — change `--slab` and the gradient follows. The helper
+emits `background:<flat>;background-image:<gradient>` so a browser without
+`color-mix()` support falls back to the flat fill rather than rendering nothing.
+
+⚠ **Known trade-off.** The palette encodes four categories in two hue families
+(customer blue light/dark, slab pack purple light/dark), distinguished by
+lightness — the same channel the gradient uses. Where a light segment's darkened
+base meets a dark segment's lightened top, the boundary softens, and thin
+segments can blur into their neighbours at distance. If that becomes a problem
+on the wall display, the fix is either a 1px separator on `.seg` or switching to
+the top-sheen variant (highlight on the top 22% only, flat below).
