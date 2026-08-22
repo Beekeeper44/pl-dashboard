@@ -1079,17 +1079,35 @@
         hours[hh.k] = num([hh.k, hh.k.replace("-","\u2013"), hh.k.toUpperCase(),
                            alt, alt.toUpperCase(), alt.replace(" ","")]);
       });
-      var name = pick(r,["grader","Grader"]) || "—";
+      var name = pick(r,["grader","Grader"]) || "\u2014";
+
+      var shift   = num(["shift_total","shift total","Shift Total",
+                         "shift total (2pm-11pm)","shift total (3pm-11pm)"]);
+      var outside = num(["extra_time","Extra Time","extra time (11pm-3am)",
+                         "outside_window","outside window","outside 12pm-11pm"]);
+      var total   = num(["total_comps","total comps","Total Comps",
+                         "total_tasks","total tasks","Total Tasks",
+                         "total_verifies","total verifies","Total Verifies",
+                         "total_verified","total verified","Total Verified",
+                         "total","Total","tasks","Tasks","count","Count"]);
+
+      // Questions don't agree on what the total column is called, and a missed
+      // alias silently reads 0 -- which renders as a full set of empty grader
+      // bars rather than an error. Derive it from the parts instead: the hour
+      // buckets cover the 2 PM - 3 AM window, and `outside` is everything else.
+      if(!total){
+        var summed = 0;
+        for(var hk in hours){ summed += hours[hk] || 0; }
+        total = summed + outside;
+      }
+
       return {
         period:  String(pick(r,["period","Period"])||"").slice(0,10),
         grader:  String(name),
         isTotal: isTeamTotal(name),
-        total:   num(["total_comps","total comps","Total Comps",
-                      "total_tasks","total tasks","Total Tasks"]),
-        shift:   num(["shift_total","shift total","Shift Total",
-                      "shift total (2pm-11pm)","shift total (3pm-11pm)"]),
-        outside: num(["extra_time","Extra Time","extra time (11pm-3am)",
-                      "outside_window","outside window","outside 12pm-11pm"]),
+        total:   total,
+        shift:   shift,
+        outside: outside,
         hours:   hours
       };
     });

@@ -340,3 +340,23 @@ It appears on Recomp (Total) and on Card Type (both Data and Data Verify).
 
 Sorting is case-insensitive so lowercase entries like `dominic bediones` and
 `nelzon litrero` file alphabetically rather than at the end.
+
+## Total column fallback
+
+`normalizeGrader` looks up the total under a list of aliases (`total_comps`,
+`total tasks`, `total verifies`, `total`, `count`, …). If none match it
+**derives** the total instead of leaving it at 0:
+
+```
+total = sum(hour buckets) + outside
+```
+
+This exists because a missed alias fails silently — `pick()` returns 0 rather
+than erroring — which renders as a full set of empty grader bars with a healthy
+shift rail above them. That was the symptom on Data Verify (34618): hour columns
+and shift total resolved, but every grader bar read 0.
+
+The derived figure is exact whenever the hour buckets plus `outside window`
+account for all rows, which is how these questions are built. If a future
+question drops `outside window`, the derived total will undercount by whatever
+falls outside 2 PM - 3 AM, so prefer adding a real total alias to the SQL.
