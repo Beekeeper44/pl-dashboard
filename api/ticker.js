@@ -15,6 +15,9 @@ const CARDS = {
   // Card Type — Data and Data Verify are separate saved questions.
   'cardtype:data':   { env: 'METABASE_CARDTYPE_DATA_CARD_ID',   fallback: '34552' },
   'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '34618' },
+  // Review — pre-graded and premium/raw are separate saved questions.
+  'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
+  'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
 
 const TEXT_VARS = {
@@ -23,6 +26,8 @@ const TEXT_VARS = {
   'recomp:age':   ['grain', 'sport', 'pack_category'],
   'cardtype:data':   ['grain'],
   'cardtype:verify': ['grain'],
+  'review:pregraded': ['grain'],
+  'review:raw':       ['grain'],
 };
 
 const ALLOWED = {
@@ -290,7 +295,9 @@ export default async function handler(req, res) {
   const q    = req.query || {};
   const tab  = String(q.tab  || 'cards').toLowerCase();
   const view = String(q.view || 'total').toLowerCase();
-  const key  = (tab === 'recomp' || tab === 'cardtype') ? `${tab}:${view}` : tab;
+  // Tabs whose saved question depends on the selected pill.
+  const VIEWED = new Set(['recomp', 'cardtype', 'review']);
+  const key  = VIEWED.has(tab) ? `${tab}:${view}` : tab;
 
   try {
     const { rows, cardId, via } = await runQuery(key, q);

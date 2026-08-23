@@ -360,3 +360,45 @@ The derived figure is exact whenever the hour buckets plus `outside window`
 account for all rows, which is how these questions are built. If a future
 question drops `outside window`, the derived total will undercount by whatever
 falls outside 2 PM - 3 AM, so prefer adding a real total alias to the SQL.
+
+## Review tab
+
+Fourth tab, with two pills — **Review (Pre-Graded)** and
+**Review Premium (Raw)**.
+
+```
+'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
+'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
+```
+
+Like Card Type, it reuses the shared grader panel (KPIs, shift rail, grader
+chart, grader table). `TABS.review.unit` is `"reviews"`, so the panel reads
+"Total reviews by grader", "N reviews in extra time", and so on.
+
+It uses `CARDTYPE_ROSTER` for the grader dropdown, since review is done by the
+PL floor rather than the smaller recomp group. If review is actually a
+restricted group, add a `REVIEW_ROSTER` array and extend `rosterFor()`.
+
+### Colour by pill
+
+Review is split by card condition, so each pill gets its own in-shift colour
+and the two read as different series at a glance:
+
+| pill | in-shift bars |
+|---|---|
+| Review (Pre-Graded) | `#8B5CF6` purple |
+| Review Premium (Raw) | `#38BDF8` blue |
+
+Recomp and Card Type stay neon green; extra time is grey everywhere.
+`shiftColor()` is the single source — it feeds the shift rail, the grader chart
+segments, and the legend swatch, so switching pills recolours the whole tab
+consistently rather than leaving a stale swatch behind.
+
+### Note on routing
+
+Server-side, tabs whose question depends on the pill are listed in one
+`VIEWED` set rather than chained `||` checks. Client-side, `usesGraderPanel(t)`
+is the single predicate for "renders through the grader panel" — it's used by
+`setTab`, the timezone toggle, and the load handler. Adding a fifth tab of this
+shape means touching those two lists plus the markup, not hunting every
+`TAB === "recomp"` comparison.

@@ -459,6 +459,7 @@
   <button class="tab" id="tab-cards"  role="tab" aria-selected="true"  aria-controls="panel-body">Cards</button>
   <button class="tab" id="tab-recomp" role="tab" aria-selected="false" aria-controls="panel-body">Recomp</button>
   <button class="tab" id="tab-cardtype" role="tab" aria-selected="false" aria-controls="panel-body">Card Type</button>
+  <button class="tab" id="tab-review" role="tab" aria-selected="false" aria-controls="panel-body">Review</button>
 </nav>
 
 <div class="filters">
@@ -587,6 +588,11 @@
   <div class="subtabs" id="cardtype-subtabs" hidden>
     <button class="subtab" id="sub-data"   aria-selected="true">Data</button>
     <button class="subtab" id="sub-verify" aria-selected="false">Data Verify</button>
+  </div>
+
+  <div class="subtabs" id="review-subtabs" hidden>
+    <button class="subtab" id="sub-pregraded" aria-selected="true">Review (Pre-Graded)</button>
+    <button class="subtab" id="sub-raw"       aria-selected="false">Review Premium (Raw)</button>
   </div>
 
   <div class="kpis" id="rkpis" style="margin-top:16px"></div>
@@ -720,6 +726,13 @@
       unit: "cards",
       showSourceFilters: true
     },
+    review: {
+      label: "Review",
+      subtitle: "review throughput \u00b7 shift {W14-23} {TZ}",
+      railHint: "reviews per hour across the {W14-3} {TZ} window",
+      unit: "reviews",
+      showSourceFilters: false
+    },
     cardtype: {
       label: "Card Type",
       subtitle: "card type task throughput · shift {W14-23} {TZ}",
@@ -796,6 +809,13 @@
   // ---- recomp state ----
   var SUB = "total";
   var CTSUB = "data";
+  var RVSUB = "pregraded";
+  // Tabs that render through the shared grader panel (KPIs, shift rail,
+  // grader chart, grader table) rather than the cards layout.
+  function usesGraderPanel(t){
+    t = t || TAB;
+    return t === "recomp" || t === "cardtype" || t === "review";
+  }
   var rrows = [];
   var rview = "cat";
 
@@ -937,6 +957,17 @@
   }
 
   var GRADER_COLOR  = "#39FF14";
+  // In-shift bar colour by tab/pill. Review is split by card condition so the
+  // two pills read as different series at a glance: pre-graded purple, raw
+  // blue. Everything else keeps neon green. Outside/extra time stays grey.
+  var REVIEW_PREGRADED_COLOR = "#8B5CF6";
+  var REVIEW_RAW_COLOR       = "#38BDF8";
+  function shiftColor(){
+    if(TAB === "review"){
+      return RVSUB === "raw" ? REVIEW_RAW_COLOR : REVIEW_PREGRADED_COLOR;
+    }
+    return GRADER_COLOR;
+  }
   var OUTSIDE_COLOR = "#5C6B7A";
   var grows = [], gview = "grader";
   var rmetric = "avg";
@@ -1495,7 +1526,7 @@
         ? '<div class="xtraband" style="left:0;width:'+((GHOURS.length-GEXTRA)*100)+'%"><span>EXTRA TIME</span></div>'
         : '';
       var xt = hh.shift ? '' : ' xtra';
-      var col = hh.shift ? GRADER_COLOR : OUTSIDE_COLOR;
+      var col = hh.shift ? shiftColor() : OUTSIDE_COLOR;
       return '<div class="slot'+(t?'':' empty')+xt+'" title="'+esc(ghBlock(hh))+' · '+fmt(t)+' '+unit()+(hh.shift?'':' · extra time')+'">'+
              band+lab+'<div class="num">'+(t?fmt(t):'·')+'</div>'+
              '<div class="bar" style="height:'+ht+'px"><div class="seg" style="height:100%;'+gradFor(col)+'"></div></div></div>';
@@ -1542,7 +1573,7 @@
       var sp = g.total? (g.shift/g.total*100) : 0;
       return '<div class="col"><div class="tot">'+fmt(g.total)+'</div>'+
              '<div class="stack" style="height:'+ht+'px">'+
-             '<div class="seg" style="height:'+sp+'%;'+gradFor(GRADER_COLOR)+
+             '<div class="seg" style="height:'+sp+'%;'+gradFor(shiftColor())+
              '" title="in shift: '+fmt(g.shift)+'"></div>'+
              '<div class="seg" style="height:'+(100-sp)+'%;'+gradFor(OUTSIDE_COLOR)+
              '" title="outside shift: '+fmt(g.total-g.shift)+'"></div>'+
@@ -1556,7 +1587,7 @@
     }).join("");
 
     $("glegend").innerHTML =
-      '<span><span class="swatch" style="background:'+GRADER_COLOR+'"></span><b>In shift ('+shiftWindowLabel()+')</b></span>'+
+      '<span><span class="swatch" style="background:'+shiftColor()+'"></span><b>In shift ('+shiftWindowLabel()+')</b></span>'+
       '<span><span class="swatch" style="background:#5C6B7A"></span><b>Outside shift</b></span>';
 
     $("gcharttitle").textContent = gview==="period"
@@ -1820,7 +1851,7 @@
   }
 
   function renderRecomp(){
-    if(TAB==="cardtype"){
+    if(TAB==="cardtype" || TAB==="review"){
       renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
       return;
     }
@@ -1860,6 +1891,8 @@
       if($("card_type").value) q.set("card_type", $("card_type").value);
     } else if(TAB==="cardtype"){
       q.set("view", CTSUB);
+    } else if(TAB==="review"){
+      q.set("view", RVSUB);
     } else if(TAB==="recomp"){
       q.set("view", SUB);
       if(SUB==="age"){
@@ -1933,7 +1966,7 @@
         }
 
         var empty;
-        if(TAB==="cardtype"){
+        if(TAB==="cardtype" || TAB==="review"){
           refreshTzOff((arr[0] && (arr[0].period || arr[0].Period)) || "");
           grows = normalizeGrader(arr);
           refreshGraderFilter();
@@ -2055,6 +2088,7 @@
     $("tab-cards").setAttribute("aria-selected", name==="cards");
     $("tab-recomp").setAttribute("aria-selected", name==="recomp");
     $("tab-cardtype").setAttribute("aria-selected", name==="cardtype");
+    $("tab-review").setAttribute("aria-selected", name==="review");
     $("statusline").innerHTML = "<b>Precision Labeling</b> · " + fillTz(cfg.subtitle);
     $("f-window").textContent = (name==="cards")
       ? "Window: 2 PM–3 AM PT, Mon–Fri shift start"
@@ -2071,11 +2105,12 @@
     $("groups").hidden       = (name!=="cards");
     // Card Type reuses the recomp Total panel: same column shape, same rail,
     // chart and table. Only the data source and the pills differ.
-    var usesGraderPanel = (name==="recomp" || name==="cardtype");
-    $("panel-recomp").hidden    = !usesGraderPanel;
-    $("recomp-subtabs").hidden  = (name!=="recomp");
-    $("cardtype-subtabs").hidden= (name!=="cardtype");
-    if(name==="cardtype"){
+    var graderPanel = usesGraderPanel(name);
+    $("panel-recomp").hidden     = !graderPanel;
+    $("recomp-subtabs").hidden   = (name!=="recomp");
+    $("cardtype-subtabs").hidden = (name!=="cardtype");
+    $("review-subtabs").hidden   = (name!=="review");
+    if(name==="cardtype" || name==="review"){
       $("rpanel-total").hidden = false;
       if($("rpanel-age")) $("rpanel-age").hidden = true;
     }
@@ -2084,7 +2119,7 @@
     // that belongs to the other team.
     $("grader").value = "";
     refreshGraderFilter();
-    if(usesGraderPanel) renderRecomp(); else renderAll();
+    if(graderPanel) renderRecomp(); else renderAll();
     load();
   }
   function syncFilterVisibility(){
@@ -2092,7 +2127,7 @@
     // The grader filter belongs to any tab that uses the grader panel, which
     // now includes Card Type (both Data and Data Verify).
     document.querySelectorAll("[data-recomp-total]").forEach(function(el){
-      el.hidden = !((isRecomp && SUB==="total") || TAB==="cardtype");
+      el.hidden = !((isRecomp && SUB==="total") || TAB==="cardtype" || TAB==="review");
     });
     document.querySelectorAll("[data-recomp-age]").forEach(function(el){
       el.hidden = !(isRecomp && SUB==="age");
@@ -2119,6 +2154,17 @@
   $("sub-data").onclick   = function(){ setCtSub("data"); };
   $("sub-verify").onclick = function(){ setCtSub("verify"); };
   $("tab-cardtype").onclick = function(){ setTab("cardtype"); };
+  $("tab-review").onclick   = function(){ setTab("review"); };
+
+  function setRvSub(name){
+    RVSUB = name;
+    $("sub-pregraded").setAttribute("aria-selected", name==="pregraded");
+    $("sub-raw").setAttribute("aria-selected", name==="raw");
+    grows = []; rrows = [];
+    load();
+  }
+  $("sub-pregraded").onclick = function(){ setRvSub("pregraded"); };
+  $("sub-raw").onclick       = function(){ setRvSub("raw"); };
 
   // ---- timezone toggle ----
   // Purely presentational: no refetch, no change to which rows are counted.
@@ -2141,7 +2187,7 @@
     document.querySelectorAll(".railhint").forEach(function(el){
       el.textContent = fillTz(TABS[TAB].railHint);
     });
-    if(TAB === "recomp" || TAB === "cardtype") renderRecomp(); else renderAll();
+    if(usesGraderPanel()) renderRecomp(); else renderAll();
   };
   paintTz();
 
