@@ -16,6 +16,7 @@ const CARDS = {
   'cardtype:data':   { env: 'METABASE_CARDTYPE_DATA_CARD_ID',   fallback: '34552' },
   'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '34618' },
   // Review — pre-graded and premium/raw are separate saved questions.
+  'recomp:zone':      { env: 'METABASE_HOT_COLD_ZONE_CARD_ID',     fallback: '34849' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
   'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
@@ -26,6 +27,7 @@ const TEXT_VARS = {
   'recomp:age':   ['grain', 'sport', 'pack_category'],
   'cardtype:data':   ['grain'],
   'cardtype:verify': ['grain'],
+  'recomp:zone':      ['grain', 'sport'],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };

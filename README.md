@@ -402,3 +402,210 @@ is the single predicate for "renders through the grader panel" — it's used by
 `setTab`, the timezone toggle, and the load handler. Adding a fifth tab of this
 shape means touching those two lists plus the markup, not hunting every
 `TAB === "recomp"` comparison.
+
+## Shape guard (false positive fix)
+
+The load handler checks the returned columns against the shape the active view
+expects, so a question wired to the wrong tab surfaces as a banner instead of a
+silently empty dashboard.
+
+Two bugs as more tabs were added:
+
+1. **`SUB` persists across tabs.** It only means anything on Recomp, but the
+   guard consulted it everywhere — so leaving Recomp on "Avg EV Age" and
+   switching to Review made the guard expect the EV-age shape and flag
+   perfectly good data. `SUB` is now only read when `TAB === "recomp"`.
+
+2. **Three tabs share the grader shape.** Recomp, Card Type and Review all
+   legitimately return `grader` columns, so the old `recomp-total` label was
+   misleading. The shape is now called `grader`, and it's only wrong on Cards
+   or on Recomp's age view.
+
+The env var named in the warning is resolved per tab *and* pill, so it points at
+the actual variable to check (e.g. `METABASE_REVIEW_PREGRADED_CARD_ID`) rather
+than always naming the recomp one.
+
+## Hot/Cold Zone (Recomp pill)
+
+Third pill on Recomp, backed by question 34849:
+
+```
+'recomp:zone': { env: 'METABASE_HOT_COLD_ZONE_CARD_ID', fallback: '34849' },
+```
+
+Layout: a single **Total cards** KPI, then a per-sport grid of top-3 players.
+Selecting a sport scopes the KPI to that sport and reveals a top-5 leaderboard
+below, headed by that sport's logo.
+
+Rows are rank / thumbnail / name / count with **no progress bars** — the counts
+carry the comparison and the row reads cleaner without them. The colour cue
+comes from the initials circle, tinted in the sport's accent.
+
+### Aggregation is client-side
+
+`normalizeZone()` flattens the response and `zTop(sport, n)` ranks in the
+browser, so the sport filter re-ranks in place with no refetch. That is why the
+sport `<select>` short-circuits to `renderZone()` instead of calling `load()`.
+
+### Column tolerance
+
+The player field is read from any of `player_name`, `player`, `character`,
+`name`; the count from `cards`, `total_cards`, `card_count`, `count`. The sport
+value is lowercased and `onepiece` / `one piece` normalise to `one_piece`.
+If 34849 uses none of these, the rail renders empty rather than erroring — add
+the alias to `normalizeZone`.
+
+### Logos
+
+`public/logos/*.png` — supplied by the user, black plate knocked out to
+transparent, trimmed and normalised to 72px tall so they sit on the panel
+without a box.
+
+Pokemon and One Piece are **wordmarks** (the logo already contains the name), so
+they carry `wordmark:true` and the text label is suppressed to avoid printing
+the name twice. NBA/MLB/NFL are pictorial marks and keep their text label.
+
+⚠ These are third-party trademarks. Fine for an internal ops screen; do not
+reuse this build for anything customer-facing or public without checking.
+
+### Player thumbnails
+
+`zThumb()` renders `<img class="zthumb">` when a row carries an image URL
+(`image_url`, `image`, `card_image_url`, `front_image_url`) and **initials**
+otherwise, tinted in the sport's accent colour.
+
+`initials()` drops middle initials and name suffixes, so Monkey D. Luffy is
+`ML` not `MD`, Ronald Acuna Jr. is `RA` not `RJ`, and single-name characters
+like Charizard become `CH`.
+
+The `<img>` carries an `onerror` that swaps back to the initials markup, so a
+dead URL degrades quietly instead of showing a broken-image glyph on a wall
+display nobody is watching.
+
+**Nothing populates the image field yet.** The intended source is Arena Club's
+own card scans — no hotlink blocking, no licensed press or marketplace imagery
+on a company screen, and the actual slab is more informative than a headshot.
+Adding one image column to 34849 turns the circles on with no further code. If
+`admin.cards` stores a path or S3 key rather than a full URL, prefix logic goes
+in `normalizeZone`.
+
+## Player images via /api/playerimage
+
+Rows without an image URL are resolved server-side (no CORS, shared cache).
+
+### Source routing
+
+One source doesn't cover everything — **"Nami" on Wikipedia is a river in
+Korea**, not the navigator, and Wikipedia headshots of athletes are usually
+crowd photos rather than portraits.
+
+| sport | sources, in order |
+|---|---|
+| basketball / baseball / football | **ESPN**, then Wikipedia |
+| one_piece | onepiece.fandom.com |
+| pokemon | bulbapedia, then pokemon.fandom.com |
+
+**ESPN** gives real transparent-PNG headshots of the right athlete:
+
+```
+https://a.espncdn.com/i/headshots/{league}/players/full/{id}.png
+```
+
+League slugs `nba` / `mlb` / `nfl`. Athlete ids come from the keyless search
+endpoint `site.web.api.espn.com/apis/search/v2?query=...&sport=...`, and the
+CDN URL is HEAD-checked before being returned, because missing ids 404 and a
+broken `<img>` should never reach a tile.
+
+To pin an athlete, read the id off their ESPN profile URL
+(`espn.com/nba/player/_/id/110/kobe-bryant` -> `110`) and add it to
+**`ESPN_IDS`**. Do *not* add athletes to `OVERRIDES` — that map is consulted
+before the ESPN branch and would block the real headshot.
+
+Retired players often have no headshot on file (Michael Jordan, Mickey Mantle),
+which is exactly why Wikipedia stays in the chain behind ESPN.
+
+⚠ ESPN retired its public API in 2014; these endpoints are undocumented and can
+change without notice. Every failure falls through to Wikipedia and then to
+initials, so breakage degrades rather than breaks.
+
+### Resolution order
+
+1. **`OVERRIDES`** — hand-pinned exact page titles for names known to
+   misresolve. Add an entry whenever a tile shows the wrong picture; it is the
+   cheapest fix and short-circuits everything below. `null` skips the lookup
+   entirely (e.g. `'ian f'`, which isn't a real person).
+2. **Exact title** — `titles=<name>`. Reliable when the name is the page title,
+   which it usually is.
+3. **Search** — `generator=search` plus a sport hint. Fuzzy last resort.
+
+Each step tries `pageimages` first, then falls back to `prop=images` +
+`imageinfo`, since PageImages isn't guaranteed on every wiki. The image picker
+skips logos, icons, placeholders and nav graphics.
+
+### Image proxy (mode=img)
+
+Tiles point at `api/playerimage?mode=img&name=...&sport=...`, which resolves the
+name then **streams the picture through this origin**. This is the piece that
+makes it work in production: ESPN and the wikis can refuse hotlinks by
+`Referer`, and a browser loading `a.espncdn.com` directly from your page may get
+nothing. A server-side fetch has no such problem, and the browser then loads
+from the dashboard's own domain.
+
+It also removes the JSON round-trip — the `<img>` src *is* the endpoint, so
+there's no fetch/parse/re-render cycle and no CORS surface at all.
+
+A resolution failure returns **404** so the `<img>`'s `onerror` fires and the
+tile falls back to initials. Responses carry
+`Cache-Control: public, max-age=86400, s-maxage=604800`, so Vercel's edge cache
+absorbs the repeat traffic from a 60s auto-refresh.
+
+`?mode=img` omitted returns JSON metadata instead (`image`, `title`,
+`attribution`) — useful with `&debug=1` for checking what a name resolves to.
+
+### Caching
+
+Server: module-scope `Map`, 24h TTL, bounded at 500; misses cached too so a
+name with no article isn't retried every refresh. Client: `imgCache` per
+session — switching sports or a 60s auto-refresh never re-requests a resolved
+name.
+
+`?debug=1` bypasses the server cache when testing an override.
+
+### Failure
+
+A miss, an error, or a dead URL all fall through to the initials circle. The
+route never returns non-200 for a lookup failure. Kill switch:
+`ZONE_LOOKUP_IMAGES = false` in `index.html`.
+
+### Not used, deliberately
+
+**Yahoo Sports** — Getty/AP licensed press photos, no public API,
+hotlink-blocked; breaks in production. **TCGplayer** — has an API but image
+rights are affiliate-only; if Arena Club holds a partner key, prefer it for
+pokemon and one_piece.
+
+⚠ Wiki images carry per-file licences (mostly CC-BY-SA, some fair-use). Fine
+internally. The route returns an `attribution` field — surface it if this ever
+faces customers.
+
+**Still the best source:** Arena Club's own card scans. No licensing question,
+no disambiguation guesswork, and the real slab beats a headshot on a grading
+dashboard.
+
+## Bundled Pokemon portraits
+
+`public/portraits/*.png` — official artwork from the PokeAPI sprite set,
+trimmed, squared (so the circular crop doesn't lop off a wing or tail) and
+resized to 160px.
+
+`LOCAL_PORTRAIT` in `index.html` maps a name to a bundled file and **wins over
+the proxy lookup**. Pokemon tiles therefore render with zero third-party
+dependency — no ESPN, no wiki, no network beyond your own origin.
+
+Adding more is a two-step: drop the PNG in `public/portraits/` and add the
+lowercased name to `LOCAL_PORTRAIT`. This is also the pattern to use once Arena
+Club's own card scans are available — point the map at scan URLs and the
+external lookups become a fallback rather than the primary path.
+
+Source (Pokemon national dex id, e.g. Charizard = 6):
+`raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{id}.png`

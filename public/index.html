@@ -140,6 +140,41 @@
     padding:9px 11px;font-family:var(--mono);font-size:14.5px;
     min-width:152px;
   }
+  .zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:12px}
+  .zcard{background:var(--panel2);border-radius:8px;padding:12px 14px}
+  .zhead{
+    display:flex;align-items:center;gap:10px;
+    padding-bottom:10px;border-bottom:1px solid var(--line);
+  }
+  .zhead img{height:30px;width:auto;max-width:52px;object-fit:contain;flex:0 0 auto}
+  .zhead img.wm{max-width:120px}
+  .zhead .zname:empty{flex:1}
+  .zhead .zname{flex:1;color:var(--tx);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
+  .zhead .zcount{color:var(--tx);font-size:13px;font-variant-numeric:tabular-nums}
+  .zrow{display:flex;align-items:center;gap:9px;margin-top:10px}
+  .zrank{color:var(--tx);opacity:.5;font-size:11px;width:10px;flex:0 0 auto}
+  .zthumb{
+    width:30px;height:30px;border-radius:50%;flex:0 0 auto;
+    background:var(--panel);border:1px solid var(--line2);
+    object-fit:cover;display:block;
+  }
+  .zini{
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;letter-spacing:.02em;
+  }
+  .zbig .zini{font-size:14px}
+  .zexph{display:flex;align-items:center;gap:11px}
+  .zexph img{height:30px;width:auto;max-width:118px;object-fit:contain;flex:0 0 auto}
+  .zplayer{
+    flex:1;min-width:0;color:var(--tx);font-size:12.5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .zval{color:var(--tx);font-size:12px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .zbig .zthumb{width:40px;height:40px}
+  .zbig .zplayer{font-size:15px}
+  .zbig .zval{font-size:15px}
+  .zbig .zrow{padding:8px 0;margin-top:0;border-top:1px solid var(--line)}
+  .zbig .zrow:first-child{border-top:0}
   input[list]{min-width:220px}
   .fldnote{
     display:block;margin-top:5px;font-family:var(--mono);font-size:11.5px;
@@ -583,6 +618,7 @@
   <div class="subtabs" id="recomp-subtabs">
     <button class="subtab" id="sub-total" aria-selected="true">Total Recomps</button>
     <button class="subtab" id="sub-age"   aria-selected="false">Avg EV Age</button>
+    <button class="subtab" id="sub-zone"  aria-selected="false">Hot/Cold Zone</button>
   </div>
 
   <div class="subtabs" id="cardtype-subtabs" hidden>
@@ -644,7 +680,25 @@
   </div>
 
   <!-- ===== Avg EV Age (pack categories) ===== -->
-  <div id="rpanel-age" hidden>
+  <div id="rpanel-zone" hidden>
+  <div class="kpis" id="zkpis"></div>
+
+  <section class="panel">
+    <h2>Top players <span class="hint" id="zhint">top 3 by cards, per sport</span></h2>
+    <div id="zsports" class="zgrid"></div>
+  </section>
+
+  <section class="panel" id="zexpanded-wrap" hidden>
+    <h2 class="zexph">
+      <img id="zexplogo" alt="" hidden>
+      <span>Leaderboard</span>
+      <span class="hint" id="zexphint"></span>
+    </h2>
+    <div id="zexpanded"></div>
+  </section>
+</div>
+
+<div id="rpanel-age" hidden>
   <section>
     <div class="shead">
       <h2 id="rcharttitle">Cards sold by pack category</h2>
@@ -951,6 +1005,221 @@
     "Rodjie Escuro","Romelynn Faith Anches","Ron Earlnick Opelanio","Russell Cabang",
     "Sheila Marie Doldig","Steven John Ignacio","Tyrone Jerome Moraleda",
     "Vince Alfred Fernandez"];
+
+  // Shared KPI card markup. renderGraderKpis predates this and builds its own
+  // identical string; left alone rather than refactored mid-feature.
+  function kpiHTML(cards){
+    return cards.map(function(c){
+      var st = c.small ? ' style="font-size:30px;letter-spacing:-.6px"' : '';
+      return '<div class="kpi '+(c.c||"")+'"><div class="k">'+esc(c.k)+'</div>'+
+             '<div class="v"'+st+'>'+c.v+'</div><div class="n">'+esc(c.n)+'</div></div>';
+    }).join("");
+  }
+
+  // ---- Hot/Cold Zone ----
+  // Sports the zone view breaks out. `key` matches admin.cards.sport values;
+  // logo files live in /logos and are knocked out of their black plate so they
+  // sit on the panel rather than carrying a box.
+  var ZSPORTS = [
+    {key:"basketball", label:"Basketball", logo:"logos/basketball.png", accent:"#EF9F27"},
+    {key:"baseball",   label:"Baseball",   logo:"logos/baseball.png",   accent:"#378ADD"},
+    {key:"football",   label:"Football",   logo:"logos/football.png",   accent:"#97C459"},
+    {key:"pokemon",    label:"Pokemon",    logo:"logos/pokemon.png",    accent:"#F0997B", wordmark:true},
+    {key:"one_piece",  label:"One Piece",  logo:"logos/one_piece.png",  accent:"#ED93B1", wordmark:true}
+  ];
+  var zrows = [];
+
+  function normalizeZone(raw){
+    return (raw||[]).map(function(r){
+      var num = function(names){
+        var v = pick(r, names);
+        if(v===null || v===undefined || v==="") return 0;
+        var n = Number(String(v).replace(/[, ]/g,""));
+        return isFinite(n) ? n : 0;
+      };
+      var sport = String(pick(r,["sport","Sport","category","Category"]) || "").toLowerCase().trim();
+      // Tolerate "one piece" / "onepiece" as well as the canonical one_piece.
+      if(sport.replace(/[ _-]/g,"") === "onepiece") sport = "one_piece";
+      return {
+        sport:  sport,
+        player: String(pick(r,["player_name","player","Player","Player Name",
+                               "character","Character","name","Name"]) || "\u2014"),
+        cards:  num(["cards","Cards","total_cards","total cards","Total Cards",
+                     "card_count","count","Count","tasks","total"]),
+        image:  pick(r,["image_url","image","img","card_image","card_image_url",
+                        "front_image_url","Image URL"]) || ""
+      };
+    }).filter(function(r){ return r.player && r.player !== "\u2014"; });
+  }
+
+  // Ranked players for one sport, aggregated client-side so the sport filter
+  // re-ranks without a refetch.
+  function zTop(sportKey, n){
+    var byPlayer = {};
+    zrows.forEach(function(r){
+      if(sportKey && r.sport !== sportKey) return;
+      if(!byPlayer[r.player]) byPlayer[r.player] = {player:r.player, cards:0, image:r.image};
+      byPlayer[r.player].cards += r.cards;
+      if(!byPlayer[r.player].image && r.image) byPlayer[r.player].image = r.image;
+    });
+    return Object.keys(byPlayer).map(function(k){ return byPlayer[k]; })
+      .sort(function(a,b){ return b.cards - a.cards; })
+      .slice(0, n);
+  }
+
+  // Initials from the display name. "Monkey D. Luffy" -> ML, "Charizard" -> CH,
+  // "Ronald Acuna Jr." -> RA (suffixes dropped so they don't become the initial).
+  var NAME_SUFFIX = {"jr":1,"jr.":1,"sr":1,"sr.":1,"ii":1,"iii":1,"iv":1};
+  function initials(name){
+    var parts = String(name||"").trim().split(/\s+/).filter(function(w){
+      return w.length && !NAME_SUFFIX[w.toLowerCase()] && !/^[a-z]\.?$/i.test(w);
+    });
+    if(!parts.length) return "?";
+    if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+  }
+
+  // Renders the real scan when a row carries an image URL, initials otherwise.
+  // onerror swaps back to initials so a dead URL degrades quietly instead of
+  // showing a broken-image glyph on a wall display.
+  function zThumb(p, accent){
+    var ini = esc(initials(p.player));
+    var fb  = '<span class="zthumb zini" style="color:'+accent+'">'+ini+'</span>';
+    if(!p.image) return fb;
+    return '<img class="zthumb" src="'+esc(p.image)+'" alt="" loading="lazy" '
+         + 'onerror="this.outerHTML=this.getAttribute(\'data-fb\')" '
+         + 'data-fb="'+esc(fb)+'">';
+  }
+
+  function zRow(p, i, max, accent, big){
+    return '<div class="zrow">'
+      + '<span class="zrank">'+(i+1)+'</span>'
+      + zThumb(p, accent)
+      + '<span class="zplayer">'+esc(p.player)+'</span>'
+      + '<span class="zval">'+fmt(p.cards)+'</span>'
+      + '</div>';
+  }
+
+  function refreshZoneSportFilter(){
+    var el = $("sport"); if(!el) return;
+    var cur = el.value;
+    var present = {};
+    zrows.forEach(function(r){ present[r.sport] = 1; });
+    el.innerHTML = '<option value="">All</option>' + ZSPORTS.map(function(s){
+      return '<option value="'+s.key+'">'+esc(s.label)+(present[s.key]?"":" \u00b7 none")+'</option>';
+    }).join("");
+    el.value = cur;
+  }
+
+  // ---- player image resolution ----
+  // Rows that arrive without an image URL get one looked up via
+  // /api/playerimage (Wikipedia, server-side cached). Results are held in a
+  // session map so switching sports or auto-refreshing never re-requests a
+  // name already resolved. Set ZONE_LOOKUP_IMAGES = false to disable and rely
+  // on initials only.
+  var ZONE_LOOKUP_IMAGES = true;
+  var imgCache = {};   // name -> url or null (null = looked up, nothing found)
+  var imgPending = {};
+
+  // Locally-hosted portraits. Pokemon artwork ships with the app (official
+  // artwork from the PokeAPI sprite set, CC0-ish and freely redistributable),
+  // so those tiles never depend on a third party being reachable. Anything
+  // here wins over the proxy lookup.
+  var LOCAL_PORTRAIT = {
+    "charizard":"portraits/charizard.png",
+    "pikachu":  "portraits/pikachu.png",
+    "umbreon":  "portraits/umbreon.png",
+    "mew":      "portraits/mew.png",
+    "rayquaza": "portraits/rayquaza.png",
+    "eevee":    "portraits/eevee.png"
+  };
+
+  function proxySrc(name, sport){
+    var local = LOCAL_PORTRAIT[String(name||"").toLowerCase().trim()];
+    if(local) return local;
+    return "api/playerimage?mode=img&name=" + encodeURIComponent(name) +
+           "&sport=" + encodeURIComponent(sport || "");
+  }
+
+  function resolveImages(players, sport){
+    if(!ZONE_LOOKUP_IMAGES) return;
+    players.forEach(function(p){
+      if(p.image) return;
+      var key = p.player;
+      if(key in imgCache || imgPending[key]) return;
+      imgPending[key] = 1;
+      fetch("api/playerimage?name=" + encodeURIComponent(key) +
+            "&sport=" + encodeURIComponent(sport || ""))
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          imgCache[key] = (d && d.image) || null;
+          delete imgPending[key];
+          // Only repaint when something was actually found, so a run of misses
+          // doesn't cause a burst of pointless re-renders.
+          if(imgCache[key]) renderZone();
+        })
+        .catch(function(){ imgCache[key] = null; delete imgPending[key]; });
+    });
+  }
+
+  function withCachedImage(p){
+    if(p.image) return p;
+    var hit = imgCache[p.player];
+    return hit ? {player:p.player, cards:p.cards, image:hit} : p;
+  }
+
+  function renderZone(){
+    var sel = ($("sport") && $("sport").value) || "";
+    // Total follows the filter: picking a sport scopes the headline number to
+    // it, so the KPI and the leaderboard below always describe the same set.
+    var total = zrows.reduce(function(a,r){
+      return a + ((!sel || r.sport===sel) ? r.cards : 0);
+    }, 0);
+
+    $("zkpis").innerHTML = kpiHTML([
+      {c:"", k:"Total cards", v:fmt(total),
+       n:sel ? (ZSPORTS.filter(function(s){return s.key===sel;})[0]||{}).label : "all sports"}
+    ]);
+
+    $("zsports").innerHTML = ZSPORTS.map(function(s){
+      var top = zTop(s.key, 3).map(function(p){
+        return p.image ? p : {player:p.player, cards:p.cards, image:proxySrc(p.player, s.key)};
+      });
+      var sportTotal = zrows.reduce(function(a,r){ return a + (r.sport===s.key ? r.cards : 0); }, 0);
+      var max = top.length ? top[0].cards : 0;
+      return '<div class="zcard">'
+        + '<div class="zhead">'
+        +   '<img src="'+s.logo+'" alt="'+esc(s.label)+'">'
+        +   '<span class="zname">'+esc(s.label)+'</span>'
+        +   '<span class="zcount">'+fmt(sportTotal)+'</span>'
+        + '</div>'
+        + (top.length
+            ? top.map(function(p,i){ return zRow(p,i,max,s.accent,false); }).join("")
+            : '<div class="zrow"><span class="zplayer" style="opacity:.5">no cards in window</span></div>')
+        + '</div>';
+    }).join("");
+
+    // Filtering to one sport swaps the top-3 grid for a top-5 leaderboard.
+    var wrap = $("zexpanded-wrap");
+    if(sel){
+      var s = ZSPORTS.filter(function(x){ return x.key===sel; })[0] || {accent:GRADER_COLOR, label:sel};
+      var top5 = zTop(sel, 5).map(function(p){
+        return p.image ? p : {player:p.player, cards:p.cards, image:proxySrc(p.player, sel)};
+      });
+      var max5 = top5.length ? top5[0].cards : 0;
+      wrap.hidden = false;
+      var lg = $("zexplogo");
+      if(s.logo){ lg.src = s.logo; lg.alt = s.label; lg.hidden = false; }
+      else { lg.hidden = true; }
+      $("zexphint").textContent = "top 5 \u00b7 " + s.label;
+      $("zexpanded").className = "zbig";
+      $("zexpanded").innerHTML = top5.length
+        ? top5.map(function(p,i){ return zRow(p,i,max5,s.accent,true); }).join("")
+        : '<div class="zrow"><span class="zplayer" style="opacity:.5">no cards in window</span></div>';
+    } else {
+      wrap.hidden = true;
+    }
+  }
 
   function rosterFor(){
     return TAB === "recomp" ? RECOMP_ROSTER : CARDTYPE_ROSTER;
@@ -1855,6 +2124,19 @@
       renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
       return;
     }
+    if(SUB==="zone"){
+      $("rkpis").hidden = true;
+      $("rpanel-total").hidden = true;
+      $("rpanel-age").hidden   = true;
+      $("rpanel-zone").hidden  = false;
+      $("rviewtoggle").hidden  = true;
+      $("rmetrictoggle").hidden = true;
+      $("rgrouptoggle").hidden  = true;
+      renderZone();
+      return;
+    }
+    $("rpanel-zone").hidden = true;
+    $("rkpis").hidden = false;
     var isAge = (SUB==="age");
     $("rpanel-total").hidden = isAge;
     $("rpanel-age").hidden   = !isAge;
@@ -1949,18 +2231,35 @@
         if(arr.length){
           var cols = Object.keys(arr[0]).map(function(c){ return c.toLowerCase(); });
           var has = function(c){ return cols.indexOf(c)>=0; };
-          var looks = has("grader") ? "recomp-total"
+          var looks = has("grader") ? "grader"
                     : (has("pack category")||has("pack_category")) ? "recomp-age"
                     : (has("source")&&has("card_type")) ? "cards" : "unknown";
+
+          // Recomp, Card Type and Review all legitimately return the grader
+          // shape, so "grader" is only wrong on Cards or on Recomp's age view.
+          // SUB persists across tabs, so it must only be consulted on Recomp --
+          // otherwise leaving Recomp on "Avg EV Age" made every grader-shaped
+          // tab look misrouted.
           var want = TAB==="cards" ? "cards"
-                   : (SUB==="age" ? "recomp-age" : "recomp-total");
-          var ENVOF = {"cards":"METABASE_CARD_ID",
-                       "recomp-total":"METABASE_RECOMP_CARD_ID",
-                       "recomp-age":"METABASE_EV_AGE_CARD_ID"};
+                   : (TAB==="recomp" && SUB==="age") ? "recomp-age"
+                   : "grader";
+
+          var ENVOF = {
+            "cards":      "METABASE_CARD_ID",
+            "recomp-age": "METABASE_EV_AGE_CARD_ID",
+            "grader":     (TAB==="cardtype"
+                            ? (CTSUB==="verify" ? "METABASE_CARDTYPE_VERIFY_CARD_ID"
+                                                : "METABASE_CARDTYPE_DATA_CARD_ID")
+                          : TAB==="review"
+                            ? (RVSUB==="raw" ? "METABASE_REVIEW_RAW_CARD_ID"
+                                             : "METABASE_REVIEW_PREGRADED_CARD_ID")
+                          : "METABASE_RECOMP_CARD_ID")
+          };
+
           if(looks!=="unknown" && looks!==want){
-            shapeWarn = "<b>This tab is pointed at the wrong question.</b>" +
-              "It returned columns matching the <code>"+looks+"</code> query. " +
-              "Swap <code>"+ENVOF[want]+"</code> and <code>"+ENVOF[looks]+"</code> " +
+            shapeWarn = "<b>This tab is pointed at the wrong question.</b> " +
+              "It returned <code>"+looks+"</code> columns but this view expects <code>"+want+"</code>. " +
+              "Check <code>"+(ENVOF[want]||"the question ID")+"</code> " +
               "on the deployment, or run <code>/api/verify</code> for a full check.";
           }
         }
@@ -1976,7 +2275,15 @@
           $("panel-recomp").hidden = false;
           renderRecomp();
         } else if(TAB==="recomp"){
-          if(SUB==="age"){
+          if(SUB==="zone"){
+            zrows = normalizeZone(arr);
+            refreshZoneSportFilter();
+            empty = !zrows.length;
+            $("panel-body").hidden = true;
+            $("groups").hidden = true;
+            $("panel-recomp").hidden = false;
+            renderZone();
+          } else if(SUB==="age"){
             rrows = normalizeRecomp(arr);
             refreshRecompFilters();
             empty = !rrows.length;
@@ -2130,11 +2437,14 @@
       el.hidden = !((isRecomp && SUB==="total") || TAB==="cardtype" || TAB==="review");
     });
     document.querySelectorAll("[data-recomp-age]").forEach(function(el){
-      el.hidden = !(isRecomp && SUB==="age");
+      // The sport select serves both the age view and the zone view.
+      el.hidden = !(isRecomp && (SUB==="age" || SUB==="zone"));
     });
   }
   function setSub(name){
     SUB = name;
+    $("sub-zone").setAttribute("aria-selected", name==="zone");
+    $("rpanel-zone").hidden = (name!=="zone");
     $("sub-total").setAttribute("aria-selected", name==="total");
     $("sub-age").setAttribute("aria-selected", name==="age");
     syncFilterVisibility();
@@ -2143,6 +2453,7 @@
   }
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
+  $("sub-zone").onclick  = function(){ setSub("zone"); };
 
   function setCtSub(name){
     CTSUB = name;
@@ -2236,7 +2547,14 @@
   $("grader").onkeydown = function(e){
     if(e.key === "Escape"){ this.value = ""; renderGrader(); }
   };
-  ["sport","pack_category"].forEach(function(id){ $(id).onchange = load; });
+  ["sport","pack_category"].forEach(function(id){
+    $(id).onchange = function(){
+      // Zone aggregates client-side, so the sport filter re-ranks in place
+      // instead of round-tripping to Metabase.
+      if(TAB==="recomp" && SUB==="zone"){ renderZone(); return; }
+      load();
+    };
+  });
 
   $("tab-cards").onclick  = function(){ setTab("cards"); };
   $("tab-recomp").onclick = function(){ setTab("recomp"); };
