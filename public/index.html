@@ -195,6 +195,17 @@
     line-height:1.5;outline:none;white-space:pre-wrap;overflow-wrap:anywhere;
   }
   .dtext.ph{opacity:.35}
+  .dcheck{
+    width:22px;height:22px;flex:0 0 auto;margin-top:1px;cursor:pointer;
+    background:transparent;border:1.5px solid var(--line2);border-radius:50%;
+    color:transparent;font-size:12px;line-height:1;padding:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .dcheck:hover{border-color:var(--neon);color:rgba(57,255,20,.45)}
+  .dline.done .dcheck{background:var(--neon);border-color:var(--neon);color:#06240A}
+  /* A finished line stays visible but stops competing for attention. */
+  .dline.done{opacity:.5}
+  .dline.done .dtext{text-decoration:line-through}
   .dkill{
     background:transparent;border:0;color:var(--tx);opacity:.4;cursor:pointer;
     font-size:14px;line-height:1;padding:3px 4px;flex:0 0 auto;
@@ -1934,6 +1945,27 @@
   }
   function todayISO(){ return isoDay(new Date()); }
 
+  // The board is always keyed by the PACIFIC shift date — that is the canonical
+  // identity of a shift, and it must not move when the timezone toggle flips,
+  // or notes would appear to jump days. Only the LABEL shifts.
+  //
+  // The shift starts 14:00 PT. In Manila that is 14 + 15 = 29h, i.e. 5 AM the
+  // next calendar day, so the label reads one day later. Computed from TZOFF
+  // rather than hardcoded, since the gap is +16h under PST.
+  function dailyDayShift(){
+    if(TZ !== "manila") return 0;
+    return Math.floor((14 + TZOFF) / 24);
+  }
+  function shiftISO(iso, days){
+    var d = parseDay(iso);
+    d.setDate(d.getDate() + days);
+    return isoDay(d);
+  }
+  // canonical key -> what the user sees
+  function displayISO(iso){ return shiftISO(iso, dailyDayShift()); }
+  // what the user sees -> canonical key
+  function keyISO(iso){ return shiftISO(iso, -dailyDayShift()); }
+
   function blankBoard(){
     var b = {};
     DAILY_COLS.forEach(function(c){ b[c.key] = [newLine(), newLine(), newLine()]; });
@@ -1953,7 +1985,7 @@
     if(!b) return 0;
     var n = 0;
     DAILY_COLS.forEach(function(c){
-      (b[c.key]||[]).forEach(function(l){ if(l.text.trim()) n++; });
+      (b[c.key]||[]).forEach(function(l){ if(l.text.trim() && !l.done) n++; });
     });
     return n;
   }
@@ -1998,17 +2030,19 @@
       var d = new Date(mon); d.setDate(mon.getDate() + i);
       var iso = isoDay(d);
       var n = boardCount(iso);
+      var shown = parseDay(displayISO(iso));      // label only
+      var WDs = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       out += '<button class="dday'
         + (iso===dailyDate ? " on" : "")
         + (iso===today ? " today" : "")
         + '" data-day="'+iso+'">'
-        + '<span class="dw">'+WD[i]+'</span>'
-        + '<span class="dd">'+d.getDate()+'</span>'
+        + '<span class="dw">'+WDs[shown.getDay()]+'</span>'
+        + '<span class="dd">'+shown.getDate()+'</span>'
         + '<span class="dn">'+(n ? n+" line"+(n===1?"":"s") : "")+'</span>'
         + '</button>';
     }
     $("ddays").innerHTML = out;
-    $("ddate").value = dailyDate;
+    $("ddate").value = displayISO(dailyDate);
   }
 
   function setDailyDate(iso){
@@ -2028,11 +2062,11 @@
     if(!$("dgrid")) return;
     var filled = 0;
     DAILY_COLS.forEach(function(c){
-      filled += (dailyData()[c.key]||[]).filter(function(l){ return l.text.trim(); }).length;
+      filled += (dailyData()[c.key]||[]).filter(function(l){ return l.text.trim() && !l.done; }).length;
     });
-    var d = parseDay(dailyDate);
+    var d = parseDay(displayISO(dailyDate));
     var label = d.toLocaleDateString("en-US",
-      {weekday:"long", month:"short", day:"numeric"});
+      {weekday:"long", month:"short", day:"numeric"}) + " " + tzTag();
     if(dailyDate === todayISO()) label += " \u00b7 today";
     $("dhint").textContent = label + " \u00b7 "
       + (filled ? filled + (filled===1?" line":" lines") : "empty")
@@ -2040,7 +2074,7 @@
 
     $("dgrid").innerHTML = DAILY_COLS.map(function(c){
       var lines = dailyData()[c.key] || [];
-      var n = lines.filter(function(l){ return l.text.trim(); }).length;
+      var n = lines.filter(function(l){ return l.text.trim() && !l.done; }).length;
       return '<div class="dcol" data-col="'+c.key+'" style="--dcol:'+c.accent+'">'
         + '<div class="dhead"><span class="dtitle">'+esc(c.label)+'</span>'
         +   '<span class="dcount">'+n+'</span></div>'
@@ -2049,9 +2083,12 @@
             // shows initials pips, so the board reads without opening anything.
             var who  = l.who || [];
             var edge = who.length ? personColor(who[0]) : "";
-            return '<div class="dline" draggable="true" data-line="'+l.id+'" '
+            return '<div class="dline'+(l.done?' done':'')+'" draggable="true" data-line="'+l.id+'" '
               +      'data-open="'+l.id+'" title="Click to edit"'
               +      (edge ? ' style="border-left:3px solid '+edge+'"' : '') + '>'
+              + '<button class="dcheck" data-done="'+l.id+'" '
+              +   'title="'+(l.done?'Reopen':'Mark done')+'" '
+              +   'aria-pressed="'+(l.done?'true':'false')+'">\u2713</button>'
               + '<span class="dgrip">\u2261</span>'
               + '<span class="dbody">'
               +   '<span class="dtext'+(l.text?'':' ph')+'">'
@@ -2096,6 +2133,7 @@
     $("dm-text").value = f.line.text;
     dmPick = {};
     (f.line.who || []).forEach(function(n){ dmPick[n] = true; });
+    $("dm-done").textContent = f.line.done ? "Reopen" : "Mark done";
     renderDmWho();
     $("dmodal").hidden = false;
     setTimeout(function(){ $("dm-text").focus(); $("dm-text").select(); }, 30);
@@ -2119,6 +2157,14 @@
     $("dm-cancel").onclick = closeLine;
     $("dm-close").onclick  = closeLine;
     $("dm-clear").onclick  = function(){ $("dm-text").value = ""; $("dm-text").focus(); };
+    $("dm-done").onclick   = function(){
+      var f = dmFor && findLine(dmFor);
+      if(!f) return;
+      f.line.text = $("dm-text").value.trim();
+      f.line.who  = Object.keys(dmPick).filter(function(k){ return dmPick[k]; });
+      f.line.done = !f.line.done;
+      saveDaily(); closeLine(); renderDaily(); renderWeek(); renderAssignPanel();
+    };
     $("dm-who").addEventListener("click", function(e){
       var c = e.target.closest(".dmchip");
       if(!c) return;
@@ -2149,7 +2195,7 @@
     $("dprev").onclick  = function(){ shiftWeek(-1); };
     $("dnext").onclick  = function(){ shiftWeek(1); };
     $("dtoday").onclick = function(){ setDailyDate(todayISO()); };
-    $("ddate").onchange = function(){ if(this.value) setDailyDate(this.value); };
+    $("ddate").onchange = function(){ if(this.value) setDailyDate(keyISO(this.value)); };
     $("dclearall").onclick = function(){
       var n = 0;
       DAILY_COLS.forEach(function(c){
@@ -2169,6 +2215,13 @@
         openLine(made[made.length-1].id);   // straight into the editor
         return;
       }
+      var chk = e.target.closest(".dcheck");
+      if(chk){
+        e.stopPropagation();                       // don't also open the editor
+        var f = findLine(chk.getAttribute("data-done"));
+        if(f){ f.line.done = !f.line.done; saveDaily(); renderDaily(); renderWeek(); renderAssignPanel(); }
+        return;
+      }
       var del = e.target.closest(".dkill");
       if(del){
         var f = findLine(del.getAttribute("data-del"));
@@ -2179,7 +2232,10 @@
     // Editing happens in a modal, so a click anywhere on the row opens it.
     // The grip and the ✕ are excluded so dragging and deleting still work.
     grid.addEventListener("click", function(e){
-      if(e.target.closest(".dkill") || e.target.closest(".dadd")) return;
+      // The check and the ✕ are separate listeners on the same element, so
+      // stopPropagation there won't reach here — exclude them explicitly.
+      if(e.target.closest(".dkill") || e.target.closest(".dadd") ||
+         e.target.closest(".dcheck")) return;
       var row = e.target.closest(".dline[data-open]");
       if(row) openLine(row.getAttribute("data-open"));
     });
@@ -2242,6 +2298,7 @@
         (board[col.key] || []).forEach(function(line){
           if(!line.who || !line.who.length) return;
           if(!line.text.trim()) return;
+          if(line.done) return;                    // finished work isn't active work
           line.who.forEach(function(n){
             (out[n] = out[n] || []).push({
               kind:"daily", text:line.text, col:col.label,
@@ -3689,6 +3746,9 @@
     document.querySelectorAll(".railhint").forEach(function(el){
       el.textContent = fillTz(TABS[TAB].railHint);
     });
+    // Daily labels are timezone-dependent, so the week strip and header have to
+    // repaint even though the underlying board never moves.
+    if(TAB === "recomp" && SUB === "daily"){ renderWeek(); renderDaily(); return; }
     if(usesGraderPanel()) renderRecomp(); else renderAll();
   };
   paintTz();
@@ -3896,6 +3956,7 @@
       placeholder="Cert range, workflow step, hand-off note…"></textarea>
     <div class="amodal-foot">
       <button id="dm-save" class="amodal-go">Save</button>
+      <button id="dm-done" class="amodal-alt">Mark done</button>
       <button id="dm-clear" class="amodal-alt">Clear</button>
       <button id="dm-cancel" class="amodal-alt">Cancel</button>
     </div>

@@ -972,3 +972,53 @@ genuinely no alternative.
 
 Result: `sd_auto_pack`, `sd_ereader_pack` and `sd_wemby_grail` all sit on one
 line with room to spare.
+
+## Daily and the timezone toggle
+
+Boards are keyed by the **Pacific shift date** — that is the canonical identity
+of a shift. Flipping the toggle changes the **label only**; nothing moves, so
+notes never appear to jump days.
+
+The shift starts 14:00 PT. In Manila that's 14 + 15 = 29h, i.e. 5 AM the *next*
+calendar day, so the Manila label reads one day later:
+
+| Pacific | Manila |
+|---|---|
+| Wednesday, Aug 26 PT | Thursday, Aug 27 PHT |
+
+`dailyDayShift()` computes the offset from `TZOFF` rather than hardcoding +1,
+since the gap is +16h under PST — the arithmetic still lands on +1 day, but it
+would not if the shift start moved earlier.
+
+`displayISO()` / `keyISO()` convert between the two. The week strip's
+`data-day` stays canonical while its label, the date input, and the header all
+render through `displayISO()`, and the date input converts back on change. The
+"today" highlight compares canonical dates, so it stays on the real current
+shift in either timezone.
+
+## Daily — marking a line done
+
+Every line carries a check toggle on its left. Ticking it:
+
+- strikes the text through and drops the row to 50% opacity — the line stays
+  visible for the rest of the shift rather than disappearing
+- removes it from the **column count**, the **day badge** in the week strip, and
+  the **header line count**
+- removes it from **Assignments**, since finished work isn't active work
+
+The modal has a matching **Mark done / Reopen** button, which also saves any
+text and assignee edits in the same click.
+
+Stored as `line.done`, so it survives reloads and travels with the line when
+dragged between columns.
+
+### Two handler traps this hit
+
+The check sits inside `.dline[data-open]`, which opens the editor. Both are
+delegated listeners on the **same element**, so `stopPropagation()` in the check
+handler does not stop the sibling — the open handler has to exclude `.dcheck`
+explicitly, the same way it already excludes `.dkill` and `.dadd`.
+
+Three separate places count lines — `boardCount()` for the week badge, `filled`
+for the header, and the per-column `n`. Only two were updated at first, so the
+column header read 2 while the day badge read 1.
