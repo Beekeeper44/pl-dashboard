@@ -447,6 +447,24 @@ comes from the initials circle, tinted in the sport's accent.
 browser, so the sport filter re-ranks in place with no refetch. That is why the
 sport `<select>` short-circuits to `renderZone()` instead of calling `load()`.
 
+### Sports
+
+`ZSPORTS` holds 15 sports. The five carrying `main:true` (basketball, baseball,
+football, pokemon, one_piece) are the grid on "All". The other ten — soccer,
+hockey, yugioh, dragon_ball, combat, marvel, dc, disney, golf, tennis — are
+selectable from the dropdown and render as a single card plus the top-5
+leaderboard. Showing all fifteen at once buried the ones carrying the volume.
+
+The five main sports have logo files; the rest render an accent tile with a
+short mark (`SOC`, `YGO`, `CMB`…). Drop a PNG in `public/logos/` and add `logo:`
+to that entry to switch any of them over.
+
+`SPORT_ALIAS` + `canonSport()` normalise source values on ingest — `futbol` and
+`Soccer` → `soccer`, `Yu-Gi-Oh` → `yugioh`, `dragonball` → `dragon_ball`,
+`UFC` / `boxing` / `MMA` / `wrestling` → `combat`. Unknown values fall through
+with spaces and hyphens converted to underscores. Add a line to the map if a
+sport shows no data despite rows existing.
+
 ### Column tolerance
 
 The player field is read from any of `player_name`, `player`, `character`,
@@ -609,3 +627,118 @@ external lookups become a fallback rather than the primary path.
 
 Source (Pokemon national dex id, e.g. Charizard = 6):
 `raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{id}.png`
+
+## Hot/Cold Zone — 34849 shape notes
+
+Two things about the live question that the view now handles:
+
+**1. The TOTAL row.** 34849 emits `* TOTAL - 12217 players` alongside the
+individual players. Counting it as a player double-counts every card — that's
+why the KPI read 199,772 instead of 99,886. `isZoneTotalRow()` detects it (leading
+`*`, or `TOTAL - <n>`), holds it aside, and uses its figure for the KPI, which is
+authoritative. The player rows are ranked without it.
+
+**2. There is no `sport` column.** With nothing to group by, the five sport cards
+were all empty. When `zoneHasSport` is false the view falls back to a single
+combined top-12 leaderboard and says so in the hint. Add a sport column and the
+per-sport cards light up automatically — no code change.
+
+To enable the sport breakout, add to 34849:
+
+```sql
+ac.sport                                   -- basketball | baseball | football | pokemon | one_piece
+```
+
+grouped alongside `player`. Values are lowercased and `one piece` / `onepiece`
+normalise to `one_piece`.
+
+**Extra columns are surfaced.** `available`, `in packs` and `recomped cards`
+render as the row subtitle. They are summed through `zTop()` alongside the card
+count, so they stay correct when rows aggregate.
+
+## Rail reconciliation warning
+
+The shift rail compares `SUM(hour columns)` against `SUM(total)` and, when they
+disagree, prints an amber warning next to the extra-time note:
+
+> ⚠ 589 of 3,502 recomps fall outside the 2 PM–3 AM PT window — counted in the
+> total, not in any hour column
+
+This exists because the failure it catches is otherwise invisible. On 2026-08-24
+the dashboard showed TOTAL 3,502 / SHIFT 2,677 / OUTSIDE 236 — the hour columns
+summed to 2,677 exactly and 236 sat in the 11 PM bucket, leaving **589 rows in
+the total that no hour column accounted for**. The rail looked plausible while
+under-representing the day by 17%.
+
+Two things cause it:
+
+1. **The question's total isn't windowed the same way the hour columns are** —
+   `COUNT(*)` over the whole date range while the `SUM(CASE WHEN shift_hour…)`
+   columns only cover 2 PM–3 AM. Rows at, say, 9 AM land in the total and
+   nowhere else.
+2. **The upper bound clips at midnight**, so post-midnight work is missing from
+   both. The symptom is a hard cliff: a busy 11 PM followed by exact zeros at
+   12/1/2 AM.
+
+`08_recomp_aligned_to_cards.sql` handles both — it filters to the window in
+`filtered` *before* computing `total_comps`, so the total and the buckets always
+describe the same set:
+
+```sql
+AND ol.finished_at::timestamp < DATEADD(hour, 3, DATEADD(day, 1, {{end_date}}::timestamp))
+DATEADD(hour, -3, ol.finished_at::timestamp)::date AS shift_date
+```
+
+If the warning appears, the query feeding the tab is not that one.
+
+## Done / snooze on Hot-Cold Zone
+
+Clicking a player row selects it — accent-tinted background plus a coloured left
+bar — and reveals a **DONE** pill. Clicking DONE hides that player for
+**5 days**, and the list re-ranks so the next highest moves up. Clicking the row
+again, or anywhere off it, collapses the selection without action.
+
+Hidden players appear as chips under the grid (`Kobe Bryant 5d`); clicking a
+chip restores them immediately, which matters when someone taps DONE by mistake
+on a wall display.
+
+Selection and re-rank work in both the top-3 cards and the top-5 leaderboard,
+since both render through `zRow()`.
+
+`SNOOZE_DAYS` at the top of the block changes the window. Expired entries are
+dropped on read, so the store self-cleans rather than growing forever.
+
+### ⚠ Storage is per-browser
+
+State lives in `localStorage` under `pl_zone_snooze_v1`. That means:
+
+- Marking DONE on your laptop does **not** clear it on the wall display
+- Clearing site data loses the list
+- There is no audit trail of who marked what, or when
+
+For a shared operational signal — which is what this is — it belongs
+server-side. The app already proxies through `/api/*`, so a small
+`/api/snooze` route (GET list, POST name) backed by any store would make it
+shared, durable, and attributable. `markDone()` / `unsnooze()` / `loadSnooze()`
+are the only three functions that would need to change.
+
+## Filter scoping
+
+Each view shows only its own filters:
+
+| view | filters |
+|---|---|
+| Cards | date range, grain, source/type |
+| Recomp / Total | Grader |
+| Recomp / Avg EV Age | Sport (`#sport`), Pack category |
+| Recomp / Hot-Cold Zone | Sport (`#zsport`) |
+| Card Type, Review | Grader |
+
+**Zone has its own `#zsport` select, deliberately.** It originally shared
+`#sport` with Avg EV Age, but `refreshZoneSportFilter()` rewrites that element's
+options with the 15 configured zone sports — so after visiting Zone, the Avg EV
+Age tab's sport filter listed sports its query knows nothing about. Two views,
+two option sets, two elements.
+
+`#zsport` re-ranks in place via `renderZone()` rather than calling `load()`,
+since Zone aggregates client-side.

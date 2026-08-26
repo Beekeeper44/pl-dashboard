@@ -140,40 +140,81 @@
     padding:9px 11px;font-family:var(--mono);font-size:14.5px;
     min-width:152px;
   }
-  .zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:12px}
-  .zcard{background:var(--panel2);border-radius:8px;padding:12px 14px}
+  .zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:12px}
+  .zcard{background:var(--panel2);border-radius:8px;padding:16px 16px}
   .zhead{
-    display:flex;align-items:center;gap:10px;
-    padding-bottom:10px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+    padding-bottom:12px;border-bottom:1px solid var(--line);
   }
-  .zhead img{height:30px;width:auto;max-width:52px;object-fit:contain;flex:0 0 auto}
-  .zhead img.wm{max-width:120px}
+  .zhead img{height:52px;width:auto;max-width:86px;object-fit:contain;flex:0 0 auto}
+  .zhead img.wm{max-width:180px}
+  .zmark{
+    height:52px;min-width:52px;padding:0 9px;border-radius:7px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.06em;color:#0B1016;
+  }
   .zhead .zname:empty{flex:1}
-  .zhead .zname{flex:1;color:var(--tx);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
-  .zhead .zcount{color:var(--tx);font-size:13px;font-variant-numeric:tabular-nums}
-  .zrow{display:flex;align-items:center;gap:9px;margin-top:10px}
-  .zrank{color:var(--tx);opacity:.5;font-size:11px;width:10px;flex:0 0 auto}
+  .zhead .zname{flex:1;color:var(--tx);font-size:17px;letter-spacing:.07em;text-transform:uppercase}
+  .zhead .zcount{color:var(--tx);font-size:22px;font-variant-numeric:tabular-nums}
+  .zrow{
+    display:flex;align-items:center;gap:11px;margin-top:14px;
+    padding:5px 8px;margin-left:-8px;margin-right:-8px;border-radius:6px;
+    cursor:pointer;border-left:3px solid transparent;
+    transition:background .12s ease;
+  }
+  .zrow:hover{background:rgba(255,255,255,.045)}
+  .zrow.sel{
+    background:color-mix(in srgb, var(--rowaccent) 16%, transparent);
+    border-left-color:var(--rowaccent);
+  }
+  .zdone{
+    background:var(--neon);color:#06240A;border:0;border-radius:999px;
+    padding:5px 11px;font-family:var(--mono);font-size:12px;font-weight:700;
+    letter-spacing:.07em;text-transform:uppercase;cursor:pointer;flex:0 0 auto;
+  }
+  .zdone:hover{filter:brightness(1.08)}
+  .zhidden{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+    margin-top:14px;font-size:12.5px;color:var(--tx);
+  }
+  .zchip{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--panel2);border:1px solid var(--line2);border-radius:999px;
+    padding:5px 12px;font-size:12px;cursor:pointer;
+  }
+  .zchip b{font-weight:400;opacity:.65}
+  .zrank{
+    color:var(--tx);font-size:20px;font-weight:700;
+    width:24px;text-align:center;flex:0 0 auto;
+    font-variant-numeric:tabular-nums;
+  }
+  .zbig .zrank{font-size:26px;width:32px}
   .zthumb{
-    width:30px;height:30px;border-radius:50%;flex:0 0 auto;
+    width:52px;height:52px;border-radius:50%;flex:0 0 auto;
     background:var(--panel);border:1px solid var(--line2);
     object-fit:cover;display:block;
   }
   .zini{
     display:flex;align-items:center;justify-content:center;
-    font-family:var(--mono);font-size:11px;letter-spacing:.02em;
+    font-family:var(--mono);font-size:17px;letter-spacing:.02em;
   }
-  .zbig .zini{font-size:14px}
+  .zbig .zini{font-size:21px}
   .zexph{display:flex;align-items:center;gap:11px}
-  .zexph img{height:30px;width:auto;max-width:118px;object-fit:contain;flex:0 0 auto}
+  .zexph img{height:42px;width:auto;max-width:158px;object-fit:contain;flex:0 0 auto}
+  .zbody{flex:1;min-width:0}
+  .zmeta{display:block;font-size:13px;color:var(--tx);margin-top:3px;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .zplayer{
-    flex:1;min-width:0;color:var(--tx);font-size:12.5px;
+    flex:1;min-width:0;color:var(--tx);font-size:17px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
-  .zval{color:var(--tx);font-size:12px;font-variant-numeric:tabular-nums;flex:0 0 auto}
-  .zbig .zthumb{width:40px;height:40px}
-  .zbig .zplayer{font-size:15px}
-  .zbig .zval{font-size:15px}
-  .zbig .zrow{padding:8px 0;margin-top:0;border-top:1px solid var(--line)}
+  .zval{color:var(--tx);font-size:17px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .zbig .zthumb{width:64px;height:64px}
+  .zbig .zplayer{font-size:20px}
+  .zbody .zplayer{display:block;flex:none}
+  .zbig .zval{font-size:22px}
+  .zbig .zdone{padding:7px 17px;font-size:13px}
+  .zbig .zrow{padding:12px 0;margin-top:0;border-top:1px solid var(--line)}
   .zbig .zrow:first-child{border-top:0}
   input[list]{min-width:220px}
   .fldnote{
@@ -545,6 +586,10 @@
   <div class="fld" data-recomp-age hidden>
     <label for="pack_category">Pack category</label>
     <select id="pack_category"><option value="">All</option></select>
+  </div>
+  <div class="fld" data-recomp-zone hidden>
+    <label for="zsport">Sport</label>
+    <select id="zsport"><option value="">All</option></select>
   </div>
   <div class="fld">
     <label>&nbsp;</label>
@@ -1021,13 +1066,111 @@
   // logo files live in /logos and are knocked out of their black plate so they
   // sit on the panel rather than carrying a box.
   var ZSPORTS = [
-    {key:"basketball", label:"Basketball", logo:"logos/basketball.png", accent:"#EF9F27"},
-    {key:"baseball",   label:"Baseball",   logo:"logos/baseball.png",   accent:"#378ADD"},
-    {key:"football",   label:"Football",   logo:"logos/football.png",   accent:"#97C459"},
-    {key:"pokemon",    label:"Pokemon",    logo:"logos/pokemon.png",    accent:"#F0997B", wordmark:true},
-    {key:"one_piece",  label:"One Piece",  logo:"logos/one_piece.png",  accent:"#ED93B1", wordmark:true}
+    {key:"basketball", main:true,  label:"Basketball",  logo:"logos/basketball.png", accent:"#EF9F27"},
+    {key:"baseball", main:true,    label:"Baseball",    logo:"logos/baseball.png",   accent:"#378ADD"},
+    {key:"football", main:true,    label:"Football",    logo:"logos/football.png",   accent:"#97C459"},
+    {key:"pokemon", main:true,    label:"Pokemon",     logo:"logos/pokemon.png",    accent:"#F0997B", wordmark:true},
+    {key:"one_piece", main:true,  label:"One Piece",   logo:"logos/one_piece.png",  accent:"#ED93B1", wordmark:true},
+    // No logo asset yet -- these render an accent tile with a short mark.
+    // Drop a PNG in /logos and add `logo:` to switch any of them over.
+    {key:"soccer",      label:"Soccer",      abbr:"SOC", accent:"#4ADE80"},
+    {key:"hockey",      label:"Hockey",      abbr:"NHL", accent:"#7DD3FC"},
+    {key:"yugioh",      label:"Yu-Gi-Oh",    abbr:"YGO", accent:"#C084FC"},
+    {key:"dragon_ball", label:"Dragon Ball", abbr:"DB",  accent:"#FB923C"},
+    {key:"combat",      label:"Combat",      abbr:"CMB", accent:"#F87171"},
+    {key:"marvel",      label:"Marvel",      abbr:"MRV", accent:"#EF4444"},
+    {key:"dc",          label:"DC",          abbr:"DC",  accent:"#3B82F6"},
+    {key:"disney",      label:"Disney",      abbr:"DIS", accent:"#A78BFA"},
+    {key:"golf",        label:"Golf",        abbr:"GLF", accent:"#84CC16"},
+    {key:"tennis",      label:"Tennis",      abbr:"TEN", accent:"#FACC15"}
   ];
+
+  // Source values don't always match the canonical key. Normalised on ingest.
+  var SPORT_ALIAS = {
+    "onepiece":"one_piece", "one piece":"one_piece",
+    "yu-gi-oh":"yugioh", "yu gi oh":"yugioh", "yugi_oh":"yugioh", "yu_gi_oh":"yugioh",
+    "dragonball":"dragon_ball", "dragon ball":"dragon_ball", "dragon ball z":"dragon_ball", "dbz":"dragon_ball",
+    "mma":"combat", "ufc":"combat", "boxing":"combat", "wrestling":"combat",
+    "futbol":"soccer", "football (soccer)":"soccer",
+    "ice hockey":"hockey",
+    "dc comics":"dc", "marvel comics":"marvel"
+  };
+  function canonSport(s){
+    var v = String(s||"").toLowerCase().trim();
+    if(SPORT_ALIAS[v]) return SPORT_ALIAS[v];
+    var squished = v.replace(/[ _\-.]/g, "");
+    for(var k in SPORT_ALIAS){
+      if(k.replace(/[ _\-.]/g,"") === squished) return SPORT_ALIAS[k];
+    }
+    return v.replace(/[ \-.]+/g, "_");
+  }
+
   var zrows = [];
+
+  // ---- recomp snooze ----
+  // Marking a player Done hides them for 5 days, so the list surfaces whoever
+  // needs attention next instead of the same names every morning.
+  var SNOOZE_DAYS = 5;
+  var SNOOZE_KEY  = "pl_zone_snooze_v1";
+  var zSnooze = {};        // lowercased name -> expiry epoch ms
+  var zSelected = null;    // name of the row currently expanded for action
+
+  function loadSnooze(){
+    try {
+      var raw = window.localStorage.getItem(SNOOZE_KEY);
+      var obj = raw ? JSON.parse(raw) : {};
+      var now = Date.now(), out = {};
+      // Drop anything already expired on read, so the store self-cleans.
+      for(var k in obj){ if(obj[k] > now) out[k] = obj[k]; }
+      zSnooze = out;
+    } catch(e){ zSnooze = {}; }
+  }
+  function saveSnooze(){
+    try { window.localStorage.setItem(SNOOZE_KEY, JSON.stringify(zSnooze)); } catch(e){}
+  }
+  function isSnoozed(name){
+    var t = zSnooze[String(name||"").toLowerCase()];
+    return !!t && t > Date.now();
+  }
+  function snoozeDaysLeft(name){
+    var t = zSnooze[String(name||"").toLowerCase()];
+    if(!t) return 0;
+    return Math.max(1, Math.ceil((t - Date.now()) / 86400000));
+  }
+  function markDone(name){
+    zSnooze[String(name||"").toLowerCase()] = Date.now() + SNOOZE_DAYS * 86400000;
+    saveSnooze();
+    zSelected = null;
+    renderZone();
+  }
+  function unsnooze(name){
+    delete zSnooze[String(name||"").toLowerCase()];
+    saveSnooze();
+    renderZone();
+  }
+  loadSnooze();
+
+  // 34849 emits a "* TOTAL - 12217 players" aggregate row. Counting it as a
+  // player double-counts every card in the KPI, so it is detected and held
+  // aside rather than dropped — the figure it carries is authoritative.
+  function isZoneTotalRow(r){
+    // Accepts a row or a bare name. 34849 marks the aggregate row two ways:
+    // the player reads "* TOTAL - 12204 players" and the sport reads
+    // "(all sports)". Either is sufficient — matching on both makes detection
+    // robust to the label being reworded.
+    var name  = (r && typeof r === "object") ? r.player : r;
+    var sport = (r && typeof r === "object") ? (r.sportRaw || r.sport) : "";
+    var n = String(name  || "").trim().toLowerCase();
+    var s = String(sport || "").trim().toLowerCase();
+    if(s.indexOf("all sport") >= 0 || s === "all" || s === "total") return true;
+    if(n.charAt(0) === "*") return true;
+    if(/\btotal\b/.test(n) && /\d/.test(n)) return true;
+    if(/^total\b/.test(n)) return true;
+    return false;
+  }
+
+  var zoneTotal = null;   // cards from the TOTAL row, when present
+  var zoneHasSport = false;
 
   function normalizeZone(raw){
     return (raw||[]).map(function(r){
@@ -1037,15 +1180,20 @@
         var n = Number(String(v).replace(/[, ]/g,""));
         return isFinite(n) ? n : 0;
       };
-      var sport = String(pick(r,["sport","Sport","category","Category"]) || "").toLowerCase().trim();
-      // Tolerate "one piece" / "onepiece" as well as the canonical one_piece.
-      if(sport.replace(/[ _-]/g,"") === "onepiece") sport = "one_piece";
+      var sportRaw = String(pick(r,["sport","Sport","category","Category"]) || "");
+      var sport = canonSport(sportRaw);
       return {
         sport:  sport,
+        sportRaw: sportRaw,
         player: String(pick(r,["player_name","player","Player","Player Name",
                                "character","Character","name","Name"]) || "\u2014"),
         cards:  num(["cards","Cards","total_cards","total cards","Total Cards",
                      "card_count","count","Count","tasks","total"]),
+        // Extra columns 34849 provides — surfaced as the row subtitle.
+        available: num(["available","Available"]),
+        inPacks:   num(["in_packs","in packs","In Packs"]),
+        recomped:  num(["recomped_cards","recomped cards","Recomped Cards"]),
+        lastRecomp: String(pick(r,["last_recomp","last recomp","Last Recomp"]) || ""),
         image:  pick(r,["image_url","image","img","card_image","card_image_url",
                         "front_image_url","Image URL"]) || ""
       };
@@ -1058,9 +1206,15 @@
     var byPlayer = {};
     zrows.forEach(function(r){
       if(sportKey && r.sport !== sportKey) return;
-      if(!byPlayer[r.player]) byPlayer[r.player] = {player:r.player, cards:0, image:r.image};
-      byPlayer[r.player].cards += r.cards;
-      if(!byPlayer[r.player].image && r.image) byPlayer[r.player].image = r.image;
+      if(isSnoozed(r.player)) return;   // hidden until the snooze expires
+      if(!byPlayer[r.player]) byPlayer[r.player] =
+        {player:r.player, cards:0, available:0, inPacks:0, recomped:0, image:r.image};
+      var b = byPlayer[r.player];
+      b.cards     += r.cards;
+      b.available += (r.available || 0);
+      b.inPacks   += (r.inPacks   || 0);
+      b.recomped  += (r.recomped  || 0);
+      if(!b.image && r.image) b.image = r.image;
     });
     return Object.keys(byPlayer).map(function(k){ return byPlayer[k]; })
       .sort(function(a,b){ return b.cards - a.cards; })
@@ -1092,16 +1246,22 @@
   }
 
   function zRow(p, i, max, accent, big){
-    return '<div class="zrow">'
+    var on = zSelected === p.player;
+    return '<div class="zrow'+(on?' sel':'')+'" data-player="'+esc(p.player)+'"'
+      +      (on ? ' style="--rowaccent:'+accent+'"' : '')+'>'
       + '<span class="zrank">'+(i+1)+'</span>'
       + zThumb(p, accent)
       + '<span class="zplayer">'+esc(p.player)+'</span>'
+      // Compact cards can't fit "Done" without truncating the name to an
+      // initial, so they get a check; the wide leaderboard keeps the word.
+      + (on ? '<button class="zdone" data-done="'+esc(p.player)+'" title="Mark recomped">'
+              + (big ? "Done" : "\u2713") + '</button>' : '')
       + '<span class="zval">'+fmt(p.cards)+'</span>'
       + '</div>';
   }
 
   function refreshZoneSportFilter(){
-    var el = $("sport"); if(!el) return;
+    var el = $("zsport"); if(!el) return;
     var cur = el.value;
     var present = {};
     zrows.forEach(function(r){ present[r.sport] = 1; });
@@ -1168,54 +1328,148 @@
     return hit ? {player:p.player, cards:p.cards, image:hit} : p;
   }
 
+  function zMeta(p){
+    var bits = [];
+    if(p.available) bits.push(fmt(p.available) + " available");
+    if(p.inPacks)   bits.push(fmt(p.inPacks) + " in packs");
+    if(p.recomped)  bits.push(fmt(p.recomped) + " recomped");
+    return bits.join("  \u00b7  ");
+  }
+
+  // Delegated once, so re-rendering the grid never orphans a listener.
+  function bindZoneClicks(){
+    if(bindZoneClicks.done) return;
+    bindZoneClicks.done = true;
+    document.addEventListener("click", function(e){
+      var done = e.target.closest && e.target.closest(".zdone");
+      if(done){
+        e.stopPropagation();
+        markDone(done.getAttribute("data-done"));
+        return;
+      }
+      var chip = e.target.closest && e.target.closest(".zchip");
+      if(chip && chip.getAttribute("data-unsnooze")){
+        unsnooze(chip.getAttribute("data-unsnooze"));
+        return;
+      }
+      var row = e.target.closest && e.target.closest(".zrow[data-player]");
+      if(row){
+        var n = row.getAttribute("data-player");
+        zSelected = (zSelected === n) ? null : n;   // click again to collapse
+        renderZone();
+        return;
+      }
+      if(zSelected){ zSelected = null; renderZone(); }   // click-away clears
+    });
+  }
+
+  function zHiddenStrip(){
+    var names = Object.keys(zSnooze).filter(function(k){ return zSnooze[k] > Date.now(); });
+    if(!names.length) return "";
+    // Map back to the display casing we last saw for each name.
+    var label = {};
+    zrows.forEach(function(r){ label[r.player.toLowerCase()] = r.player; });
+    return '<div class="zhidden"><span style="opacity:.65">Recomped \u00b7 hidden '
+      + SNOOZE_DAYS + ' days:</span>'
+      + names.map(function(k){
+          var nm = label[k] || k;
+          return '<span class="zchip" data-unsnooze="'+esc(nm)+'" title="Click to restore">'
+               + esc(nm) + ' <b>' + snoozeDaysLeft(nm) + 'd</b></span>';
+        }).join("")
+      + '</div>';
+  }
+
   function renderZone(){
-    var sel = ($("sport") && $("sport").value) || "";
-    // Total follows the filter: picking a sport scopes the headline number to
-    // it, so the KPI and the leaderboard below always describe the same set.
-    var total = zrows.reduce(function(a,r){
-      return a + ((!sel || r.sport===sel) ? r.cards : 0);
-    }, 0);
+    bindZoneClicks();
+    var sel = ($("zsport") && $("zsport").value) || "";
+
+    // The TOTAL row's figure is authoritative when present; otherwise sum.
+    var total = (!sel && zoneTotal != null)
+      ? zoneTotal
+      : zrows.reduce(function(a,r){
+          return a + ((!sel || r.sport===sel) ? r.cards : 0); }, 0);
 
     $("zkpis").innerHTML = kpiHTML([
       {c:"", k:"Total cards", v:fmt(total),
-       n:sel ? (ZSPORTS.filter(function(s){return s.key===sel;})[0]||{}).label : "all sports"}
+       n:sel ? (ZSPORTS.filter(function(s){return s.key===sel;})[0]||{}).label
+             : fmt(zrows.length) + " players"}
     ]);
 
-    $("zsports").innerHTML = ZSPORTS.map(function(s){
+    // Without a sport column there is nothing to break out by, so fall back to
+    // one combined leaderboard rather than five empty cards.
+    if(!zoneHasSport){
+      $("zhint").textContent = "top 12 by cards \u00b7 add a sport column to 34849 to break out by sport";
+      var top = zTop("", 12);
+      var max = top.length ? top[0].cards : 0;
+      $("zsports").className = "";
+      $("zsports").innerHTML = '<div class="zcard zbig">'
+        + (top.length
+            ? top.map(function(p,i){
+                return '<div class="zrow">'
+                  + '<span class="zrank">'+(i+1)+'</span>'
+                  + zThumb(p, GRADER_COLOR)
+                  + '<span class="zbody"><span class="zplayer">'+esc(p.player)+'</span>'
+                  +   '<span class="zmeta">'+esc(zMeta(p))+'</span></span>'
+                  + '<span class="zval">'+fmt(p.cards)+'</span></div>';
+              }).join("")
+            : '<div class="zrow"><span class="zplayer">no cards in window</span></div>')
+        + '</div>';
+      $("zexpanded-wrap").hidden = true;
+      return;
+    }
+
+    // The grid is always the five main sports. Everything else is reachable
+    // through the dropdown, which swaps in the single-sport leaderboard below —
+    // fifteen cards would bury the ones that carry the volume.
+    var present = sel
+      ? ZSPORTS.filter(function(s){ return s.key === sel; })
+      : ZSPORTS.filter(function(s){ return s.main; });
+
+    $("zhint").textContent = sel
+      ? (ZSPORTS.filter(function(s){ return s.key===sel; })[0]||{}).label
+      : "top 3 by cards, per sport";
+    $("zsports").className = "zgrid";
+    $("zsports").innerHTML = present.map(function(s){
       var top = zTop(s.key, 3).map(function(p){
-        return p.image ? p : {player:p.player, cards:p.cards, image:proxySrc(p.player, s.key)};
+        if(p.image) return p;
+        var q = {}; for(var k in p) q[k] = p[k];
+        q.image = proxySrc(p.player, s.key);
+        return q;
       });
       var sportTotal = zrows.reduce(function(a,r){ return a + (r.sport===s.key ? r.cards : 0); }, 0);
       var max = top.length ? top[0].cards : 0;
       return '<div class="zcard">'
         + '<div class="zhead">'
-        +   '<img src="'+s.logo+'" alt="'+esc(s.label)+'">'
-        +   '<span class="zname">'+esc(s.label)+'</span>'
+        +   (s.logo
+              ? '<img src="'+s.logo+'" alt="'+esc(s.label)+'"'+(s.wordmark?' class="wm"':'')+'>'
+              : '<span class="zmark" style="background:'+s.accent+'">'+esc(s.abbr||s.label.slice(0,3).toUpperCase())+'</span>')
+        +   ((s.wordmark && s.logo) ? '<span class="zname"></span>' : '<span class="zname">'+esc(s.label)+'</span>')
         +   '<span class="zcount">'+fmt(sportTotal)+'</span>'
         + '</div>'
         + (top.length
             ? top.map(function(p,i){ return zRow(p,i,max,s.accent,false); }).join("")
-            : '<div class="zrow"><span class="zplayer" style="opacity:.5">no cards in window</span></div>')
+            : '<div class="zrow"><span class="zplayer">no cards in window</span></div>')
         + '</div>';
-    }).join("");
+    }).join("") + zHiddenStrip();
 
-    // Filtering to one sport swaps the top-3 grid for a top-5 leaderboard.
     var wrap = $("zexpanded-wrap");
     if(sel){
       var s = ZSPORTS.filter(function(x){ return x.key===sel; })[0] || {accent:GRADER_COLOR, label:sel};
       var top5 = zTop(sel, 5).map(function(p){
-        return p.image ? p : {player:p.player, cards:p.cards, image:proxySrc(p.player, sel)};
+        if(p.image) return p;
+        var q = {}; for(var k in p) q[k] = p[k];
+        q.image = proxySrc(p.player, sel);
+        return q;
       });
       var max5 = top5.length ? top5[0].cards : 0;
       wrap.hidden = false;
       var lg = $("zexplogo");
-      if(s.logo){ lg.src = s.logo; lg.alt = s.label; lg.hidden = false; }
-      else { lg.hidden = true; }
+      if(s.logo){ lg.src = s.logo; lg.alt = s.label; lg.hidden = false; } else { lg.hidden = true; }
       $("zexphint").textContent = "top 5 \u00b7 " + s.label;
       $("zexpanded").className = "zbig";
       $("zexpanded").innerHTML = top5.length
         ? top5.map(function(p,i){ return zRow(p,i,max5,s.accent,true); }).join("")
-        : '<div class="zrow"><span class="zplayer" style="opacity:.5">no cards in window</span></div>';
+        : '<div class="zrow"><span class="zplayer">no cards in window</span></div>';
     } else {
       wrap.hidden = true;
     }
@@ -1808,12 +2062,31 @@
     var inShift=0, all=0, outside=0;
     GHOURS.forEach(function(hh,i){ all+=totals[i]; if(hh.shift) inShift+=totals[i]; });
     d.forEach(function(r){ outside+=r.outside; });
-    $("grailnote").innerHTML = all
-      ? '<span style="color:var(--unatt)">'+fmt(all-inShift)+" "+unit()+" in extra time, from "
-        +esc(ghLabel(GHOURS[GEXTRA]))+" "+tzTag()
-        +" ("+Math.round((all-inShift)/all*100)+"% of window)</span>"
+    // Reconciliation: the hour buckets should account for every row the
+    // question counts in TOTAL. When they don't, rows exist outside the
+    // 2 PM - 3 AM window (or the total is computed over a wider set), and the
+    // rail is showing a subset. Say so rather than render a picture that
+    // silently disagrees with the KPI above it.
+    var grandTotal = 0;
+    d.forEach(function(r){ grandTotal += r.total || 0; });
+    var bucketed = totals.reduce(function(a,t){ return a + t; }, 0);
+    var gap = grandTotal - bucketed;
+
+    var note = all
+      ? '<span style="color:var(--unatt)">' + fmt(all - inShift) + " " + unit()
+        + " in extra time, from " + esc(ghLabel(GHOURS[GEXTRA])) + " " + tzTag()
+        + " (" + Math.round((all - inShift) / all * 100) + "% of window)</span>"
       : "";
+
+    if(gap > 0 && grandTotal > 0){
+      note += '<span style="color:var(--warn);margin-left:14px">\u26a0 '
+            + fmt(gap) + " of " + fmt(grandTotal) + " " + unit()
+            + " fall outside the " + fillTz("{W14-3} {TZ}")
+            + " window \u2014 counted in the total, not in any hour column</span>";
+    }
+    $("grailnote").innerHTML = note;
   }
+
 
   function renderGraderChart(){
     var d = gData(), groups={}, order=[];
@@ -2276,7 +2549,15 @@
           renderRecomp();
         } else if(TAB==="recomp"){
           if(SUB==="zone"){
-            zrows = normalizeZone(arr);
+            var all = normalizeZone(arr);
+            var totalRow = all.filter(function(r){ return isZoneTotalRow(r); })[0];
+            zoneTotal = totalRow ? totalRow.cards : null;
+            zrows = all.filter(function(r){ return !isZoneTotalRow(r); });
+            // "(all sports)" on the aggregate row isn't a real sport, so only
+            // count a sport column as present if a player row carries one.
+            zoneHasSport = zrows.some(function(r){
+              return r.sport && ZSPORTS.some(function(s){ return s.key === r.sport; });
+            });
             refreshZoneSportFilter();
             empty = !zrows.length;
             $("panel-body").hidden = true;
@@ -2437,8 +2718,10 @@
       el.hidden = !((isRecomp && SUB==="total") || TAB==="cardtype" || TAB==="review");
     });
     document.querySelectorAll("[data-recomp-age]").forEach(function(el){
-      // The sport select serves both the age view and the zone view.
-      el.hidden = !(isRecomp && (SUB==="age" || SUB==="zone"));
+      el.hidden = !(isRecomp && SUB==="age");
+    });
+    document.querySelectorAll("[data-recomp-zone]").forEach(function(el){
+      el.hidden = !(isRecomp && SUB==="zone");
     });
   }
   function setSub(name){
@@ -2454,6 +2737,8 @@
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
   $("sub-zone").onclick  = function(){ setSub("zone"); };
+  // Zone aggregates client-side, so its sport filter re-ranks in place.
+  $("zsport").onchange = function(){ renderZone(); };
 
   function setCtSub(name){
     CTSUB = name;
@@ -2551,7 +2836,6 @@
     $(id).onchange = function(){
       // Zone aggregates client-side, so the sport filter re-ranks in place
       // instead of round-tripping to Metabase.
-      if(TAB==="recomp" && SUB==="zone"){ renderZone(); return; }
       load();
     };
   });
