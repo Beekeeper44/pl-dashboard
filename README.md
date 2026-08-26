@@ -742,3 +742,189 @@ two option sets, two elements.
 
 `#zsport` re-ranks in place via `renderZone()` rather than calling `load()`,
 since Zone aggregates client-side.
+
+## Assign modal + Assignments pill
+
+Clicking any Hot/Cold Zone row opens a modal: player header with thumbnail,
+sport and card count; the 17-name `RECOMP_ROSTER` as toggles; an optional note;
+then **Assign N**, **Mark done**, **Cancel**. Escape or a scrim click dismisses.
+
+Assigned rows stay highlighted and carry a badge — the assignee count in the
+compact cards, first names on the wide leaderboard where there's room.
+
+Each job row carries the **player's thumbnail**, captured onto the assignment
+record at assign time, so a card is scannable by face rather than by reading
+every name. Falls back to initials tinted in the assignee's colour.
+
+**Daily lines are folded in.** `dailyJobsByWho()` walks every stored day and
+every column, pulling out lines that carry assignees, and merges them with the
+zone assignments. One panel therefore answers "what is this person working on"
+instead of two half-answers — a recomp assigned from Hot/Cold Zone and a line
+assigned on Daily both count toward the same "N active".
+
+Daily rows carry their **column's** colour (Today's Tags green, Next Up orange…)
+rather than the person's, so which board a line came from stays readable, and
+the subtitle shows the column and day (`Today's Tags · today`).
+
+Opening the Assignments pill loads the Daily store if it hasn't been touched
+this session — otherwise lines assigned on a previous visit would be invisible
+until someone opened Daily.
+
+The **Assignments** pill inverts player→assignees into assignee→players and
+lists **every** roster member, including idle ones. Idle capacity is as useful
+to see as busy capacity when deciding who to hand the next recomp to. Cards sort
+busiest-first, then alphabetically.
+
+`Mark done` reuses the existing 5-day snooze **and clears the assignment**.
+Without that, marking a player done left everyone who was assigned to them still
+reading "1 active" for finished work — five people showing a stale assignment
+for a recomp nobody was doing any more. The work ending ends the assignment.
+
+### ⚠ Storage — read before relying on this
+
+`ASSIGN_REMOTE = false` means assignments live in `localStorage`. For snooze
+that was a tolerable limitation; **for assignments it is actively misleading** —
+assigning Aaron on your laptop shows him working on your screen and idle on the
+wall display and on his own. Two people can assign the same player and neither
+will know.
+
+The code is already structured for the fix: `loadAssign()` / `saveAssign()`
+switch to `GET`/`POST api/assignments` the moment `ASSIGN_REMOTE = true`. What's
+missing is the route and somewhere to put the rows. Worth adding before this
+goes in front of the team.
+
+## Assignment colours + removal
+
+**Per-person colour.** `personColor(name)` assigns by **roster index**, not by
+hashing the name. Hashing over a fixed palette collided constantly — Alan Bailey
+and Anjello Bumanglag both landed on the same green. Index-based spacing gives
+every one of the 17 a distinct hue:
+
+```
+hue   = (index * 360/rosterLength + 14) % 360
+light = index % 2 ? 72% : 58%
+```
+
+Hues land 21° apart and alternating lightness pushes neighbours further apart
+than hue alone would. Verified 17 unique colours across 17 people, and it scales
+automatically if the roster grows. Names not on the roster fall back to a hash so
+they still get a stable colour.
+
+The colour is used for the modal avatar and row tint, the assignment card border
+and avatar, and the strip on each job row — the same person reads identically
+everywhere, with nothing stored.
+
+**Removing an assignment** works two ways:
+- **✕ on any job row** in Assignments removes just that person from that player.
+  The record is deleted entirely when the last assignee is removed, so no empty
+  shells linger.
+- **Unassign all** in the modal, which only appears when a record already
+  exists. Clears every assignee for that player at once.
+
+Unticking everyone and pressing Assign does the same thing, but the explicit
+buttons make removal discoverable rather than a side effect.
+
+### Fixed: literal `\u2026` in the note placeholder
+
+The placeholder was double-escaped during a patch and rendered
+`Prioritise the Prizm parallels\u2026` on screen. HTML attributes don't process
+JS escapes — the character has to be literal or a proper HTML entity.
+
+## Daily — cert workflow columns
+
+**Each day has its own board.** A Mon–Sun strip sits above the columns,
+defaulting to today. Each day button shows a line count so you can see at a
+glance which days are already planned. `‹` / `›` step weeks, the date input
+jumps anywhere, and **Today** returns.
+
+Storage is keyed by date (`pl_daily_v2`):
+`dailyStore["2026-08-26"] = { today_tags:[…], next_tags:[…], … }`. Empty days
+are dropped on save so clicking through a week doesn't accumulate blank boards.
+
+Dates use local `getFullYear/Month/Date`, **not** `toISOString()` — the latter
+converts to UTC and would roll the day backwards for anyone west of GMT, which
+is everyone on this team.
+
+Five columns left to right, each seeded with three empty lines:
+
+`Today's Tags` · `Next Day Tags` · `Today's Workflow` · `Next Up` · `Additional`
+
+Each has its own accent on the top border and count. Below 1200px they reflow
+to two columns rather than crushing to unreadable widths.
+
+- **Click any line to edit** in a centred modal — header shows which column and
+  the line's position, a textarea for the text, then Save / Clear / Cancel.
+  Enter saves, Shift+Enter keeps the newline, Escape cancels.
+- **+ Add line** appends and opens the editor on the new line immediately.
+- **✕** removes a line.
+- **Drag** by the row (or its ≡ grip) to reorder within a column or move to
+  another. Drop above whichever line you're hovering, or into empty space to
+  append. The target column outlines in its own accent.
+- The header count shows only lines with text, so blanks don't inflate it.
+
+Edits commit **on blur rather than per keystroke** — re-rendering mid-word would
+otherwise yank the caret to the start.
+
+### ⚠ Storage
+
+`localStorage` under `pl_daily_v1`, same limitation as snooze and assignments:
+per browser, not shared. For workflow notes the whole team reads, this needs the
+same server-side treatment.
+
+### Fixed: `var` hoisting killed init
+
+`loadDaily()` was called at boot but `DAILY_COLS` is declared further down the
+file. `var` hoists the *name*, not the value, so it read `undefined` and threw
+`Cannot read properties of undefined (reading 'forEach')` — which aborted the
+rest of the init block and left the Daily pill at zero width. Now loaded lazily
+on first open, guarded by `loadDaily.done`.
+
+## Modal placement
+
+The assign modal is **anchored beside the content** rather than centred over it.
+The single-sport view only occupies ~760px, so on a wide screen a centred card
+covers the list while acres of empty space sit to the right.
+
+`anchorModal(modal, xEl, yEl)`:
+- **Horizontal** — 24px to the right of the panel the row belongs to
+  (`.zcard` or `#zexpanded`).
+- **Vertical** — top edge flush with the panel, so the card reads as a second
+  column beside the list rather than floating at an arbitrary height. Every row
+  in a card opens the modal at the same place.
+- Falls back to centring on the clicked row only when the panel has scrolled
+  above the viewport, which would otherwise pin the card to the top edge.
+
+⚠ Anchor on the **`.zcard`**, not the `#zsports` container — the container spans
+the full section width, so there is never room beside it and the modal silently
+falls back to centred.
+- **Clamped** to a 20px viewport margin so it never runs off an edge.
+- **Falls back to centred** when the gap is too narrow for the card — a squeezed
+  card beside the content is worse than a centred one. Verified at 1180px wide.
+
+Re-anchors on window resize. The scrim lightened from 72% to 55% since the list
+stays visible beside the card and shouldn't be buried.
+
+## Assignments grid sizing
+
+Assignments uses its own `.agrid` rather than sharing `.zgrid` with the sport
+cards. They solve different problems — a sport card holds three short rows, an
+assignment card holds a full name, a status and a job list — and sharing one
+breakpoint meant widening either broke the other.
+
+`minmax(360px, 1fr)` with an 18px gap gives four across at 1600px instead of
+five at 272px. Long names like "Aaron Adrianne Joaquin" and "Ian Benedict Banua"
+now fit on one line rather than wrapping to two.
+
+## Daily — line assignment + Clear all
+
+**Assigning a line.** The line editor now carries the same 17-name
+`RECOMP_ROSTER` as the Hot/Cold Zone assign modal, as toggleable chips. Assigned
+lines take that person's colour on their left edge and show initials pips —
+`personColor()` is shared, so Aaron is the same red on a Daily line, in the
+assign modal, and on his Assignments card.
+
+Assignees are stored on the line (`{id, text, who:[]}`) and travel with it when
+dragged between columns.
+
+**Clear all** wipes every line for the day currently selected, confirming first
+with the count. Other days are untouched.

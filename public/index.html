@@ -143,6 +143,179 @@
   .zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:12px}
   /* One sport selected: cap the width so the count sits beside the name
      instead of being flung to the far edge of a 1500px screen. */
+  .dweek{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .ddays{display:flex;gap:7px;flex-wrap:wrap}
+  .dday{
+    background:var(--panel2);border:1px solid var(--line2);border-radius:7px;
+    padding:8px 13px;cursor:pointer;color:var(--tx);font-family:var(--mono);
+    text-align:center;min-width:74px;line-height:1.35;
+  }
+  .dday:hover{border-color:var(--tx)}
+  .dday .dw{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;opacity:.7}
+  .dday .dd{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+  .dday .dn{display:block;font-size:10.5px;margin-top:2px;color:var(--neon);min-height:13px}
+  .dday.today{border-color:var(--tx)}
+  .dday.on{background:var(--neon);border-color:var(--neon);color:#06240A}
+  .dday.on .dw{opacity:.85}
+  .dday.on .dn{color:#06240A}
+  .dnav{
+    background:transparent;border:1px solid var(--line2);border-radius:7px;
+    color:var(--tx);font-family:var(--mono);font-size:15px;
+    padding:9px 13px;cursor:pointer;
+  }
+  .dnav:hover{border-color:var(--tx)}
+  .dtoday{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  .dclear{font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-left:auto}
+  .dclear:hover{border-color:var(--warn);color:var(--warn)}
+  .ddate{
+    background:var(--panel);color:var(--tx);border:1px solid var(--line2);
+    border-radius:7px;padding:9px 11px;font-family:var(--mono);font-size:13px;
+  }
+  .dgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start}
+  @media (max-width:1200px){ .dgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .dcol{background:var(--panel2);border-radius:8px;padding:14px 15px;
+        border-top:3px solid var(--dcol);min-height:150px}
+  .dcol.over{outline:2px dashed var(--dcol);outline-offset:2px}
+  .dhead{display:flex;align-items:center;gap:9px;padding-bottom:11px;
+         border-bottom:1px solid var(--line);margin-bottom:4px}
+  .dtitle{flex:1;font-size:14px;letter-spacing:.05em;text-transform:uppercase;color:var(--tx)}
+  .dcount{font-size:13px;color:var(--dcol);font-variant-numeric:tabular-nums}
+  .dline{
+    display:flex;align-items:flex-start;gap:9px;margin-top:10px;
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    padding:9px 10px;cursor:grab;
+  }
+  .dline.dragging{opacity:.45}
+  .dline:focus-within{border-color:var(--dcol)}
+  .dgrip{color:var(--tx);opacity:.45;font-size:13px;line-height:1.35;flex:0 0 auto;cursor:grab}
+  .dtext{
+    flex:1;min-width:0;color:var(--tx);font-family:var(--mono);font-size:14px;
+    line-height:1.45;outline:none;white-space:pre-wrap;word-break:break-word;
+  }
+  .dtext.ph{opacity:.35}
+  .dkill{
+    background:transparent;border:0;color:var(--tx);opacity:.4;cursor:pointer;
+    font-size:12px;line-height:1;padding:2px 3px;flex:0 0 auto;
+  }
+  .dkill:hover{opacity:1;color:var(--warn)}
+  .dadd{
+    width:100%;margin-top:11px;background:transparent;color:var(--tx);
+    border:1px dashed var(--line2);border-radius:6px;padding:9px;
+    font-family:var(--mono);font-size:13px;cursor:pointer;
+  }
+  .dadd:hover{border-color:var(--dcol);color:var(--dcol)}
+  .zplaceholder{
+    background:var(--panel2);border-radius:8px;padding:26px;
+    color:var(--tx);font-size:13.5px;opacity:.6;
+  }
+  .amodal{
+    position:fixed;inset:0;z-index:80;
+    background:rgba(4,7,11,.55);
+    display:flex;align-items:center;justify-content:center;padding:22px;
+  }
+  /* When there's room, the card is placed beside the content instead of over
+     it — the single-sport view only uses ~760px, so covering the middle of an
+     empty screen reads worse than sitting in the gap next to the list. */
+  .amodal.anchored{display:block;padding:0}
+  .amodal.anchored .amodal-card{position:absolute;margin:0}
+  /* [hidden] loses to display:flex, so an invisible overlay would sit on top
+     of the page swallowing every click. Must be stated explicitly. */
+  .amodal[hidden]{display:none}
+  .dm-area{resize:vertical;min-height:96px;line-height:1.5}
+  .dmwho{display:flex;flex-wrap:wrap;gap:7px}
+  .dmchip{
+    display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+    background:var(--panel2);border:1px solid var(--line2);border-radius:999px;
+    padding:5px 12px 5px 5px;font-family:var(--mono);font-size:12.5px;color:var(--tx);
+  }
+  .dmchip .aini{width:24px;height:24px;font-size:9.5px;opacity:.45}
+  .dmchip.on{border-color:var(--who);background:color-mix(in srgb,var(--who) 16%,transparent)}
+  .dmchip.on .aini{opacity:1}
+  /* Assignee pips on the line itself, so a board is readable without opening
+     anything — same colours as the Hot/Cold Zone assignments. */
+  .dwho{display:flex;gap:4px;flex:0 0 auto;align-items:center}
+  .dpip{
+    width:20px;height:20px;border-radius:50%;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:8.5px;font-weight:700;color:#0B1016;
+  }
+  .dmark{
+    width:34px;height:34px;border-radius:7px;flex:0 0 auto;
+    background:var(--dmk,#39FF14);
+  }
+
+  .amodal-card{
+    background:var(--panel);border:1px solid var(--line2);border-radius:11px;
+    width:min(520px,100%);max-height:88vh;overflow:auto;padding:20px 22px 22px;
+  }
+  .amodal-head{display:flex;align-items:center;gap:11px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .amodal-who{flex:1;min-width:0}
+  .amodal-who #am-name{display:block;font-size:19px}
+  .amodal-who #am-meta{display:block;font-size:13.5px;margin-top:3px;color:var(--tx)}
+  .amodal-x{background:none;border:0;color:var(--tx);opacity:.6;font-size:15px;cursor:pointer;padding:4px 6px}
+  .amodal-x:hover{opacity:1}
+  .amodal-label{font-size:12px;letter-spacing:.11em;color:var(--tx);margin:16px 0 8px}
+  .amodal-roster{max-height:310px;overflow:auto;margin:0 -8px}
+  .arow{display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:6px;cursor:pointer;border-left:3px solid transparent}
+  .arow:hover{background:rgba(255,255,255,.04)}
+  .arow.on{background:color-mix(in srgb, var(--who) 15%, transparent);border-left-color:var(--who)}
+  .abox{width:17px;height:17px;border-radius:4px;border:1px solid var(--line2);flex:0 0 auto}
+  .arow.on .abox{background:var(--who);border-color:var(--who)}
+  .aini{
+    width:30px;height:30px;border-radius:50%;flex:0 0 auto;background:var(--panel2);
+    border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;color:var(--tx);
+  }
+  .aname{flex:1;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+
+  .amodal-note{
+    width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:5px;
+    padding:11px 13px;color:var(--tx);font-family:var(--mono);font-size:14px;
+  }
+  .amodal-foot{display:flex;gap:8px;margin-top:15px}
+  .amodal-go{
+    flex:1;background:var(--neon);color:#06240A;border:0;border-radius:999px;padding:12px;
+    font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;cursor:pointer;
+  }
+  .amodal-go:disabled{opacity:.4;cursor:not-allowed}
+  .amodal-alt{
+    background:transparent;color:var(--tx);border:1px solid var(--line2);border-radius:999px;
+    padding:12px 17px;font-family:var(--mono);font-size:14px;letter-spacing:.06em;
+    text-transform:uppercase;cursor:pointer;
+  }
+  .amodal-alt:hover{background:rgba(255,255,255,.05)}
+  .ajob{width:34px;height:34px}
+  .zx{
+    background:transparent;border:1px solid var(--line2);border-radius:50%;
+    width:24px;height:24px;flex:0 0 auto;cursor:pointer;
+    color:var(--tx);font-size:11px;line-height:1;padding:0;
+  }
+  .zx:hover{border-color:var(--warn);color:var(--warn)}
+  .zassigned{
+    display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
+    background:rgba(57,255,20,.13);color:var(--neon);border-radius:999px;
+    padding:3px 9px;font-size:11px;
+  }
+  /* Assignment cards carry a name, a status and a job list -- they need more
+     room than the sport cards, and 17 of them at 272px read as a wall of
+     cramped tiles. */
+  .agrid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+    gap:18px;align-items:start;
+  }
+  .agrid .zcard{padding:20px 22px}
+  .agrid .zhead{gap:13px;padding-bottom:14px}
+  .agrid .aini{width:42px;height:42px;font-size:14px}
+  .agrid .zname{font-size:17px}
+  .agrid .zcount{font-size:14px}
+  .agrid .zrow{margin-top:15px;padding:7px 8px}
+  .agrid .ajob{width:42px;height:42px}
+  .agrid .zplayer{font-size:16px}
+  .agrid .zmeta{font-size:13px;margin-top:4px}
+  .agrid .zval{font-size:16px}
+  .agrid .zx{width:28px;height:28px;font-size:12px}
   .zgrid.solo{grid-template-columns:minmax(0,760px)}
   .zbig.solo{max-width:760px}
   .zcard{background:var(--panel2);border-radius:8px;padding:16px 16px}
@@ -667,7 +840,9 @@
   <div class="subtabs" id="recomp-subtabs">
     <button class="subtab" id="sub-total" aria-selected="true">Total Recomps</button>
     <button class="subtab" id="sub-age"   aria-selected="false">Avg EV Age</button>
+    <button class="subtab" id="sub-daily" aria-selected="false">Daily</button>
     <button class="subtab" id="sub-zone"  aria-selected="false">Hot/Cold Zone</button>
+    <button class="subtab" id="sub-assign" aria-selected="false">Assignments</button>
   </div>
 
   <div class="subtabs" id="cardtype-subtabs" hidden>
@@ -729,7 +904,29 @@
   </div>
 
   <!-- ===== Avg EV Age (pack categories) ===== -->
-  <div id="rpanel-zone" hidden>
+  <div id="rpanel-daily" hidden>
+  <section class="panel">
+    <h2>Daily <span class="hint" id="dhint"></span></h2>
+    <div class="dweek">
+      <button class="dnav" id="dprev" aria-label="Previous week">&#8249;</button>
+      <div class="ddays" id="ddays"></div>
+      <button class="dnav" id="dnext" aria-label="Next week">&#8250;</button>
+      <input type="date" id="ddate" class="ddate" aria-label="Jump to date">
+      <button class="dnav dtoday" id="dtoday">Today</button>
+      <button class="dnav dclear" id="dclearall">Clear all</button>
+    </div>
+    <div id="dgrid" class="dgrid"></div>
+  </section>
+</div>
+
+<div id="rpanel-assign" hidden>
+  <section class="panel">
+    <h2>Assignments <span class="hint" id="ahint"></span></h2>
+    <div id="agrid" class="agrid"></div>
+  </section>
+</div>
+
+<div id="rpanel-zone" hidden>
   <div class="kpis" id="zkpis"></div>
 
   <section class="panel">
@@ -1111,6 +1308,80 @@
 
   var zrows = [];
 
+  // Colour per team member. Assigned by ROSTER INDEX, not by hashing the name —
+  // a hash over a fixed 17-entry palette collides constantly (Alan Bailey and
+  // Anjello Bumanglag both landed on the same green). Spacing hues evenly across
+  // the roster guarantees every person is distinct, and alternating lightness
+  // pushes neighbouring hues further apart than 21 degrees alone would.
+  var PERSON_INDEX = null;
+  function buildPersonIndex(){
+    PERSON_INDEX = {};
+    RECOMP_ROSTER.forEach(function(n, i){ PERSON_INDEX[n.toLowerCase()] = i; });
+  }
+  function personColor(name){
+    if(!PERSON_INDEX) buildPersonIndex();
+    var key = String(name||"").toLowerCase();
+    var i = PERSON_INDEX[key];
+    if(i === undefined){
+      // Not on the roster — fall back to a hash so the colour is at least stable.
+      var s = key, n = 0;
+      for(var c=0;c<s.length;c++) n = (n*31 + s.charCodeAt(c)) >>> 0;
+      i = n % Math.max(RECOMP_ROSTER.length, 12);
+    }
+    var slots = Math.max(RECOMP_ROSTER.length, 12);
+    var hue   = Math.round((i * (360 / slots) + 14) % 360);
+    var light = (i % 2) ? 72 : 58;
+    return "hsl(" + hue + " 80% " + light + "%)";
+  }
+
+  // ---- assignments ----
+  // Persisted through /api/assignments when that route exists, falling back to
+  // localStorage so the UI is usable before a shared store is wired. The
+  // fallback is per-browser: assigning here will NOT be visible on the wall
+  // display or on the assignee's own screen. Swap ASSIGN_REMOTE to true once
+  // the endpoint is live.
+  var ASSIGN_REMOTE = false;
+  var ASSIGN_KEY = "pl_zone_assign_v1";
+  var zAssign = {};   // lowercased player -> {player, sport, cards, who:[], note, at}
+
+  function loadAssign(){
+    if(ASSIGN_REMOTE){
+      fetch("api/assignments").then(function(r){ return r.json(); })
+        .then(function(d){ zAssign = d || {}; renderZone(); renderAssignPanel(); })
+        .catch(function(){});
+      return;
+    }
+    try { zAssign = JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || "{}"); }
+    catch(e){ zAssign = {}; }
+  }
+  function saveAssign(){
+    if(ASSIGN_REMOTE){
+      fetch("api/assignments", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(zAssign)
+      }).catch(function(){});
+      return;
+    }
+    try { window.localStorage.setItem(ASSIGN_KEY, JSON.stringify(zAssign)); } catch(e){}
+  }
+  function unassign(player, who){
+    var key = String(player||"").toLowerCase();
+    var a = zAssign[key];
+    if(!a) return;
+    a.who = (a.who||[]).filter(function(n){ return n !== who; });
+    if(!a.who.length) delete zAssign[key];   // last one out clears the record
+    saveAssign();
+    renderZone();
+    renderAssignPanel();
+  }
+  function unassignAll(player){
+    delete zAssign[String(player||"").toLowerCase()];
+    saveAssign();
+    renderZone();
+    renderAssignPanel();
+  }
+  function assignmentFor(name){ return zAssign[String(name||"").toLowerCase()] || null; }
+
   // ---- recomp snooze ----
   // Marking a player Done hides them for 5 days, so the list surfaces whoever
   // needs attention next instead of the same names every morning.
@@ -1142,10 +1413,18 @@
     return Math.max(1, Math.ceil((t - Date.now()) / 86400000));
   }
   function markDone(name){
-    zSnooze[String(name||"").toLowerCase()] = Date.now() + SNOOZE_DAYS * 86400000;
+    var key = String(name||"").toLowerCase();
+    zSnooze[key] = Date.now() + SNOOZE_DAYS * 86400000;
     saveSnooze();
+    // The work is finished, so the assignment goes with it — otherwise everyone
+    // who was on this player keeps reading "1 active" for a completed recomp.
+    if(zAssign[key]){
+      delete zAssign[key];
+      saveAssign();
+    }
     zSelected = null;
     renderZone();
+    renderAssignPanel();
   }
   function unsnooze(name){
     delete zSnooze[String(name||"").toLowerCase()];
@@ -1153,6 +1432,7 @@
     renderZone();
   }
   loadSnooze();
+  loadAssign();
 
   // 34849 emits a "* TOTAL - 12217 players" aggregate row. Counting it as a
   // player double-counts every card in the KPI, so it is detected and held
@@ -1249,17 +1529,24 @@
          + 'data-fb="'+esc(fb)+'">';
   }
 
-  function zRow(p, i, max, accent, big){
-    var on = zSelected === p.player;
-    return '<div class="zrow'+(on?' sel':'')+'" data-player="'+esc(p.player)+'"'
-      +      (on ? ' style="--rowaccent:'+accent+'"' : '')+'>'
+  function zRow(p, i, max, accent, big, sportKey){
+    var a = assignmentFor(p.player);
+    return '<div class="zrow'+(a?' sel':'')+'"'
+      + ' data-player="'+esc(p.player)+'"'
+      + ' data-sport="'+esc(sportKey||"")+'"'
+      + ' data-cards="'+p.cards+'"'
+      + ' data-image="'+esc(p.image||"")+'"'
+      + ' data-accent="'+accent+'"'
+      + ' style="--rowaccent:'+accent+'" title="Click to assign">'
       + '<span class="zrank">'+(i+1)+'</span>'
       + zThumb(p, accent)
       + '<span class="zplayer">'+esc(p.player)+'</span>'
-      // Compact cards can't fit "Done" without truncating the name to an
-      // initial, so they get a check; the wide leaderboard keeps the word.
-      + (on ? '<button class="zdone" data-done="'+esc(p.player)+'" title="Mark recomped">'
-              + (big ? "Done" : "\u2713") + '</button>' : '')
+      // Assigned rows carry a badge: the count in cards, names on the wide
+      // leaderboard where there is room for them.
+      + (a ? '<span class="zassigned">'
+             + (big ? esc(a.who.map(function(n){ return n.split(" ")[0]; }).join(", "))
+                    : a.who.length + "\u00a0\u2713")
+             + '</span>' : '')
       + '<span class="zval">'+fmt(p.cards)+'</span>'
       + '</div>';
   }
@@ -1341,6 +1628,104 @@
   }
 
   // Delegated once, so re-rendering the grid never orphans a listener.
+  // ---- assign modal ----
+  var amFor = null;    // {player, sport, cards, image, accent}
+  var amPick = {};     // name -> true
+
+  function openAssign(ctx){
+    amFor = ctx;
+    var existing = assignmentFor(ctx.player);
+    amPick = {};
+    if(existing) existing.who.forEach(function(n){ amPick[n] = true; });
+
+    $("am-thumb").src = ctx.image || "";
+    $("am-name").textContent = ctx.player;
+    var label = (ZSPORTS.filter(function(s){ return s.key===ctx.sport; })[0]||{}).label || ctx.sport || "";
+    $("am-meta").textContent = (label ? label + " \u00b7 " : "") + fmt(ctx.cards) + " cards";
+    $("am-note").value = existing ? (existing.note || "") : "";
+
+    $("am-clear").hidden = !existing;
+    renderAmRoster();
+    $("amodal").hidden = false;
+    anchorModal($("amodal"), ctx.anchor, ctx.row);
+    setTimeout(function(){ $("am-note").focus(); }, 30);
+  }
+  function closeAssign(){
+    $("amodal").hidden = true;
+    $("amodal").classList.remove("anchored");
+    amFor = null;
+  }
+
+  // Park the card in the empty space to the right of `anchorEl`, vertically
+  // lined up with it. Falls back to the centred overlay when the gap is too
+  // narrow — a squeezed card beside the content is worse than a centred one.
+  function anchorModal(modal, xEl, yEl){
+    var card = modal.querySelector(".amodal-card");
+    modal.classList.remove("anchored");
+    card.style.left = card.style.top = "";
+    if(!xEl) return;
+
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var GAP = 24, EDGE = 20;
+
+    modal.classList.add("anchored");
+    var cw = card.offsetWidth, ch = card.offsetHeight;
+    var x  = xEl.getBoundingClientRect();
+
+    if(x.right + GAP + cw + EDGE > vw){    // not enough room beside it
+      modal.classList.remove("anchored");
+      card.style.left = card.style.top = "";
+      return;
+    }
+
+    // Top edges flush with the panel, so the card reads as a column beside the
+    // list rather than floating at an arbitrary height. Falls back to the
+    // clicked row only when the panel starts above the viewport (scrolled past),
+    // which would otherwise pin the card to the top edge for no reason.
+    var top = x.top;
+    if(top < EDGE){
+      var y = (yEl || xEl).getBoundingClientRect();
+      top = y.top + y.height/2 - ch/2;
+    }
+
+    card.style.left = Math.round(x.right + GAP) + "px";
+    card.style.top  = Math.round(
+      Math.min(Math.max(top, EDGE), Math.max(EDGE, vh - ch - EDGE))
+    ) + "px";
+  }
+
+  function renderAmRoster(){
+    var n = Object.keys(amPick).filter(function(k){ return amPick[k]; }).length;
+    $("am-assign").textContent = n ? ("Assign " + n) : "Assign";
+    $("am-assign").disabled = !n;
+    $("am-roster").innerHTML = RECOMP_ROSTER.map(function(name){
+      var on = !!amPick[name];
+      var c = personColor(name);
+      return '<div class="arow'+(on?' on':'')+'" data-pick="'+esc(name)+'"'
+        + ' style="--who:'+c+'">'
+        + '<span class="abox"></span>'
+        + '<span class="aini" style="background:'+c+';border-color:'+c+';color:#0B1016">'
+        +   esc(initials(name))+'</span>'
+        + '<span class="aname">'+esc(name)+'</span></div>';
+    }).join("");
+  }
+
+  function commitAssign(){
+    if(!amFor) return;
+    var who = Object.keys(amPick).filter(function(k){ return amPick[k]; });
+    var key = amFor.player.toLowerCase();
+    if(!who.length){ delete zAssign[key]; }
+    else {
+      zAssign[key] = {player:amFor.player, sport:amFor.sport, cards:amFor.cards,
+                      image:amFor.image || "", who:who,
+                      note:$("am-note").value.trim(), at:Date.now()};
+    }
+    saveAssign();
+    closeAssign();
+    renderZone();
+    renderAssignPanel();
+  }
+
   function bindZoneClicks(){
     if(bindZoneClicks.done) return;
     bindZoneClicks.done = true;
@@ -1356,14 +1741,55 @@
         unsnooze(chip.getAttribute("data-unsnooze"));
         return;
       }
-      var row = e.target.closest && e.target.closest(".zrow[data-player]");
-      if(row){
-        var n = row.getAttribute("data-player");
-        zSelected = (zSelected === n) ? null : n;   // click again to collapse
-        renderZone();
+      var x = e.target.closest && e.target.closest(".zx[data-unassign]");
+      if(x){
+        e.stopPropagation();
+        unassign(x.getAttribute("data-unassign"), x.getAttribute("data-who"));
         return;
       }
-      if(zSelected){ zSelected = null; renderZone(); }   // click-away clears
+      var pick = e.target.closest && e.target.closest(".arow[data-pick]");
+      if(pick){
+        var pn = pick.getAttribute("data-pick");
+        amPick[pn] = !amPick[pn];
+        renderAmRoster();
+        return;
+      }
+      var row = e.target.closest && e.target.closest(".zrow[data-player]");
+      if(row){
+        openAssign({
+          anchor: row.closest(".zcard") || row.closest("#zexpanded") || row,
+          row: row,
+          player: row.getAttribute("data-player"),
+          sport:  row.getAttribute("data-sport") || "",
+          cards:  Number(row.getAttribute("data-cards") || 0),
+          image:  row.getAttribute("data-image") || "",
+          accent: row.getAttribute("data-accent") || GRADER_COLOR
+        });
+        return;
+      }
+    });
+
+    $("am-clear").onclick = function(){
+      var n = amFor && amFor.player;
+      closeAssign();
+      if(n) unassignAll(n);
+    };
+    $("am-close").onclick  = closeAssign;
+    $("am-cancel").onclick = closeAssign;
+    $("am-assign").onclick = commitAssign;
+    $("am-done").onclick   = function(){
+      var n = amFor && amFor.player;
+      closeAssign();
+      if(n) markDone(n);
+    };
+    $("amodal").addEventListener("click", function(e){
+      if(e.target === $("amodal")) closeAssign();   // click the scrim to dismiss
+    });
+    window.addEventListener("resize", function(){
+      if(!$("amodal").hidden && amFor) anchorModal($("amodal"), amFor.anchor, amFor.row);
+    });
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape" && !$("amodal").hidden) closeAssign();
     });
   }
 
@@ -1451,7 +1877,7 @@
         +   '<span class="zcount">'+fmt(sportTotal)+'</span>'
         + '</div>'
         + (top.length
-            ? top.map(function(p,i){ return zRow(p,i,max,s.accent,false); }).join("")
+            ? top.map(function(p,i){ return zRow(p,i,max,s.accent,false,s.key); }).join("")
             : '<div class="zrow"><span class="zplayer">no cards in window</span></div>')
         + '</div>';
     }).join("") + zHiddenStrip();
@@ -1472,11 +1898,443 @@
       $("zexphint").textContent = "top 5 \u00b7 " + s.label;
       $("zexpanded").className = "zbig solo";
       $("zexpanded").innerHTML = top5.length
-        ? top5.map(function(p,i){ return zRow(p,i,max5,s.accent,true); }).join("")
+        ? top5.map(function(p,i){ return zRow(p,i,max5,s.accent,true,sel); }).join("")
         : '<div class="zrow"><span class="zplayer">no cards in window</span></div>';
     } else {
       wrap.hidden = true;
     }
+  }
+
+  // ---- Daily: five workflow columns, editable lines, drag to reorder ----
+  var DAILY_COLS = [
+    {key:"today_tags", label:"Today's Tags",    accent:"#39FF14"},
+    {key:"next_tags",  label:"Next Day Tags",   accent:"#38BDF8"},
+    {key:"today_flow", label:"Today's Workflow",accent:"#C084FC"},
+    {key:"next_up",    label:"Next Up",         accent:"#F0997B"},
+    {key:"additional", label:"Additional",      accent:"#FACC15"}
+  ];
+  // Keyed by date so each day of the week holds its own board:
+  //   dailyStore["2026-08-26"] = { today_tags:[...], next_tags:[...], ... }
+  var DAILY_KEY = "pl_daily_v2";
+  var dailyStore = {};
+  var dailyDate = null;      // ISO yyyy-mm-dd currently being edited
+  var dSeq = 0;
+
+  function isoDay(d){
+    // Local date, not UTC — toISOString() would roll back a day west of GMT.
+    return d.getFullYear() + "-" +
+           String(d.getMonth()+1).padStart(2,"0") + "-" +
+           String(d.getDate()).padStart(2,"0");
+  }
+  function parseDay(s){
+    var p = String(s||"").split("-");
+    return new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+  }
+  function todayISO(){ return isoDay(new Date()); }
+
+  function blankBoard(){
+    var b = {};
+    DAILY_COLS.forEach(function(c){ b[c.key] = [newLine(), newLine(), newLine()]; });
+    return b;
+  }
+  function boardFor(iso){
+    if(!dailyStore[iso]) dailyStore[iso] = blankBoard();
+    var b = dailyStore[iso];
+    DAILY_COLS.forEach(function(c){
+      if(!Array.isArray(b[c.key]) || !b[c.key].length) b[c.key] = [newLine(), newLine(), newLine()];
+    });
+    return b;
+  }
+  function dailyData(){ return boardFor(dailyDate); }
+  function boardCount(iso){
+    var b = dailyStore[iso];
+    if(!b) return 0;
+    var n = 0;
+    DAILY_COLS.forEach(function(c){
+      (b[c.key]||[]).forEach(function(l){ if(l.text.trim()) n++; });
+    });
+    return n;
+  }
+
+  function loadDaily(){
+    try { dailyStore = JSON.parse(window.localStorage.getItem(DAILY_KEY) || "null") || {}; }
+    catch(e){ dailyStore = {}; }
+    if(!dailyDate) dailyDate = todayISO();   // defaults to today
+    boardFor(dailyDate);
+  }
+  function saveDaily(){
+    // Drop days that hold nothing, so the store doesn't accumulate empty boards
+    // every time someone clicks through the week.
+    var out = {};
+    for(var k in dailyStore){ if(boardCount(k)) out[k] = dailyStore[k]; }
+    try { window.localStorage.setItem(DAILY_KEY, JSON.stringify(out)); } catch(e){}
+  }
+  function newLine(text){
+    return {id:"d" + (++dSeq) + "_" + Date.now().toString(36), text:text||"", who:[]};
+  }
+
+  function findLine(id){
+    var b = dailyData();
+    for(var k in b){
+      var i = b[k].findIndex(function(l){ return l.id === id; });
+      if(i >= 0) return {col:k, idx:i, line:b[k][i]};
+    }
+    return null;
+  }
+
+  function renderWeek(){
+    if(!$("ddays")) return;
+    var sel  = parseDay(dailyDate);
+    // Week runs Monday..Sunday; getDay() is 0=Sun, so shift it.
+    var dow  = (sel.getDay() + 6) % 7;
+    var mon  = new Date(sel); mon.setDate(sel.getDate() - dow);
+    var today = todayISO();
+    var WD = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+    var out = "";
+    for(var i=0;i<7;i++){
+      var d = new Date(mon); d.setDate(mon.getDate() + i);
+      var iso = isoDay(d);
+      var n = boardCount(iso);
+      out += '<button class="dday'
+        + (iso===dailyDate ? " on" : "")
+        + (iso===today ? " today" : "")
+        + '" data-day="'+iso+'">'
+        + '<span class="dw">'+WD[i]+'</span>'
+        + '<span class="dd">'+d.getDate()+'</span>'
+        + '<span class="dn">'+(n ? n+" line"+(n===1?"":"s") : "")+'</span>'
+        + '</button>';
+    }
+    $("ddays").innerHTML = out;
+    $("ddate").value = dailyDate;
+  }
+
+  function setDailyDate(iso){
+    dailyDate = iso;
+    boardFor(iso);
+    renderWeek();
+    renderDaily();
+  }
+
+  function shiftWeek(delta){
+    var d = parseDay(dailyDate);
+    d.setDate(d.getDate() + delta*7);
+    setDailyDate(isoDay(d));
+  }
+
+  function renderDaily(){
+    if(!$("dgrid")) return;
+    var filled = 0;
+    DAILY_COLS.forEach(function(c){
+      filled += (dailyData()[c.key]||[]).filter(function(l){ return l.text.trim(); }).length;
+    });
+    var d = parseDay(dailyDate);
+    var label = d.toLocaleDateString("en-US",
+      {weekday:"long", month:"short", day:"numeric"});
+    if(dailyDate === todayISO()) label += " \u00b7 today";
+    $("dhint").textContent = label + " \u00b7 "
+      + (filled ? filled + (filled===1?" line":" lines") : "empty")
+      + " \u00b7 click a line to edit, drag to reorder";
+
+    $("dgrid").innerHTML = DAILY_COLS.map(function(c){
+      var lines = dailyData()[c.key] || [];
+      var n = lines.filter(function(l){ return l.text.trim(); }).length;
+      return '<div class="dcol" data-col="'+c.key+'" style="--dcol:'+c.accent+'">'
+        + '<div class="dhead"><span class="dtitle">'+esc(c.label)+'</span>'
+        +   '<span class="dcount">'+n+'</span></div>'
+        + lines.map(function(l){
+            // A line with assignees takes their colour on its left edge and
+            // shows initials pips, so the board reads without opening anything.
+            var who  = l.who || [];
+            var edge = who.length ? personColor(who[0]) : "";
+            return '<div class="dline" draggable="true" data-line="'+l.id+'" '
+              +      'data-open="'+l.id+'" title="Click to edit"'
+              +      (edge ? ' style="border-left:3px solid '+edge+'"' : '') + '>'
+              + '<span class="dgrip">\u2261</span>'
+              + '<div class="dtext'+(l.text?'':' ph')+'">'
+              +   (l.text ? esc(l.text) : "Add a note\u2026") + '</div>'
+              + (who.length
+                  ? '<span class="dwho">' + who.map(function(n){
+                      return '<span class="dpip" style="background:'+personColor(n)
+                           + '" title="'+esc(n)+'">'+esc(initials(n))+'</span>';
+                    }).join("") + '</span>'
+                  : "")
+              + '<button class="dkill" data-del="'+l.id+'" title="Remove line">\u2715</button>'
+              + '</div>';
+          }).join("")
+        + '<button class="dadd" data-add="'+c.key+'">+ Add line</button>'
+        + '</div>';
+    }).join("");
+  }
+
+  var dmFor = null;
+  var dmPick = {};
+
+  function renderDmWho(){
+    $("dm-who").innerHTML = RECOMP_ROSTER.map(function(n){
+      var on = !!dmPick[n], c = personColor(n);
+      return '<span class="dmchip'+(on?' on':'')+'" data-dwho="'+esc(n)+'" style="--who:'+c+'">'
+        + '<span class="aini" style="background:'+c+';border-color:'+c+';color:#0B1016">'
+        +   esc(initials(n))+'</span>'
+        + esc(n.split(" ").slice(0,2).join(" "))
+        + '</span>';
+    }).join("");
+  }
+
+  function openLine(id){
+    var f = findLine(id);
+    if(!f) return;
+    dmFor = id;
+    var col = DAILY_COLS.filter(function(c){ return c.key === f.col; })[0] || {};
+    $("dm-mark").style.setProperty("--dmk", col.accent || GRADER_COLOR);
+    $("dm-col").textContent = col.label || f.col;
+    $("dm-pos").textContent = "Line " + (f.idx + 1) + " of " + dailyData()[f.col].length;
+    $("dm-text").value = f.line.text;
+    dmPick = {};
+    (f.line.who || []).forEach(function(n){ dmPick[n] = true; });
+    renderDmWho();
+    $("dmodal").hidden = false;
+    setTimeout(function(){ $("dm-text").focus(); $("dm-text").select(); }, 30);
+  }
+  function closeLine(){ $("dmodal").hidden = true; dmFor = null; }
+  function saveLine(){
+    if(!dmFor) return;
+    var f = findLine(dmFor);
+    if(f){
+      f.line.text = $("dm-text").value.trim();
+      f.line.who  = Object.keys(dmPick).filter(function(k){ return dmPick[k]; });
+      saveDaily();
+    }
+    closeLine(); renderDaily(); renderWeek(); renderAssignPanel();
+  }
+
+  function bindLineModal(){
+    if(bindLineModal.done) return;
+    bindLineModal.done = true;
+    $("dm-save").onclick   = saveLine;
+    $("dm-cancel").onclick = closeLine;
+    $("dm-close").onclick  = closeLine;
+    $("dm-clear").onclick  = function(){ $("dm-text").value = ""; $("dm-text").focus(); };
+    $("dm-who").addEventListener("click", function(e){
+      var c = e.target.closest(".dmchip");
+      if(!c) return;
+      var n = c.getAttribute("data-dwho");
+      dmPick[n] = !dmPick[n];
+      renderDmWho();
+    });
+    $("dmodal").addEventListener("click", function(e){
+      if(e.target === $("dmodal")) closeLine();
+    });
+    $("dm-text").addEventListener("keydown", function(e){
+      // Enter saves; Shift+Enter keeps the newline for multi-line notes.
+      if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); saveLine(); }
+      if(e.key === "Escape"){ closeLine(); }
+    });
+  }
+
+  function bindDaily(){
+    if(bindDaily.done) return;
+    bindDaily.done = true;
+    var grid = $("dgrid");
+    if(!grid) return;
+
+    $("ddays").addEventListener("click", function(e){
+      var b = e.target.closest(".dday");
+      if(b) setDailyDate(b.getAttribute("data-day"));
+    });
+    $("dprev").onclick  = function(){ shiftWeek(-1); };
+    $("dnext").onclick  = function(){ shiftWeek(1); };
+    $("dtoday").onclick = function(){ setDailyDate(todayISO()); };
+    $("ddate").onchange = function(){ if(this.value) setDailyDate(this.value); };
+    $("dclearall").onclick = function(){
+      var n = 0;
+      DAILY_COLS.forEach(function(c){
+        (dailyData()[c.key]||[]).forEach(function(l){ if(l.text.trim() || (l.who||[]).length) n++; });
+      });
+      if(n && !window.confirm("Clear all " + n + " line" + (n===1?"":"s") + " for this day?")) return;
+      dailyStore[dailyDate] = blankBoard();
+      saveDaily(); renderDaily(); renderWeek();
+    };
+
+    grid.addEventListener("click", function(e){
+      var add = e.target.closest(".dadd");
+      if(add){
+        dailyData()[add.getAttribute("data-add")].push(newLine());
+        var made = dailyData()[add.getAttribute("data-add")];
+        saveDaily(); renderDaily();
+        openLine(made[made.length-1].id);   // straight into the editor
+        return;
+      }
+      var del = e.target.closest(".dkill");
+      if(del){
+        var f = findLine(del.getAttribute("data-del"));
+        if(f){ dailyData()[f.col].splice(f.idx, 1); saveDaily(); renderDaily(); }
+      }
+    });
+
+    // Editing happens in a modal, so a click anywhere on the row opens it.
+    // The grip and the ✕ are excluded so dragging and deleting still work.
+    grid.addEventListener("click", function(e){
+      if(e.target.closest(".dkill") || e.target.closest(".dadd")) return;
+      var row = e.target.closest(".dline[data-open]");
+      if(row) openLine(row.getAttribute("data-open"));
+    });
+
+    var dragId = null;
+    grid.addEventListener("dragstart", function(e){
+      var row = e.target.closest(".dline");
+      if(!row) return;
+      dragId = row.getAttribute("data-line");
+      row.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", dragId);
+    });
+    grid.addEventListener("dragend", function(){
+      dragId = null;
+      grid.querySelectorAll(".dragging").forEach(function(el){ el.classList.remove("dragging"); });
+      grid.querySelectorAll(".over").forEach(function(el){ el.classList.remove("over"); });
+    });
+    grid.addEventListener("dragover", function(e){
+      var col = e.target.closest(".dcol");
+      if(!col) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      grid.querySelectorAll(".over").forEach(function(el){ el.classList.remove("over"); });
+      col.classList.add("over");
+    });
+    grid.addEventListener("drop", function(e){
+      var col = e.target.closest(".dcol");
+      var id  = dragId || e.dataTransfer.getData("text/plain");
+      if(!col || !id) return;
+      e.preventDefault();
+
+      var from = findLine(id);
+      if(!from) return;
+      var toCol = col.getAttribute("data-col");
+
+      // Drop position = above whichever line the cursor is over, else append.
+      var overRow = e.target.closest(".dline");
+      var toIdx = dailyData()[toCol].length;
+      if(overRow && overRow.getAttribute("data-line") !== id){
+        var t = findLine(overRow.getAttribute("data-line"));
+        if(t && t.col === toCol) toIdx = t.idx;
+      }
+      var moved = dailyData()[from.col].splice(from.idx, 1)[0];
+      if(from.col === toCol && from.idx < toIdx) toIdx--;   // account for the gap
+      dailyData()[toCol].splice(toIdx, 0, moved);
+      saveDaily(); renderDaily();
+    });
+  }
+
+  // Every Daily line that carries assignees, across every stored day, flattened
+  // into the same shape the zone assignments use so one panel answers "what is
+  // this person working on" rather than two half-answers.
+  function dailyJobsByWho(){
+    var out = {};
+    if(!loadDaily.done) return out;                 // Daily never opened this session
+    Object.keys(dailyStore).forEach(function(iso){
+      var board = dailyStore[iso];
+      DAILY_COLS.forEach(function(col){
+        (board[col.key] || []).forEach(function(line){
+          if(!line.who || !line.who.length) return;
+          if(!line.text.trim()) return;
+          line.who.forEach(function(n){
+            (out[n] = out[n] || []).push({
+              kind:"daily", text:line.text, col:col.label,
+              accent:col.accent, date:iso
+            });
+          });
+        });
+      });
+    });
+    return out;
+  }
+
+  function shortDay(iso){
+    var d = parseDay(iso);
+    if(iso === todayISO()) return "today";
+    return d.toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
+  }
+
+  function renderAssignPanel(){
+    if(!$("agrid")) return;
+    var keys = Object.keys(zAssign);
+    var dailyBy = dailyJobsByWho();
+
+    // Invert player -> assignees into assignee -> work, then fold the Daily
+    // lines in. Every roster member stays visible so idle capacity is as
+    // obvious as busy capacity.
+    var byWho = {};
+    RECOMP_ROSTER.forEach(function(n){ byWho[n] = []; });
+    keys.forEach(function(k){
+      var a = zAssign[k];
+      (a.who || []).forEach(function(n){
+        (byWho[n] = byWho[n] || []).push({kind:"zone", a:a});
+      });
+    });
+    Object.keys(dailyBy).forEach(function(n){
+      (byWho[n] = byWho[n] || []).push.apply(byWho[n], dailyBy[n]);
+    });
+
+    var names = Object.keys(byWho).sort(function(x, y){
+      var d = byWho[y].length - byWho[x].length;   // busiest first
+      return d || x.toLowerCase().localeCompare(y.toLowerCase());
+    });
+
+    var dailyCount = Object.keys(dailyBy).reduce(function(a,n){ return a + dailyBy[n].length; }, 0);
+    var active = names.filter(function(n){ return byWho[n].length; }).length;
+    var bits = [];
+    if(keys.length)   bits.push(keys.length + (keys.length===1?" player":" players"));
+    if(dailyCount)    bits.push(dailyCount + (dailyCount===1?" daily line":" daily lines"));
+    $("ahint").textContent = bits.length
+      ? bits.join(" \u00b7 ") + " \u00b7 " + active + " of " + names.length + " working"
+      : "nothing assigned yet \u2014 assign from Hot/Cold Zone or a Daily line";
+
+    $("agrid").innerHTML = names.map(function(n){
+      var jobs = byWho[n];
+      var c = personColor(n);
+      return '<div class="zcard" style="border-left:3px solid '+c+'">'
+        + '<div class="zhead" style="padding-bottom:10px">'
+        +   '<span class="aini" style="background:'+c+';border-color:'+c+';color:#0B1016">'
+        +     esc(initials(n))+'</span>'
+        +   '<span class="zname" style="text-transform:none;letter-spacing:0">'+esc(n)+'</span>'
+        +   '<span class="zcount" style="'
+        +     (jobs.length ? 'color:'+c : 'opacity:.5')+'">'
+        +     (jobs.length ? jobs.length + " active" : "idle") + '</span>'
+        + '</div>'
+        + (jobs.length
+            ? jobs.map(function(j){
+                if(j.kind === "daily"){
+                  // Daily lines carry their column's colour, not the person's,
+                  // so Today's Tags vs Next Up stays readable at a glance.
+                  return '<div class="zrow" style="cursor:default;margin-top:12px">'
+                    + '<span style="width:4px;height:42px;border-radius:2px;background:'
+                    +   j.accent+';flex:0 0 auto"></span>'
+                    + '<span class="zthumb ajob zini" style="color:'+j.accent+';font-size:11px">'
+                    +   '\u2261</span>'
+                    + '<span class="zplayer">'+esc(j.text)
+                    +   '<span class="zmeta">'+esc(j.col)+' \u00b7 '+esc(shortDay(j.date))+'</span>'
+                    + '</span></div>';
+                }
+                var a = j.a;
+                var thumb = a.image
+                  ? '<img class="zthumb ajob" src="'+esc(a.image)+'" alt="" loading="lazy">'
+                  : '<span class="zthumb ajob zini" style="color:'+c+'">'+esc(initials(a.player))+'</span>';
+                return '<div class="zrow" style="cursor:default;margin-top:12px">'
+                  + '<span style="width:4px;height:42px;border-radius:2px;background:'+c+';flex:0 0 auto"></span>'
+                  + thumb
+                  + '<span class="zplayer">'+esc(a.player)
+                  +   (a.note ? '<span class="zmeta">'+esc(a.note)+'</span>' : '')
+                  + '</span>'
+                  + '<span class="zval">'+fmt(a.cards)+'</span>'
+                  + '<button class="zx" data-unassign="'+esc(a.player)+'" data-who="'+esc(n)+'"'
+                  +   ' title="Remove this assignment">\u2715</button>'
+                  + '</div>';
+              }).join("")
+            : '<div class="zrow" style="cursor:default;margin-top:12px">'
+              + '<span class="zplayer" style="opacity:.5">nothing assigned</span></div>')
+        + '</div>';
+    }).join("");
   }
 
   function rosterFor(){
@@ -2401,6 +3259,26 @@
       renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
       return;
     }
+    if(SUB==="daily" || SUB==="assign"){
+      if(SUB==="assign"){
+        if(!loadDaily.done){ loadDaily(); loadDaily.done = true; }
+        renderAssignPanel();
+      }
+      if(SUB==="daily"){
+        if(!loadDaily.done){ loadDaily(); loadDaily.done = true; }
+        renderWeek(); renderDaily(); bindDaily(); bindLineModal();
+      }
+      $("rkpis").hidden        = true;
+      $("rpanel-total").hidden = true;
+      $("rpanel-age").hidden   = true;
+      $("rpanel-zone").hidden  = true;
+      $("rviewtoggle").hidden  = true;
+      $("rmetrictoggle").hidden = true;
+      $("rgrouptoggle").hidden  = true;
+      return;
+    }
+    $("rpanel-daily").hidden  = true;
+    $("rpanel-assign").hidden = true;
     if(SUB==="zone"){
       $("rkpis").hidden = true;
       $("rpanel-total").hidden = true;
@@ -2727,11 +3605,18 @@
     document.querySelectorAll("[data-recomp-zone]").forEach(function(el){
       el.hidden = !(isRecomp && SUB==="zone");
     });
+    document.querySelectorAll("[data-recomp-total]").forEach(function(el){
+      if(isRecomp && (SUB==="daily" || SUB==="assign")) el.hidden = true;
+    });
   }
   function setSub(name){
     SUB = name;
     $("sub-zone").setAttribute("aria-selected", name==="zone");
-    $("rpanel-zone").hidden = (name!=="zone");
+    $("sub-daily").setAttribute("aria-selected", name==="daily");
+    $("sub-assign").setAttribute("aria-selected", name==="assign");
+    $("rpanel-zone").hidden   = (name!=="zone");
+    $("rpanel-daily").hidden  = (name!=="daily");
+    $("rpanel-assign").hidden = (name!=="assign");
     $("sub-total").setAttribute("aria-selected", name==="total");
     $("sub-age").setAttribute("aria-selected", name==="age");
     syncFilterVisibility();
@@ -2740,7 +3625,9 @@
   }
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
-  $("sub-zone").onclick  = function(){ setSub("zone"); };
+  $("sub-zone").onclick   = function(){ setSub("zone"); };
+  $("sub-daily").onclick  = function(){ setSub("daily"); };
+  $("sub-assign").onclick = function(){ setSub("assign"); };
   // Zone aggregates client-side, so its sport filter re-ranks in place.
   $("zsport").onchange = function(){ renderZone(); };
 
@@ -2977,5 +3864,53 @@
   load();
 })();
 </script>
+<div id="dmodal" class="amodal" hidden>
+  <div class="amodal-card" role="dialog" aria-modal="true">
+    <div class="amodal-head">
+      <span class="dmark" id="dm-mark"></span>
+      <span class="amodal-who">
+        <span class="n1" id="dm-col"></span>
+        <span class="n2" id="dm-pos"></span>
+      </span>
+      <button id="dm-close" class="amodal-x" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="amodal-label">Assign to</div>
+    <div id="dm-who" class="dmwho"></div>
+    <div class="amodal-label">Text</div>
+    <textarea id="dm-text" class="amodal-note dm-area" rows="4"
+      placeholder="Cert range, workflow step, hand-off note…"></textarea>
+    <div class="amodal-foot">
+      <button id="dm-save" class="amodal-go">Save</button>
+      <button id="dm-clear" class="amodal-alt">Clear</button>
+      <button id="dm-cancel" class="amodal-alt">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="amodal" class="amodal" hidden>
+  <div class="amodal-card" role="dialog" aria-modal="true" aria-labelledby="am-name">
+    <div class="amodal-head">
+      <img id="am-thumb" class="zthumb" alt="">
+      <span class="amodal-who">
+        <span id="am-name"></span>
+        <span id="am-meta"></span>
+      </span>
+      <button id="am-close" class="amodal-x" aria-label="Close">&#10005;</button>
+    </div>
+
+    <div class="amodal-label">Assign to</div>
+    <div id="am-roster" class="amodal-roster"></div>
+
+    <div class="amodal-label">Note (optional)</div>
+    <input id="am-note" class="amodal-note" placeholder="Prioritise the Prizm parallels…" autocomplete="off">
+
+    <div class="amodal-foot">
+      <button id="am-assign" class="amodal-go">Assign</button>
+      <button id="am-clear" class="amodal-alt" hidden>Unassign all</button>
+      <button id="am-done" class="amodal-alt">Mark done</button>
+      <button id="am-cancel" class="amodal-alt">Cancel</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
