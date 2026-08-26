@@ -928,3 +928,47 @@ dragged between columns.
 
 **Clear all** wipes every line for the day currently selected, confirming first
 with the count. Other days are untouched.
+
+## Daily / Assignments do not call Metabase
+
+Both views are entirely local — there is no saved question behind either.
+`setSub()` short-circuits before `load()` for them, so selecting Daily no longer
+produces:
+
+> Could not load data. Unknown tab/view: recomp:daily
+
+The error was harmless but looked like a broken deployment. The footer now reads
+"Local — not backed by Metabase" on these two views rather than showing a stale
+Metabase source line.
+
+Note the banner is cleared with `banner("")`, not `[hidden]` — it toggles via a
+`.hide` class, so setting the attribute does nothing.
+
+## Daily sizing
+
+Sized for a wall display:
+
+| | before | after |
+|---|---|---|
+| Day button | 74×~60px | 100×99px |
+| Day number | 16px | 24px |
+| Column min-height | 150px | 340px |
+| Column title | 14px | 17px |
+| Column count | 13px | 17px |
+
+Columns are `flex-column` with `+ Add line` pushed to the bottom, so all five
+stay the same height regardless of how many lines each holds.
+
+## Daily line text sizing
+
+Line text is **15.5px**, up from 14px. 17px was tried first and broke
+`sd_ereader_pack` mid-word — mono at that size doesn't fit a fifth-width column.
+
+Assignee pips moved **below** the text rather than sitting inline: an inline pip
+plus the ✕ cost ~60px of a ~250px line, which is what forced tag names to wrap
+in the first place. Text now gets the full width, and `overflow-wrap:anywhere`
+(instead of `word-break:break-word`) means it only breaks a token when there is
+genuinely no alternative.
+
+Result: `sd_auto_pack`, `sd_ereader_pack` and `sd_wemby_grail` all sit on one
+line with room to spare.

@@ -143,65 +143,67 @@
   .zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:12px}
   /* One sport selected: cap the width so the count sits beside the name
      instead of being flung to the far edge of a 1500px screen. */
-  .dweek{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .dweek{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
   .ddays{display:flex;gap:7px;flex-wrap:wrap}
   .dday{
-    background:var(--panel2);border:1px solid var(--line2);border-radius:7px;
-    padding:8px 13px;cursor:pointer;color:var(--tx);font-family:var(--mono);
-    text-align:center;min-width:74px;line-height:1.35;
+    background:var(--panel2);border:1px solid var(--line2);border-radius:9px;
+    padding:12px 18px;cursor:pointer;color:var(--tx);font-family:var(--mono);
+    text-align:center;min-width:100px;line-height:1.4;
   }
   .dday:hover{border-color:var(--tx)}
-  .dday .dw{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;opacity:.7}
-  .dday .dd{display:block;font-size:16px;font-variant-numeric:tabular-nums}
-  .dday .dn{display:block;font-size:10.5px;margin-top:2px;color:var(--neon);min-height:13px}
+  .dday .dw{display:block;font-size:13px;letter-spacing:.09em;text-transform:uppercase;opacity:.75}
+  .dday .dd{display:block;font-size:24px;font-variant-numeric:tabular-nums;margin-top:1px}
+  .dday .dn{display:block;font-size:12px;margin-top:3px;color:var(--neon);min-height:15px}
   .dday.today{border-color:var(--tx)}
   .dday.on{background:var(--neon);border-color:var(--neon);color:#06240A}
   .dday.on .dw{opacity:.85}
   .dday.on .dn{color:#06240A}
   .dnav{
-    background:transparent;border:1px solid var(--line2);border-radius:7px;
-    color:var(--tx);font-family:var(--mono);font-size:15px;
-    padding:9px 13px;cursor:pointer;
+    background:transparent;border:1px solid var(--line2);border-radius:9px;
+    color:var(--tx);font-family:var(--mono);font-size:18px;
+    padding:14px 17px;cursor:pointer;
   }
   .dnav:hover{border-color:var(--tx)}
-  .dtoday{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-  .dclear{font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-left:auto}
+  .dtoday{font-size:13.5px;letter-spacing:.06em;text-transform:uppercase}
+  .dclear{font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;margin-left:auto}
   .dclear:hover{border-color:var(--warn);color:var(--warn)}
   .ddate{
     background:var(--panel);color:var(--tx);border:1px solid var(--line2);
-    border-radius:7px;padding:9px 11px;font-family:var(--mono);font-size:13px;
+    border-radius:9px;padding:13px 14px;font-family:var(--mono);font-size:14.5px;
   }
   .dgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start}
   @media (max-width:1200px){ .dgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-  .dcol{background:var(--panel2);border-radius:8px;padding:14px 15px;
-        border-top:3px solid var(--dcol);min-height:150px}
+  .dcol{background:var(--panel2);border-radius:8px;padding:18px 18px 20px;
+        border-top:4px solid var(--dcol);min-height:340px;
+        display:flex;flex-direction:column}
   .dcol.over{outline:2px dashed var(--dcol);outline-offset:2px}
-  .dhead{display:flex;align-items:center;gap:9px;padding-bottom:11px;
+  .dhead{display:flex;align-items:center;gap:9px;padding-bottom:14px;
          border-bottom:1px solid var(--line);margin-bottom:4px}
-  .dtitle{flex:1;font-size:14px;letter-spacing:.05em;text-transform:uppercase;color:var(--tx)}
-  .dcount{font-size:13px;color:var(--dcol);font-variant-numeric:tabular-nums}
+  .dtitle{flex:1;font-size:17px;letter-spacing:.06em;text-transform:uppercase;color:var(--tx)}
+  .dcount{font-size:17px;color:var(--dcol);font-variant-numeric:tabular-nums}
   .dline{
-    display:flex;align-items:flex-start;gap:9px;margin-top:10px;
+    display:flex;align-items:flex-start;gap:11px;margin-top:12px;
     background:var(--panel);border:1px solid var(--line);border-radius:6px;
-    padding:9px 10px;cursor:grab;
+    padding:13px 13px;cursor:grab;
   }
   .dline.dragging{opacity:.45}
   .dline:focus-within{border-color:var(--dcol)}
-  .dgrip{color:var(--tx);opacity:.45;font-size:13px;line-height:1.35;flex:0 0 auto;cursor:grab}
+  .dgrip{color:var(--tx);opacity:.45;font-size:16px;line-height:1.4;flex:0 0 auto;cursor:grab}
+  .dbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
   .dtext{
-    flex:1;min-width:0;color:var(--tx);font-family:var(--mono);font-size:14px;
-    line-height:1.45;outline:none;white-space:pre-wrap;word-break:break-word;
+    display:block;min-width:0;color:var(--tx);font-family:var(--mono);font-size:15.5px;
+    line-height:1.5;outline:none;white-space:pre-wrap;overflow-wrap:anywhere;
   }
   .dtext.ph{opacity:.35}
   .dkill{
     background:transparent;border:0;color:var(--tx);opacity:.4;cursor:pointer;
-    font-size:12px;line-height:1;padding:2px 3px;flex:0 0 auto;
+    font-size:14px;line-height:1;padding:3px 4px;flex:0 0 auto;
   }
   .dkill:hover{opacity:1;color:var(--warn)}
   .dadd{
-    width:100%;margin-top:11px;background:transparent;color:var(--tx);
-    border:1px dashed var(--line2);border-radius:6px;padding:9px;
-    font-family:var(--mono);font-size:13px;cursor:pointer;
+    width:100%;margin-top:auto;background:transparent;color:var(--tx);
+    border:1px dashed var(--line2);border-radius:6px;padding:12px;
+    font-family:var(--mono);font-size:14px;cursor:pointer;margin-top:14px;
   }
   .dadd:hover{border-color:var(--dcol);color:var(--dcol)}
   .zplaceholder{
@@ -233,11 +235,11 @@
   .dmchip.on .aini{opacity:1}
   /* Assignee pips on the line itself, so a board is readable without opening
      anything — same colours as the Hot/Cold Zone assignments. */
-  .dwho{display:flex;gap:4px;flex:0 0 auto;align-items:center}
+  .dwho{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   .dpip{
-    width:20px;height:20px;border-radius:50%;flex:0 0 auto;
+    width:24px;height:24px;border-radius:50%;flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;
-    font-family:var(--mono);font-size:8.5px;font-weight:700;color:#0B1016;
+    font-family:var(--mono);font-size:10px;font-weight:700;color:#0B1016;
   }
   .dmark{
     width:34px;height:34px;border-radius:7px;flex:0 0 auto;
@@ -2051,14 +2053,16 @@
               +      'data-open="'+l.id+'" title="Click to edit"'
               +      (edge ? ' style="border-left:3px solid '+edge+'"' : '') + '>'
               + '<span class="dgrip">\u2261</span>'
-              + '<div class="dtext'+(l.text?'':' ph')+'">'
-              +   (l.text ? esc(l.text) : "Add a note\u2026") + '</div>'
-              + (who.length
-                  ? '<span class="dwho">' + who.map(function(n){
-                      return '<span class="dpip" style="background:'+personColor(n)
-                           + '" title="'+esc(n)+'">'+esc(initials(n))+'</span>';
-                    }).join("") + '</span>'
-                  : "")
+              + '<span class="dbody">'
+              +   '<span class="dtext'+(l.text?'':' ph')+'">'
+              +     (l.text ? esc(l.text) : "Add a note\u2026") + '</span>'
+              +   (who.length
+                    ? '<span class="dwho">' + who.map(function(n){
+                        return '<span class="dpip" style="background:'+personColor(n)
+                             + '" title="'+esc(n)+'">'+esc(initials(n))+'</span>';
+                      }).join("") + '</span>'
+                    : "")
+              + '</span>'
               + '<button class="dkill" data-del="'+l.id+'" title="Remove line">\u2715</button>'
               + '</div>';
           }).join("")
@@ -3620,6 +3624,17 @@
     $("sub-total").setAttribute("aria-selected", name==="total");
     $("sub-age").setAttribute("aria-selected", name==="age");
     syncFilterVisibility();
+
+    // Daily and Assignments are entirely local — there is no Metabase question
+    // behind either, so calling load() only produced "Unknown tab/view".
+    if(name === "daily" || name === "assign"){
+      banner("");                      // clears via class, not [hidden]
+      $("f-updated").textContent = "";
+      $("f-source").textContent  = "Local \u2014 not backed by Metabase";
+      renderRecomp();
+      return;
+    }
+
     grows = []; rrows = [];
     load();
   }
