@@ -141,6 +141,10 @@
     min-width:152px;
   }
   .zgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:12px}
+  /* One sport selected: cap the width so the count sits beside the name
+     instead of being flung to the far edge of a 1500px screen. */
+  .zgrid.solo{grid-template-columns:minmax(0,760px)}
+  .zbig.solo{max-width:760px}
   .zcard{background:var(--panel2);border-radius:8px;padding:16px 16px}
   .zhead{
     display:flex;align-items:center;gap:12px;
@@ -1028,11 +1032,11 @@
   // query returns, and so someone with zero rows in the window is still
   // selectable. Names present in the response are merged in, so anyone new
   // shows up without editing these arrays.
-  var RECOMP_ROSTER = ["Alan Bailey","Anjello Bumanglag","Aaron Adrianne Joaquin",
-    "Blaise Endico","Charles Pellas","Gino Policarpio","Ian Benedict Banua",
-    "Jason Mills","Jensen Manalastas","John Thomas Arcilla","Jose Marie Arcilla",
-    "Joshua Sacramento","Neil Tepora","Raquel Valdecantos","Rusty Khent Saludo",
-    "Ryan Borsigue"];
+  var RECOMP_ROSTER = ["Aaron Adrianne Joaquin","Alan Bailey","Anjello Bumanglag",
+    "Austin Crawford","Blaise Endico","Charles Pellas","Gino Policarpio",
+    "Ian Benedict Banua","Jensen Manalastas","Joey Abelsen","John Thomas Arcilla",
+    "Jose Marie Arcilla","Joshua Sacramento","Neil Tepora","Raquel Valdecantos",
+    "Rusty Khent Saludo","Ryan Borsigue"];
 
   var CARDTYPE_ROSTER = ["Abe Dato","Abigael Calasin","Abraham Salisi","Adrian Carlo","Aljen Magat",
     "Anjello Bumanglag","Benedict Bueno","Calvin Caceres","Camille Meneses","Carmen Cortez",
@@ -1428,7 +1432,7 @@
     $("zhint").textContent = sel
       ? (ZSPORTS.filter(function(s){ return s.key===sel; })[0]||{}).label
       : "top 3 by cards, per sport";
-    $("zsports").className = "zgrid";
+    $("zsports").className = "zgrid" + (sel ? " solo" : "");
     $("zsports").innerHTML = present.map(function(s){
       var top = zTop(s.key, 3).map(function(p){
         if(p.image) return p;
@@ -1466,7 +1470,7 @@
       var lg = $("zexplogo");
       if(s.logo){ lg.src = s.logo; lg.alt = s.label; lg.hidden = false; } else { lg.hidden = true; }
       $("zexphint").textContent = "top 5 \u00b7 " + s.label;
-      $("zexpanded").className = "zbig";
+      $("zexpanded").className = "zbig solo";
       $("zexpanded").innerHTML = top5.length
         ? top5.map(function(p,i){ return zRow(p,i,max5,s.accent,true); }).join("")
         : '<div class="zrow"><span class="zplayer">no cards in window</span></div>';
