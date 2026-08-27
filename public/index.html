@@ -2453,6 +2453,8 @@
   var heTier = "mid";
   var heDate = null;          // ISO; defaults to yesterday
   var heRows = [];
+  var heLoading = false;
+  var heError = "";
 
   function yesterdayISO(){
     var d = new Date(); d.setDate(d.getDate() - 1);
@@ -2500,9 +2502,11 @@
   }
 
   function heFiltered(){
+    // The query is already scoped to one day and one value range. Re-filtering
+    // by date here would throw rows away whenever the timestamp format didn't
+    // match our parse — the tier check is cheap and safe, the date check is not.
     var t = HE_TIERS[heTier];
     return heRows.filter(function(r){
-      if(heDate && r.day !== heDate) return false;
       return r.ev >= t.min && r.ev <= t.max;
     }).sort(function(a,b){ return b.ev - a.ev; });
   }
@@ -2540,8 +2544,21 @@
        n:(mover ? (mover.pct>0?"+":"")+Math.round(mover.pct)+"%" : ""), small:true}
     ]);
 
+    if(heError){
+      $("hfeed").innerHTML = '<div class="hempty" style="color:var(--warn)">'
+        + 'Could not load the Value Tracker. ' + esc(heError) + '</div>';
+      return;
+    }
+    if(heLoading && !heRows.length){
+      $("hfeed").innerHTML = '<div class="hempty">Loading comps\u2026</div>';
+      return;
+    }
     if(!rows.length){
-      $("hfeed").innerHTML = '<div class="hempty">No comps in this tier for '+esc(dayLabel)+'.</div>';
+      $("hfeed").innerHTML = '<div class="hempty">No comps in this tier for '
+        + esc(dayLabel) + '.'
+        + (heRows.length ? ' <span style="opacity:.7">The query returned '
+            + fmt(heRows.length) + ' rows for other days or tiers.</span>' : '')
+        + '</div>';
       return;
     }
 
@@ -2576,11 +2593,12 @@
   function bindHighEnd(){
     if(bindHighEnd.done) return;
     bindHighEnd.done = true;
-    $("h-mid").onclick   = function(){ heTier = "mid";  renderHighEnd(); };
-    $("h-high").onclick  = function(){ heTier = "high"; renderHighEnd(); };
-    $("h-yest").onclick  = function(){ heDate = yesterdayISO(); renderHighEnd(); };
-    $("h-today").onclick = function(){ heDate = todayISO();     renderHighEnd(); };
-    $("h-date").onchange = function(){ if(this.value){ heDate = this.value; renderHighEnd(); } };
+    function reload(){ heLoading = true; heError = ""; renderHighEnd(); load(); }
+    $("h-mid").onclick   = function(){ heTier = "mid";  reload(); };
+    $("h-high").onclick  = function(){ heTier = "high"; reload(); };
+    $("h-yest").onclick  = function(){ heDate = yesterdayISO(); reload(); };
+    $("h-today").onclick = function(){ heDate = todayISO();     reload(); };
+    $("h-date").onchange = function(){ if(this.value){ heDate = this.value; reload(); } };
   }
 
   function renderAssignPanel(){
@@ -3659,6 +3677,16 @@
       q.set("view", RVSUB);
     } else if(TAB==="recomp"){
       q.set("view", SUB);
+      if(SUB==="highend"){
+        // 3213 filters server-side: one calendar day, plus the value range for
+        // the selected tier. Any time on that day counts — there is no shift
+        // window here, unlike the throughput views.
+        var t = HE_TIERS[heTier] || HE_TIERS.mid;
+        q.set("single_date", heDate || yesterdayISO());
+        q.set("min_estimated_value_usd", String(t.min));
+        if(isFinite(t.max)) q.set("max_estimated_value_usd", String(Math.floor(t.max)));
+        q.delete("start_date"); q.delete("end_date"); q.delete("grain");
+      }
       if(SUB==="age"){
         if($("sport").value)         q.set("sport", $("sport").value);
         if($("pack_category").value) q.set("pack_category", $("pack_category").value);
@@ -3759,6 +3787,7 @@
         } else if(TAB==="recomp"){
           if(SUB==="highend"){
             heRows = normalizeHighEnd(arr);
+            heLoading = false; heError = "";
             empty = !heFiltered().length;
             $("panel-body").hidden = true;
             $("groups").hidden = true;
@@ -3820,6 +3849,10 @@
       .catch(function(err){
         loadFailed = true;
         rows = []; grows = []; rrows = [];
+        // Surface the reason inside the High End panel too — a banner above the
+        // fold is easy to miss when the view itself just looks empty.
+        heLoading = false;
+        heError = String(err && err.message || err || "");
         if(TAB==="recomp") renderRecomp(); else renderAll();
         if(err.message==="NOT_CONFIGURED"){
           showSetup();
@@ -3964,6 +3997,15 @@
     // recomp table can never render under Daily, or a High End feed under Zone.
     grows = []; rrows = []; zrows = []; heRows = [];
     zoneTotal = null; zoneHasSport = false;
+
+    // Paint the High End shell immediately — tiers, date, empty state — rather
+    // than leaving a blank panel until the request resolves.
+    if(name === "highend"){
+      showRecompPanel("rpanel-highend");
+      bindHighEnd();
+      heLoading = true;
+      renderHighEnd();
+    }
 
     if(name === "daily" || name === "assign"){
       banner("");                      // clears via class, not [hidden]

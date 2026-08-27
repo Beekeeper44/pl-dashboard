@@ -30,7 +30,7 @@ const TEXT_VARS = {
   'cardtype:data':   ['grain'],
   'cardtype:verify': ['grain'],
   'recomp:zone':      ['grain', 'sport'],
-  'recomp:highend':   ['grain'],
+  'recomp:highend':   [],   // no grain; see SINGLE_DATE
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -125,8 +125,46 @@ async function getTagIds(host, apiKey, cardId) {
   return out;
 }
 
+// Cards that take a SINGLE date rather than a start/end range. The Value
+// Tracker (3213) declares `Single Date`, `Min Estimated Value Usd` and
+// `Max Estimated Value Usd`; sending it start_date/end_date/grain — tags it does
+// not declare — made Metabase reject the run and left the tab on LOADING.
+const SINGLE_DATE = new Set(['recomp:highend']);
+
+// Numeric template tags, sent only when the client provides a value.
+const NUM_VARS = {
+  'recomp:highend': ['min_estimated_value_usd', 'max_estimated_value_usd'],
+};
+
 function buildParameters(query, key, tagIds) {
   const parameters = [];
+
+  if (SINGLE_DATE.has(key)) {
+    const value = query.single_date;
+    if (!value) throw new Error('Missing required filter: single_date');
+    if (!ISO_DATE.test(value)) throw new Error('single_date must be YYYY-MM-DD');
+    parameters.push({
+      id: tagIds['single_date']?.id || 'single_date',
+      type: tagIds['single_date']?.type || 'date/single',
+      value,
+      target: ['variable', ['template-tag', 'single_date']],
+    });
+
+    for (const name of (NUM_VARS[key] || [])) {
+      const v = query[name];
+      if (v === undefined || v === '') continue;   // optional — omit to drop the clause
+      if (!/^\d+(\.\d+)?$/.test(String(v))) {
+        throw new Error(`${name} must be a number`);
+      }
+      parameters.push({
+        id: tagIds[name]?.id || name,
+        type: tagIds[name]?.type || 'number/=',
+        value: Number(v),
+        target: ['variable', ['template-tag', name]],
+      });
+    }
+    return parameters;
+  }
 
   for (const name of ['start_date', 'end_date']) {
     const value = query[name];

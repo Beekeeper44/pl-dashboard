@@ -1165,3 +1165,37 @@ has not been run against a live Postgres** — there was none available in the
 build environment. First deploy is the real test: open `/api/state` and confirm
 `"backend":"neon"` and `"shared":true`, then type a Daily line and reload to
 confirm it persists.
+
+## High End — parameters and the LOADING hang
+
+`buildParameters()` unconditionally sent `start_date`, `end_date` and `grain` on
+every card. Question **3213 declares none of those**, so Metabase rejected the
+run, the promise never resolved, and the tab sat on LOADING with an empty panel.
+
+3213 declares `Single Date`, `Min Estimated Value Usd`, `Max Estimated Value
+Usd`, `User Name`, `Vendor Name` and `Sport`. The route now sends:
+
+| tier | params sent |
+|---|---|
+| $2,500 – $4,999 | `single_date`, `min=2500`, `max=4999` |
+| $5,000 + | `single_date`, `min=5000` (max omitted, so the clause drops) |
+
+**One calendar day, any time on it.** There is no shift window on this view —
+unlike the throughput tabs, a comp at 2 AM and one at 11 PM both belong to the
+same day. Filtering happens server-side, so the browser never sees rows it
+would then discard.
+
+The client no longer re-filters by date locally either. A second date check
+would throw rows away whenever our timestamp parse disagreed with Metabase's
+format — the tier check is cheap and safe, a date check on top of a
+server-scoped query is not. Changing tier or date refetches.
+
+The view also no longer waits on the network to draw itself:
+
+- The shell (tier pills, date, KPIs) paints the moment the pill is clicked,
+  showing **"Loading comps…"**.
+- A failed load prints the reason **inside the panel** — a banner above the fold
+  is easy to miss when the view itself just looks empty.
+- The empty state distinguishes "nothing matched" from "nothing came back":
+  *No comps in this tier for today. The query returned 13 rows for other days or
+  tiers.* That difference is the first thing you need when a filter looks broken.
