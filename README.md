@@ -1199,3 +1199,74 @@ The view also no longer waits on the network to draw itself:
 - The empty state distinguishes "nothing matched" from "nothing came back":
   *No comps in this tier for today. The query returned 13 rows for other days or
   tiers.* That difference is the first thing you need when a filter looks broken.
+
+## High End — column layout
+
+Twelve fixed columns so every row lines up:
+
+`image · URL · sport · company · grade · set · player · parallel · est. value ·
+last comp · change · user`
+
+- **Est. value** green at 21px, **last comp** grey at 14px — the live number is what people scan for, so it outsizes everything else in the row.
+- **Change** green when positive, **red** when negative. Red rather than amber:
+  a price drop is different news from a warning.
+- Sport carries a coloured dot plus the left border; user carries their
+  Assignments colour.
+- Set / player / parallel flex, everything else is fixed width. Below 1500px the
+  columns tighten rather than wrap.
+
+### ⚠ percent_change_from_last is a RATIO
+
+Metabase *displays* that column as a percent, but the API returns **0.1 for
+10%**. Rendering it directly gave `+0%` for a card that had moved +10% — visible
+on screen and completely wrong.
+
+It is now derived from the two values we already have:
+
+```js
+pct = (ev - last) / last * 100
+```
+
+Checked against Metabase's own rendering: 3050←3100 → −2%, 2850←2600 → +10%,
+9775←865 → +1030%, 4980←5500 → −9%. All match. The raw column is only used when
+there is no prior comp to derive from, and is scaled by 100 when it looks like a
+ratio.
+
+## High End — reviewed check
+
+A check circle leads every row. Ticking it strikes the row through and drops it
+to 45% opacity — the comp stays on screen but stops competing for attention,
+same behaviour as a done line on Daily. The header shows `2 of 8 reviewed`.
+
+**Shared across screens** via `/api/state` section `hedone`, so one person
+working the list is visible to everyone else within a poll. Verified with two
+browser contexts: ticking rows 1 and 3 on one machine produced `10100000` on
+both, and unticking propagated back.
+
+### Row identity
+
+A comp has no id of its own, so the key is composite:
+
+```
+url | finished_at | player | set | parallel | ev | last_comp
+```
+
+The URL alone is **not** safe. If the query ever returns a shared or templated
+link, every row ticks together — which is exactly what happened in testing when
+all mock rows carried the same URL. The extra fields also separate genuine
+near-duplicates: the live data has two Rome Odunze rows at the same $3,960 that
+differ only in their previous comp value.
+
+## Date defaults
+
+| view | opens on |
+|---|---|
+| Cards, Recomp, Card Type, Review | **today** (`start_date = end_date = today`) |
+| High End | **yesterday**, by design |
+
+The global range used to default to the last 14 days, so every tab loaded two
+weeks of history nobody asked for — the ops question is almost always "today".
+Widen the range by hand for a trend.
+
+High End is the deliberate exception: a day's comps aren't complete until the
+day is over, so it opens on yesterday. The Yesterday / Today buttons switch it.

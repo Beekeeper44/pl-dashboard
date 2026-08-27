@@ -178,34 +178,60 @@
   }
   .sharedwarn code{background:rgba(0,0,0,.28);padding:1px 5px;border-radius:3px}
   .htier{min-width:150px}
-  .hrow{
-    display:flex;align-items:center;gap:14px;
-    background:var(--panel2);border-radius:8px;padding:13px 15px;margin-bottom:9px;
-    border-left:3px solid var(--hsport,#5C6B7A);
+  /* 12 columns, fixed widths so every row lines up. Set / player / parallel
+     flex because they're the ones that vary in length. */
+  .htable{--hcols:34px 56px 74px 108px 84px 62px minmax(160px,1.3fr) minmax(150px,1.2fr)
+          minmax(110px,0.9fr) 124px 106px 92px minmax(150px,1fr)}
+  .hhead,.hrow2{display:grid;grid-template-columns:var(--hcols);gap:12px;align-items:center}
+  .hhead{
+    padding:0 14px 10px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--tx);opacity:.55;border-bottom:1px solid var(--line);
   }
-  .hcard{
-    width:46px;height:46px;border-radius:50%;flex:0 0 auto;
-    background:var(--panel);border:1px solid var(--line2);object-fit:cover;display:block;
+  .hrow2{
+    background:var(--panel2);border-radius:8px;padding:12px 14px;margin-top:8px;
+    border-left:3px solid var(--hsport,#5C6B7A);font-size:14px;
   }
-  .hini{display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
-  .hwho{
-    width:30px;height:30px;border-radius:50%;flex:0 0 auto;color:#0B1016;
-    display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;
+  .hrow2 > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hcheck{
+    width:22px;height:22px;flex:0 0 auto;cursor:pointer;padding:0;
+    background:transparent;border:1.5px solid var(--line2);border-radius:50%;
+    color:transparent;font-size:12px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
   }
-  .hbody{flex:1;min-width:0}
-  .hname{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hset{display:block;color:var(--tx);opacity:.6;font-size:12px;margin-top:2px;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hval{flex:0 0 auto;text-align:right}
-  .hval b{display:block;font-size:18px;font-weight:400;font-variant-numeric:tabular-nums}
-  .hval span{display:block;color:var(--tx);opacity:.55;font-size:11.5px;margin-top:2px}
-  .hchg{
-    flex:0 0 auto;border-radius:999px;padding:6px 12px;font-size:13px;
-    min-width:84px;text-align:center;font-variant-numeric:tabular-nums;
+  .hcheck:hover{border-color:var(--neon);color:rgba(57,255,20,.45)}
+  .hrow2.done .hcheck{background:var(--neon);border-color:var(--neon);color:#06240A}
+  /* Reviewed rows stay on screen but stop competing for attention. */
+  .hrow2.done{opacity:.45}
+  .hrow2.done .c-set,.hrow2.done .c-player,.hrow2.done .c-par,
+  .hrow2.done .c-ev,.hrow2.done .c-last,.hrow2.done .c-pct{text-decoration:line-through}
+  .hthumb{width:40px;height:40px;border-radius:50%;object-fit:cover;display:block;
+          background:var(--panel);border:1px solid var(--line2)}
+  .c-url a{color:#38BDF8;text-decoration:none;font-size:13px}
+  .c-url a:hover{text-decoration:underline}
+  .hdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;
+        vertical-align:middle;flex:0 0 auto}
+  .c-sport,.c-co{text-transform:capitalize}
+  .c-grade{font-variant-numeric:tabular-nums}
+  .c-par{opacity:.75}
+  /* Estimated value green, last comp grey, so the live number reads first. */
+  /* Estimated value is the number people scan for, so it outsizes the rest. */
+  .c-ev{color:#39FF14;font-variant-numeric:tabular-nums;text-align:right;
+        font-size:21px;letter-spacing:-.3px}
+  .c-last{color:var(--tx);opacity:.55;font-variant-numeric:tabular-nums;text-align:right}
+  .c-pct{font-variant-numeric:tabular-nums;text-align:right}
+  .c-user{display:flex;align-items:center;gap:8px}
+  .c-user b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hwho2{
+    width:26px;height:26px;border-radius:50%;flex:0 0 auto;color:#0B1016;
+    display:flex;align-items:center;justify-content:center;
+    font-size:9.5px;font-weight:700;font-style:normal;
   }
-  .hage{flex:0 0 auto;color:var(--tx);opacity:.55;font-size:12px;min-width:70px;text-align:right}
-  .hlink{flex:0 0 auto;color:#38BDF8;font-size:12.5px;text-decoration:none}
-  .hlink:hover{text-decoration:underline}
+  @media (max-width:1500px){
+    .htable{--hcols:30px 48px 68px 96px 74px 54px minmax(130px,1.2fr) minmax(130px,1.1fr)
+            minmax(90px,0.8fr) 112px 96px 82px minmax(120px,1fr)}
+    .c-ev{font-size:19px}
+    .hhead,.hrow2{gap:9px;font-size:13px}
+  }
   .hempty{background:var(--panel2);border-radius:8px;padding:28px;font-size:14px;opacity:.6}
   .dgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start}
   @media (max-width:1200px){ .dgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
@@ -1450,6 +1476,7 @@
     if(!d) return;
     if(d.assign) zAssign = d.assign;
     if(d.snooze) zSnooze = d.snooze;
+    if(d.hedone) heDone = d.hedone;
     if(d.daily){
       dailyStore = d.daily;
       if(dailyDate) boardFor(dailyDate);
@@ -1472,7 +1499,8 @@
         if(TAB === "recomp"){
           if(SUB === "daily"){ renderWeek(); renderDaily(); }
           if(SUB === "assign") renderAssignPanel();
-          if(SUB === "zone")   renderZone();
+          if(SUB === "zone")    renderZone();
+          if(SUB === "highend") renderHighEnd();
         }
       })
       .catch(function(){});
@@ -1570,6 +1598,8 @@
   }
   loadSnooze();
   loadAssign();
+  try { heDone = JSON.parse(window.localStorage.getItem("pl_he_done_v1") || "{}"); }
+  catch(e){ heDone = {}; }
   pullState(true).then(startStatePolling);
 
   // 34849 emits a "* TOTAL - 12217 players" aggregate row. Counting it as a
@@ -2453,9 +2483,13 @@
   var heTier = "mid";
   var heDate = null;          // ISO; defaults to yesterday
   var heRows = [];
+  var heDone = {};            // rowKey -> epoch ms, shared across screens
   var heLoading = false;
   var heError = "";
 
+  // High End opens on YESTERDAY by design, unlike every other view which opens
+  // on today — a day's comps aren't complete until the day is over. The
+  // Yesterday / Today buttons switch it either way.
   function yesterdayISO(){
     var d = new Date(); d.setDate(d.getDate() - 1);
     return isoDay(d);
@@ -2495,10 +2529,41 @@
         parallel: String(pick(r,["parallel_name","PARALLEL_NAME"]) || ""),
         ev:       num(["estimated_value_usd","ESTIMATED_VALUE_USD","estimated_value"]) || 0,
         last:     num(["last_comp_value_usd","LAST_COMP_VALUE_USD"]),
-        pct:      num(["percent_change_from_last","PERCENT_CHANGE_FROM_LAST"]),
+        // Metabase renders this column as a percent but the API hands back a
+        // RATIO (0.1 for 10%), so Math.round() flattened +10% to "+0%". Derive
+        // it from the two values instead — format-independent and exact.
+        pctRaw:   num(["percent_change_from_last","PERCENT_CHANGE_FROM_LAST"]),
         ageDays:  num(["comp_day_difference","COMP_DAY_DIFFERENCE"])
       };
+    }).map(function(r){
+      if(r.last !== null && r.last !== 0){
+        r.pct = (r.ev - r.last) / r.last * 100;
+      } else if(r.pctRaw !== null){
+        // No prior value to derive from: assume a ratio when it's small enough
+        // that a raw percent would be implausible.
+        r.pct = Math.abs(r.pctRaw) <= 5 ? r.pctRaw * 100 : r.pctRaw;
+      } else {
+        r.pct = null;
+      }
+      return r;
     });
+  }
+
+  // A comp has no id of its own, so build one that survives a refetch: the
+  // admin URL when present, otherwise the timestamp + player + value.
+  // A comp has no id of its own. The URL alone is not safe — if the query ever
+  // returns a shared or templated link, every row would tick together. Compose
+  // enough fields to separate near-duplicates: the live data has two Rome Odunze
+  // rows at the same $3,960 that differ only in their previous comp.
+  function heKey(r){
+    return [r.url, r.finished, r.player, r.set, r.parallel, r.ev, r.last].join("|");
+  }
+  function heIsDone(r){ return !!heDone[heKey(r)]; }
+  function heToggleDone(k){
+    if(heDone[k]) delete heDone[k]; else heDone[k] = Date.now();
+    try { window.localStorage.setItem("pl_he_done_v1", JSON.stringify(heDone)); } catch(e){}
+    pushState("hedone", null, heDone);
+    renderHighEnd();
   }
 
   function heFiltered(){
@@ -2527,7 +2592,9 @@
     var dayLabel = (heDate === todayISO()) ? "today"
                  : (heDate === yesterdayISO()) ? "yesterday"
                  : d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
-    $("hhint").textContent = HE_TIERS[heTier].label + " \u00b7 " + dayLabel;
+    var reviewed = rows.filter(heIsDone).length;
+    $("hhint").textContent = HE_TIERS[heTier].label + " \u00b7 " + dayLabel
+      + (reviewed ? " \u00b7 " + reviewed + " of " + rows.length + " reviewed" : "");
 
     var totalEV = rows.reduce(function(a,r){ return a + r.ev; }, 0);
     var withPct = rows.filter(function(r){ return r.pct !== null; });
@@ -2562,37 +2629,70 @@
       return;
     }
 
-    $("hfeed").innerHTML = rows.map(function(r){
-      var s = ZSPORTS.filter(function(x){ return x.key===r.sport; })[0] || {accent:"#5C6B7A"};
-      var up = (r.pct === null) ? null : r.pct >= 0;
-      var chip = up === null ? "#5C6B7A" : (up ? "#39FF14" : "#F5A524");
+    var head = '<div class="htable"><div class="hhead">'
+      + '<span class="c-chk"></span>'
+      + '<span class="c-img"></span>'
+      + '<span class="c-url">URL</span>'
+      + '<span class="c-sport">Sport</span>'
+      + '<span class="c-co">Company</span>'
+      + '<span class="c-grade">Grade</span>'
+      + '<span class="c-set">Set</span>'
+      + '<span class="c-player">Player</span>'
+      + '<span class="c-par">Parallel</span>'
+      + '<span class="c-ev">Est. value</span>'
+      + '<span class="c-last">Last comp</span>'
+      + '<span class="c-pct">Change</span>'
+      + '<span class="c-user">User</span>'
+      + '</div>';
+
+    $("hfeed").innerHTML = head + rows.map(function(r){
+      var s  = ZSPORTS.filter(function(x){ return x.key===r.sport; })[0] || {accent:"#5C6B7A", label:r.sport};
       var wc = personColor(r.user);
-      var sub = [r.set, r.parallel, (r.company||"").toUpperCase() + (r.grade!=null ? " "+r.grade : "")]
-                  .filter(Boolean).join(" \u00b7 ");
-      return '<div class="hrow" style="--hsport:'+s.accent+'">'
-        + '<img class="hcard" src="'+esc(proxySrc(r.player, r.sport))+'" alt="" loading="lazy" '
-        +   'onerror="this.outerHTML=\'<span class=&quot;hcard hini&quot; style=&quot;color:'+s.accent+'&quot;>'
-        +   esc(initials(r.player))+'</span>\'">'
-        + '<span class="hwho" style="background:'+wc+'" title="'+esc(r.user)+'">'
-        +   esc(initials(r.user))+'</span>'
-        + '<span class="hbody">'
-        +   '<span class="hname">'+esc(r.player)+'</span>'
-        +   '<span class="hset">'+esc(sub)+'</span>'
+      var up = (r.pct === null) ? null : r.pct >= 0;
+      // Green for a rise, red for a fall — a drop is a different kind of news
+      // from a rise, so amber (which reads as "warning") isn't the right cue.
+      var pcol = up === null ? "#8FA3B8" : (up ? "#39FF14" : "#FF5C5C");
+      var pct  = (r.pct === null) ? "\u2014"
+               : (Math.round(r.pct) === 0 ? "0%" : (up ? "+" : "") + Math.round(r.pct) + "%");
+
+      var k    = heKey(r);
+      var done = !!heDone[k];
+      return '<div class="hrow2'+(done?' done':'')+'" style="--hsport:'+s.accent+'">'
+        + '<span class="c-chk">'
+        +   '<button class="hcheck" data-hedone="'+esc(k)+'" '
+        +     'title="'+(done?"Reopen":"Mark reviewed")+'">\u2713</button>'
         + '</span>'
-        + '<span class="hval"><b>'+money(r.ev)+'</b>'
-        +   (r.last!=null ? '<span>was '+money(r.last)+'</span>' : '<span>no prior comp</span>')
+        + '<span class="c-img">'
+        +   '<img class="hthumb" src="'+esc(proxySrc(r.player, r.sport))+'" alt="" loading="lazy" '
+        +     'onerror="this.style.visibility=\'hidden\'">'
         + '</span>'
-        + '<span class="hchg" style="background:'+chip+'22;color:'+chip+'">'
-        +   (r.pct===null ? "\u2014" : (up?"+":"")+Math.round(r.pct)+"%") + '</span>'
-        + '<span class="hage">'+(r.ageDays!=null ? r.ageDays+"d ago" : "")+'</span>'
-        + (r.url ? '<a class="hlink" href="'+esc(r.url)+'" target="_blank" rel="noopener">Click Me</a>' : '')
+        + '<span class="c-url">'
+        +   (r.url ? '<a href="'+esc(r.url)+'" target="_blank" rel="noopener">Click Me</a>' : "")
+        + '</span>'
+        + '<span class="c-sport"><i class="hdot" style="background:'+s.accent+'"></i>'
+        +   esc(s.label || r.sport)+'</span>'
+        + '<span class="c-co">'+esc((r.company||"").toUpperCase())+'</span>'
+        + '<span class="c-grade">'+(r.grade!=null ? esc(String(r.grade)) : "")+'</span>'
+        + '<span class="c-set" title="'+esc(r.set)+'">'+esc(r.set)+'</span>'
+        + '<span class="c-player" title="'+esc(r.player)+'">'+esc(r.player)+'</span>'
+        + '<span class="c-par" title="'+esc(r.parallel)+'">'+esc(r.parallel)+'</span>'
+        + '<span class="c-ev">'+money(r.ev)+'</span>'
+        + '<span class="c-last">'+(r.last!=null ? money(r.last) : "\u2014")+'</span>'
+        + '<span class="c-pct" style="color:'+pcol+'">'+pct+'</span>'
+        + '<span class="c-user" title="'+esc(r.user)+'">'
+        +   '<i class="hwho2" style="background:'+wc+'">'+esc(initials(r.user))+'</i>'
+        +   '<b>'+esc(r.user)+'</b></span>'
         + '</div>';
-    }).join("");
+    }).join("") + '</div>';
   }
 
   function bindHighEnd(){
     if(bindHighEnd.done) return;
     bindHighEnd.done = true;
+    $("hfeed").addEventListener("click", function(e){
+      var c = e.target.closest(".hcheck");
+      if(c) heToggleDone(c.getAttribute("data-hedone"));
+    });
     function reload(){ heLoading = true; heError = ""; renderHighEnd(); load(); }
     $("h-mid").onclick   = function(){ heTier = "mid";  reload(); };
     $("h-high").onclick  = function(){ heTier = "high"; reload(); };
@@ -4254,9 +4354,13 @@
     var d=new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()-n);
     return d.toISOString().slice(0,10);
   }
+  // Every view opens on the current shift day. The 14-day range this used to
+  // default to meant Cards, Recomp, Card Type and Review all loaded two weeks of
+  // history nobody asked for, and the ops question is almost always "today".
+  // Widen the range by hand when you want a trend.
   var today = ptToday();
-  $("end_date").value = today;
-  $("start_date").value = minusDays(today,13);
+  $("end_date").value   = today;
+  $("start_date").value = today;
 
   renderAll();
   load();
