@@ -171,6 +171,42 @@
     background:var(--panel);color:var(--tx);border:1px solid var(--line2);
     border-radius:9px;padding:13px 14px;font-family:var(--mono);font-size:14.5px;
   }
+  .sharedwarn{
+    margin:0 22px 12px;padding:11px 14px;border-radius:8px;
+    background:rgba(245,165,36,.10);border:1px solid rgba(245,165,36,.35);
+    color:var(--warn);font-size:12.5px;line-height:1.6;
+  }
+  .sharedwarn code{background:rgba(0,0,0,.28);padding:1px 5px;border-radius:3px}
+  .htier{min-width:150px}
+  .hrow{
+    display:flex;align-items:center;gap:14px;
+    background:var(--panel2);border-radius:8px;padding:13px 15px;margin-bottom:9px;
+    border-left:3px solid var(--hsport,#5C6B7A);
+  }
+  .hcard{
+    width:46px;height:46px;border-radius:50%;flex:0 0 auto;
+    background:var(--panel);border:1px solid var(--line2);object-fit:cover;display:block;
+  }
+  .hini{display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+  .hwho{
+    width:30px;height:30px;border-radius:50%;flex:0 0 auto;color:#0B1016;
+    display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;
+  }
+  .hbody{flex:1;min-width:0}
+  .hname{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hset{display:block;color:var(--tx);opacity:.6;font-size:12px;margin-top:2px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hval{flex:0 0 auto;text-align:right}
+  .hval b{display:block;font-size:18px;font-weight:400;font-variant-numeric:tabular-nums}
+  .hval span{display:block;color:var(--tx);opacity:.55;font-size:11.5px;margin-top:2px}
+  .hchg{
+    flex:0 0 auto;border-radius:999px;padding:6px 12px;font-size:13px;
+    min-width:84px;text-align:center;font-variant-numeric:tabular-nums;
+  }
+  .hage{flex:0 0 auto;color:var(--tx);opacity:.55;font-size:12px;min-width:70px;text-align:right}
+  .hlink{flex:0 0 auto;color:#38BDF8;font-size:12.5px;text-decoration:none}
+  .hlink:hover{text-decoration:underline}
+  .hempty{background:var(--panel2);border-radius:8px;padding:28px;font-size:14px;opacity:.6}
   .dgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start}
   @media (max-width:1200px){ .dgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   .dcol{background:var(--panel2);border-radius:8px;padding:18px 18px 20px;
@@ -791,6 +827,10 @@
   </div>
 </div>
 
+<div class="sharedwarn" id="sharedbadge" hidden>
+  Local only &mdash; changes are not shared. Connect Neon
+  (<code>DATABASE_URL</code>) or Vercel KV on the project to sync across screens.
+</div>
 <div class="banner hide" id="banner"></div>
 
 <div id="panel-body">
@@ -856,6 +896,7 @@
     <button class="subtab" id="sub-daily" aria-selected="false">Daily</button>
     <button class="subtab" id="sub-zone"  aria-selected="false">Hot/Cold Zone</button>
     <button class="subtab" id="sub-assign" aria-selected="false">Assignments</button>
+    <button class="subtab" id="sub-highend" aria-selected="false">High End</button>
   </div>
 
   <div class="subtabs" id="cardtype-subtabs" hidden>
@@ -917,7 +958,25 @@
   </div>
 
   <!-- ===== Avg EV Age (pack categories) ===== -->
-  <div id="rpanel-daily" hidden>
+  <div id="rpanel-highend" hidden>
+  <section class="panel">
+    <h2>High end <span class="hint" id="hhint"></span></h2>
+
+    <div class="dweek" style="margin-bottom:16px">
+      <button class="subtab htier on" id="h-mid">$2,500 &ndash; $4,999</button>
+      <button class="subtab htier" id="h-high">$5,000 +</button>
+      <span style="flex:1"></span>
+      <button class="dnav dtoday" id="h-yest">Yesterday</button>
+      <button class="dnav dtoday" id="h-today">Today</button>
+      <input type="date" id="h-date" class="ddate" aria-label="Comp date">
+    </div>
+
+    <div class="kpis" id="hkpis"></div>
+    <div id="hfeed"></div>
+  </section>
+</div>
+
+<div id="rpanel-daily" hidden>
   <section class="panel">
     <h2>Daily <span class="hint" id="dhint"></span></h2>
     <div class="dweek">
@@ -1347,35 +1406,99 @@
     return "hsl(" + hue + " 80% " + light + "%)";
   }
 
+  // ---- shared state ----
+  // Daily boards, assignments and snoozes live server-side so every screen sees
+  // the same thing. Writes are debounced and fire-and-forget; reads poll so
+  // another person's edit lands here within POLL_MS.
+  var STATE_URL = "api/state";
+  var POLL_MS   = 10000;
+  var stateRev  = 0;
+  var stateShared = null;      // null = unknown, false = local-only fallback
+  var pendingWrites = 0;       // don't adopt server state mid-edit
+  var pushTimers = {};
+
+  function pushState(section, key, data){
+    var id = section + (key ? ":" + key : "");
+    clearTimeout(pushTimers[id]);
+    // Debounced: typing a line shouldn't fire a request per keystroke.
+    pushTimers[id] = setTimeout(function(){
+      pendingWrites++;
+      fetch(STATE_URL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({section:section, key:key, data:data})
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d && typeof d.rev === "number") stateRev = d.rev;
+        if(d && typeof d.shared === "boolean") setShared(d.shared);
+      })
+      .catch(function(){})
+      .then(function(){ pendingWrites = Math.max(0, pendingWrites - 1); });
+    }, 400);
+  }
+
+  function setShared(v){
+    if(stateShared === v) return;
+    stateShared = v;
+    var el = $("sharedbadge");
+    if(!el) return;
+    el.hidden = v;                      // only shown when NOT shared
+  }
+
+  function adoptState(d){
+    if(!d) return;
+    if(d.assign) zAssign = d.assign;
+    if(d.snooze) zSnooze = d.snooze;
+    if(d.daily){
+      dailyStore = d.daily;
+      if(dailyDate) boardFor(dailyDate);
+    }
+    if(typeof d.shared === "boolean") setShared(d.shared);
+    stateRev = d.rev || 0;
+  }
+
+  function pullState(initial){
+    return fetch(STATE_URL)
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d || d.error) { if(d) setShared(!!d.shared); return; }
+        // Never clobber something the user is part-way through saving.
+        if(!initial && (pendingWrites > 0 || d.rev === stateRev)) {
+          setShared(!!d.shared);
+          return;
+        }
+        adoptState(d);
+        if(TAB === "recomp"){
+          if(SUB === "daily"){ renderWeek(); renderDaily(); }
+          if(SUB === "assign") renderAssignPanel();
+          if(SUB === "zone")   renderZone();
+        }
+      })
+      .catch(function(){});
+  }
+
+  function startStatePolling(){
+    if(startStatePolling.done) return;
+    startStatePolling.done = true;
+    setInterval(function(){ pullState(false); }, POLL_MS);
+  }
+
   // ---- assignments ----
-  // Persisted through /api/assignments when that route exists, falling back to
-  // localStorage so the UI is usable before a shared store is wired. The
-  // fallback is per-browser: assigning here will NOT be visible on the wall
-  // display or on the assignee's own screen. Swap ASSIGN_REMOTE to true once
-  // the endpoint is live.
-  var ASSIGN_REMOTE = false;
+  // Shared through /api/state. localStorage is kept only as an offline mirror
+  // so the UI paints before the first server round-trip.
   var ASSIGN_KEY = "pl_zone_assign_v1";
   var zAssign = {};   // lowercased player -> {player, sport, cards, who:[], note, at}
 
   function loadAssign(){
-    if(ASSIGN_REMOTE){
-      fetch("api/assignments").then(function(r){ return r.json(); })
-        .then(function(d){ zAssign = d || {}; renderZone(); renderAssignPanel(); })
-        .catch(function(){});
-      return;
-    }
+    // Seed from the local mirror so the UI paints instantly, then the server
+    // pull overwrites it a moment later.
     try { zAssign = JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || "{}"); }
     catch(e){ zAssign = {}; }
   }
   function saveAssign(){
-    if(ASSIGN_REMOTE){
-      fetch("api/assignments", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(zAssign)
-      }).catch(function(){});
-      return;
-    }
     try { window.localStorage.setItem(ASSIGN_KEY, JSON.stringify(zAssign)); } catch(e){}
+    pushState("assign", null, zAssign);
   }
   function unassign(player, who){
     var key = String(player||"").toLowerCase();
@@ -1415,6 +1538,7 @@
   }
   function saveSnooze(){
     try { window.localStorage.setItem(SNOOZE_KEY, JSON.stringify(zSnooze)); } catch(e){}
+    pushState("snooze", null, zSnooze);
   }
   function isSnoozed(name){
     var t = zSnooze[String(name||"").toLowerCase()];
@@ -1446,6 +1570,7 @@
   }
   loadSnooze();
   loadAssign();
+  pullState(true).then(startStatePolling);
 
   // 34849 emits a "* TOTAL - 12217 players" aggregate row. Counting it as a
   // player double-counts every card in the KPI, so it is detected and held
@@ -2002,6 +2127,9 @@
     var out = {};
     for(var k in dailyStore){ if(boardCount(k)) out[k] = dailyStore[k]; }
     try { window.localStorage.setItem(DAILY_KEY, JSON.stringify(out)); } catch(e){}
+    // Only the day being edited is sent, so two people on different days can't
+    // overwrite each other.
+    if(dailyDate) pushState("daily", dailyDate, dailyStore[dailyDate] || {});
   }
   function newLine(text){
     return {id:"d" + (++dSeq) + "_" + Date.now().toString(36), text:text||"", who:[]};
@@ -2315,6 +2443,144 @@
     var d = parseDay(iso);
     if(iso === todayISO()) return "today";
     return d.toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
+  }
+
+  // ---- High End ----
+  var HE_TIERS = {
+    mid:  {label:"$2,500 \u2013 $4,999", min:2500, max:4999.99},
+    high: {label:"$5,000 +",             min:5000, max:Infinity}
+  };
+  var heTier = "mid";
+  var heDate = null;          // ISO; defaults to yesterday
+  var heRows = [];
+
+  function yesterdayISO(){
+    var d = new Date(); d.setDate(d.getDate() - 1);
+    return isoDay(d);
+  }
+
+  // 3213 renders timestamps as "Aug 25, 2026, 6:33 PM", not ISO. Take a leading
+  // yyyy-mm-dd when present, otherwise let Date parse it, and return "" rather
+  // than "NaN-NaN-NaN" on failure so a bad row simply doesn't match a day.
+  function heDayOf(s){
+    s = String(s || "").trim();
+    if(!s) return "";
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? "" : isoDay(d);
+  }
+
+  function normalizeHighEnd(raw){
+    return (raw||[]).map(function(r){
+      var num = function(names){
+        var v = pick(r, names);
+        if(v===null || v===undefined || v==="") return null;
+        var n = Number(String(v).replace(/[$,%\s]/g, ""));
+        return isFinite(n) ? n : null;
+      };
+      var fin = String(pick(r,["finished_at","FINISHED_AT","Finished At"]) || "");
+      return {
+        finished: fin,
+        day:      heDayOf(fin),
+        user:     String(pick(r,["user_name","USER_NAME","User Name","grader"]) || "\u2014"),
+        sport:    canonSport(pick(r,["sport","SPORT"]) || ""),
+        url:      pick(r,["url","URL"]) || "",
+        company:  String(pick(r,["grading_company","GRADING_COMPANY"]) || ""),
+        grade:    pick(r,["grade","GRADE"]),
+        set:      String(pick(r,["set_name","SET_NAME","Set Name"]) || ""),
+        player:   String(pick(r,["player_name","PLAYER_NAME","Player Name"]) || "\u2014"),
+        parallel: String(pick(r,["parallel_name","PARALLEL_NAME"]) || ""),
+        ev:       num(["estimated_value_usd","ESTIMATED_VALUE_USD","estimated_value"]) || 0,
+        last:     num(["last_comp_value_usd","LAST_COMP_VALUE_USD"]),
+        pct:      num(["percent_change_from_last","PERCENT_CHANGE_FROM_LAST"]),
+        ageDays:  num(["comp_day_difference","COMP_DAY_DIFFERENCE"])
+      };
+    });
+  }
+
+  function heFiltered(){
+    var t = HE_TIERS[heTier];
+    return heRows.filter(function(r){
+      if(heDate && r.day !== heDate) return false;
+      return r.ev >= t.min && r.ev <= t.max;
+    }).sort(function(a,b){ return b.ev - a.ev; });
+  }
+
+  function money(n){ return "$" + Math.round(n||0).toLocaleString("en-US"); }
+
+  function renderHighEnd(){
+    if(!$("hfeed")) return;
+    if(!heDate) heDate = yesterdayISO();
+    $("h-date").value = heDate;
+    $("h-mid").setAttribute("aria-selected",  heTier==="mid");
+    $("h-high").setAttribute("aria-selected", heTier==="high");
+    $("h-mid").className  = "subtab htier" + (heTier==="mid"  ? " on" : "");
+    $("h-high").className = "subtab htier" + (heTier==="high" ? " on" : "");
+
+    var rows = heFiltered();
+    var d = parseDay(heDate);
+    var dayLabel = (heDate === todayISO()) ? "today"
+                 : (heDate === yesterdayISO()) ? "yesterday"
+                 : d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+    $("hhint").textContent = HE_TIERS[heTier].label + " \u00b7 " + dayLabel;
+
+    var totalEV = rows.reduce(function(a,r){ return a + r.ev; }, 0);
+    var withPct = rows.filter(function(r){ return r.pct !== null; });
+    var avgPct  = withPct.length
+      ? Math.round(withPct.reduce(function(a,r){ return a + r.pct; },0) / withPct.length) : null;
+    var mover = withPct.slice().sort(function(a,b){ return b.pct - a.pct; })[0];
+
+    $("hkpis").innerHTML = kpiHTML([
+      {c:"", k:"High-end comps", v:fmt(rows.length), n:HE_TIERS[heTier].label},
+      {c:"", k:"Total EV",       v:money(totalEV),   n:dayLabel},
+      {c:"", k:"Avg change",     v:(avgPct===null ? "\u2014" : (avgPct>0?"+":"")+avgPct+"%"),
+       n:withPct.length + " with a prior comp"},
+      {c:"", k:"Biggest mover",  v:(mover ? esc(mover.player.split(" ").slice(0,2).join(" ")) : "\u2014"),
+       n:(mover ? (mover.pct>0?"+":"")+Math.round(mover.pct)+"%" : ""), small:true}
+    ]);
+
+    if(!rows.length){
+      $("hfeed").innerHTML = '<div class="hempty">No comps in this tier for '+esc(dayLabel)+'.</div>';
+      return;
+    }
+
+    $("hfeed").innerHTML = rows.map(function(r){
+      var s = ZSPORTS.filter(function(x){ return x.key===r.sport; })[0] || {accent:"#5C6B7A"};
+      var up = (r.pct === null) ? null : r.pct >= 0;
+      var chip = up === null ? "#5C6B7A" : (up ? "#39FF14" : "#F5A524");
+      var wc = personColor(r.user);
+      var sub = [r.set, r.parallel, (r.company||"").toUpperCase() + (r.grade!=null ? " "+r.grade : "")]
+                  .filter(Boolean).join(" \u00b7 ");
+      return '<div class="hrow" style="--hsport:'+s.accent+'">'
+        + '<img class="hcard" src="'+esc(proxySrc(r.player, r.sport))+'" alt="" loading="lazy" '
+        +   'onerror="this.outerHTML=\'<span class=&quot;hcard hini&quot; style=&quot;color:'+s.accent+'&quot;>'
+        +   esc(initials(r.player))+'</span>\'">'
+        + '<span class="hwho" style="background:'+wc+'" title="'+esc(r.user)+'">'
+        +   esc(initials(r.user))+'</span>'
+        + '<span class="hbody">'
+        +   '<span class="hname">'+esc(r.player)+'</span>'
+        +   '<span class="hset">'+esc(sub)+'</span>'
+        + '</span>'
+        + '<span class="hval"><b>'+money(r.ev)+'</b>'
+        +   (r.last!=null ? '<span>was '+money(r.last)+'</span>' : '<span>no prior comp</span>')
+        + '</span>'
+        + '<span class="hchg" style="background:'+chip+'22;color:'+chip+'">'
+        +   (r.pct===null ? "\u2014" : (up?"+":"")+Math.round(r.pct)+"%") + '</span>'
+        + '<span class="hage">'+(r.ageDays!=null ? r.ageDays+"d ago" : "")+'</span>'
+        + (r.url ? '<a class="hlink" href="'+esc(r.url)+'" target="_blank" rel="noopener">Click Me</a>' : '')
+        + '</div>';
+    }).join("");
+  }
+
+  function bindHighEnd(){
+    if(bindHighEnd.done) return;
+    bindHighEnd.done = true;
+    $("h-mid").onclick   = function(){ heTier = "mid";  renderHighEnd(); };
+    $("h-high").onclick  = function(){ heTier = "high"; renderHighEnd(); };
+    $("h-yest").onclick  = function(){ heDate = yesterdayISO(); renderHighEnd(); };
+    $("h-today").onclick = function(){ heDate = todayISO();     renderHighEnd(); };
+    $("h-date").onchange = function(){ if(this.value){ heDate = this.value; renderHighEnd(); } };
   }
 
   function renderAssignPanel(){
@@ -3315,57 +3581,57 @@
     $("rrowcount").textContent = fmt(rrows.length)+" rows";
   }
 
+  // Exactly one recomp panel is ever visible. Each branch used to hide its own
+  // siblings, which meant every new pill had to remember every older one — and
+  // High End didn't, so Daily stayed on screen underneath it. Hide all, show one.
+  var RECOMP_PANELS = ["rpanel-total","rpanel-age","rpanel-zone",
+                       "rpanel-daily","rpanel-assign","rpanel-highend"];
+  function showRecompPanel(id, opts){
+    opts = opts || {};
+    RECOMP_PANELS.forEach(function(p){
+      var el = $(p); if(el) el.hidden = (p !== id);
+    });
+    $("rkpis").hidden         = !opts.kpis;
+    $("rviewtoggle").hidden   = !opts.viewToggle;
+    $("rmetrictoggle").hidden = !opts.metricToggle;
+    $("rgrouptoggle").hidden  = !opts.groupToggle;
+  }
+
   function renderRecomp(){
     if(TAB==="cardtype" || TAB==="review"){
+      showRecompPanel("rpanel-total", {kpis:true, viewToggle:true});
       renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
       return;
     }
-    if(SUB==="daily" || SUB==="assign"){
-      if(SUB==="assign"){
-        if(!loadDaily.done){ loadDaily(); loadDaily.done = true; }
-        renderAssignPanel();
-      }
-      if(SUB==="daily"){
-        if(!loadDaily.done){ loadDaily(); loadDaily.done = true; }
-        renderWeek(); renderDaily(); bindDaily(); bindLineModal();
-      }
-      $("rkpis").hidden        = true;
-      $("rpanel-total").hidden = true;
-      $("rpanel-age").hidden   = true;
-      $("rpanel-zone").hidden  = true;
-      $("rviewtoggle").hidden  = true;
-      $("rmetrictoggle").hidden = true;
-      $("rgrouptoggle").hidden  = true;
+    if(SUB==="highend"){
+      showRecompPanel("rpanel-highend");
+      bindHighEnd(); renderHighEnd();
       return;
     }
-    $("rpanel-daily").hidden  = true;
-    $("rpanel-assign").hidden = true;
+    if(SUB==="assign"){
+      showRecompPanel("rpanel-assign");
+      if(!loadDaily.done){ loadDaily(); loadDaily.done = true; }
+      renderAssignPanel();
+      return;
+    }
+    if(SUB==="daily"){
+      showRecompPanel("rpanel-daily");
+      if(!loadDaily.done){ loadDaily(); loadDaily.done = true; }
+      renderWeek(); renderDaily(); bindDaily(); bindLineModal();
+      return;
+    }
     if(SUB==="zone"){
-      $("rkpis").hidden = true;
-      $("rpanel-total").hidden = true;
-      $("rpanel-age").hidden   = true;
-      $("rpanel-zone").hidden  = false;
-      $("rviewtoggle").hidden  = true;
-      $("rmetrictoggle").hidden = true;
-      $("rgrouptoggle").hidden  = true;
+      showRecompPanel("rpanel-zone");
       renderZone();
       return;
     }
-    $("rpanel-zone").hidden = true;
-    $("rkpis").hidden = false;
-    var isAge = (SUB==="age");
-    $("rpanel-total").hidden = isAge;
-    $("rpanel-age").hidden   = !isAge;
-    if(isAge){
-      $("rviewtoggle").hidden = true;
-      $("rmetrictoggle").hidden = false;
-      $("rgrouptoggle").hidden = false;
+    if(SUB==="age"){
+      showRecompPanel("rpanel-age", {kpis:true, metricToggle:true, groupToggle:true});
       renderRecompKpis(); renderRecompChart(); renderAging(); renderRecompTable();
-    } else {
-      $("rmetrictoggle").hidden = true;
-      $("rgrouptoggle").hidden = true;
-      renderGrader();
+      return;
     }
+    showRecompPanel("rpanel-total", {kpis:true, viewToggle:true});
+    renderGrader();
   }
 
   // ---- banner / status ----
@@ -3491,7 +3757,15 @@
           $("panel-recomp").hidden = false;
           renderRecomp();
         } else if(TAB==="recomp"){
-          if(SUB==="zone"){
+          if(SUB==="highend"){
+            heRows = normalizeHighEnd(arr);
+            empty = !heFiltered().length;
+            $("panel-body").hidden = true;
+            $("groups").hidden = true;
+            $("panel-recomp").hidden = false;
+            bindHighEnd();
+            renderHighEnd();
+          } else if(SUB==="zone"){
             var all = normalizeZone(arr);
             var totalRow = all.filter(function(r){ return isZoneTotalRow(r); })[0];
             zoneTotal = totalRow ? totalRow.cards : null;
@@ -3642,10 +3916,10 @@
     $("cardtype-subtabs").hidden = (name!=="cardtype");
     $("review-subtabs").hidden   = (name!=="review");
     if(name==="cardtype" || name==="review"){
-      $("rpanel-total").hidden = false;
-      if($("rpanel-age")) $("rpanel-age").hidden = true;
+      showRecompPanel("rpanel-total", {kpis:true, viewToggle:true});
     }
-    rows = []; rrows = []; grows = [];
+    rows = []; rrows = []; grows = []; zrows = []; heRows = [];
+    zoneTotal = null; zoneHasSport = false;
     // Roster differs per tab, so rebuild the datalist and drop any selection
     // that belongs to the other team.
     $("grader").value = "";
@@ -3667,7 +3941,7 @@
       el.hidden = !(isRecomp && SUB==="zone");
     });
     document.querySelectorAll("[data-recomp-total]").forEach(function(el){
-      if(isRecomp && (SUB==="daily" || SUB==="assign")) el.hidden = true;
+      if(isRecomp && (SUB==="daily" || SUB==="assign" || SUB==="highend")) el.hidden = true;
     });
   }
   function setSub(name){
@@ -3675,15 +3949,22 @@
     $("sub-zone").setAttribute("aria-selected", name==="zone");
     $("sub-daily").setAttribute("aria-selected", name==="daily");
     $("sub-assign").setAttribute("aria-selected", name==="assign");
+    $("sub-highend").setAttribute("aria-selected", name==="highend");
     $("rpanel-zone").hidden   = (name!=="zone");
     $("rpanel-daily").hidden  = (name!=="daily");
-    $("rpanel-assign").hidden = (name!=="assign");
+    $("rpanel-assign").hidden  = (name!=="assign");
+    $("rpanel-highend").hidden = (name!=="highend");
     $("sub-total").setAttribute("aria-selected", name==="total");
     $("sub-age").setAttribute("aria-selected", name==="age");
     syncFilterVisibility();
 
     // Daily and Assignments are entirely local — there is no Metabase question
     // behind either, so calling load() only produced "Unknown tab/view".
+    // Every view owns its own dataset. Wipe them all on a switch so a stale
+    // recomp table can never render under Daily, or a High End feed under Zone.
+    grows = []; rrows = []; zrows = []; heRows = [];
+    zoneTotal = null; zoneHasSport = false;
+
     if(name === "daily" || name === "assign"){
       banner("");                      // clears via class, not [hidden]
       $("f-updated").textContent = "";
@@ -3692,14 +3973,14 @@
       return;
     }
 
-    grows = []; rrows = [];
     load();
   }
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
   $("sub-zone").onclick   = function(){ setSub("zone"); };
   $("sub-daily").onclick  = function(){ setSub("daily"); };
-  $("sub-assign").onclick = function(){ setSub("assign"); };
+  $("sub-assign").onclick  = function(){ setSub("assign"); };
+  $("sub-highend").onclick = function(){ setSub("highend"); };
   // Zone aggregates client-side, so its sport filter re-ranks in place.
   $("zsport").onchange = function(){ renderZone(); };
 
@@ -3707,7 +3988,7 @@
     CTSUB = name;
     $("sub-data").setAttribute("aria-selected", name==="data");
     $("sub-verify").setAttribute("aria-selected", name==="verify");
-    grows = []; rrows = [];
+    grows = []; rrows = []; zrows = []; heRows = [];
     load();
   }
   $("sub-data").onclick   = function(){ setCtSub("data"); };
@@ -3719,7 +4000,7 @@
     RVSUB = name;
     $("sub-pregraded").setAttribute("aria-selected", name==="pregraded");
     $("sub-raw").setAttribute("aria-selected", name==="raw");
-    grows = []; rrows = [];
+    grows = []; rrows = []; zrows = []; heRows = [];
     load();
   }
   $("sub-pregraded").onclick = function(){ setRvSub("pregraded"); };

@@ -17,6 +17,8 @@ const CARDS = {
   'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '34618' },
   // Review — pre-graded and premium/raw are separate saved questions.
   'recomp:zone':      { env: 'METABASE_HOT_COLD_ZONE_CARD_ID',     fallback: '34849' },
+  // Value Tracker — high-end comps. Tier + date are filtered client-side.
+  'recomp:highend':   { env: 'METABASE_VALUE_TRACKER_CARD_ID',     fallback: '3213' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
   'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
@@ -28,6 +30,7 @@ const TEXT_VARS = {
   'cardtype:data':   ['grain'],
   'cardtype:verify': ['grain'],
   'recomp:zone':      ['grain', 'sport'],
+  'recomp:highend':   ['grain'],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };

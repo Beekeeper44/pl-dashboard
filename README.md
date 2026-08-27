@@ -1022,3 +1022,146 @@ explicitly, the same way it already excludes `.dkill` and `.dadd`.
 Three separate places count lines — `boardCount()` for the week badge, `filled`
 for the header, and the per-column `n`. Only two were updated at first, so the
 column header read 2 while the day badge read 1.
+
+## High End pill
+
+Sixth Recomp pill, backed by the Value Tracker question:
+
+```
+'recomp:highend': { env: 'METABASE_VALUE_TRACKER_CARD_ID', fallback: '3213' },
+```
+
+**Two tiers**, filtered client-side on `estimated_value_usd`:
+`$2,500 – $4,999` (default) and `$5,000 +`.
+
+**One day at a time**, defaulting to **yesterday**. Yesterday / Today buttons
+plus a single date input; day matching is on `finished_at`.
+
+Rows sort by estimated value descending and show: player portrait (via
+`/api/playerimage`, same proxy as Hot/Cold Zone), grader pip in their
+Assignments colour, set · parallel · company + grade, current EV with the prior
+comp beneath it, a percent-change chip (green up, amber down), days since the
+last comp, and the Click Me link from the `url` column. The left border is the
+sport.
+
+KPIs: comp count, total EV, average change across rows that have a prior comp,
+and the biggest mover.
+
+### Timestamp parsing
+
+3213 renders `finished_at` as **"Aug 25, 2026, 6:33 PM"**, not ISO. `heDayOf()`
+takes a leading `yyyy-mm-dd` when present, otherwise falls back to `Date` parse,
+and returns `""` rather than `"NaN-NaN-NaN"` on failure — a bad row then simply
+matches no day instead of poisoning the filter.
+
+## Panel isolation
+
+`showRecompPanel(id, opts)` hides **all** recomp panels and shows one, plus the
+KPI strip and the three toggles.
+
+Before this, every branch hid its own siblings by hand — so each new pill had to
+remember every older one. High End didn't, and returned before the line that
+hides Daily, leaving both stacked on screen. That class of bug recurs every time
+a pill is added; a single hide-all-show-one call removes it.
+
+Datasets are wiped on every switch too (`grows`, `rrows`, `zrows`, `heRows`,
+`zoneTotal`, `zoneHasSport`) in `setSub`, `setTab`, `setCtSub` and `setRvSub`.
+Hiding a panel isn't enough on its own — the arrays persist, so a stale recomp
+table could still paint under a new view before its own fetch resolved.
+
+Verified across nine transitions (Total → Daily → High End → Daily → Zone →
+High End → Assignments → Avg EV Age → Total): exactly one panel visible at
+every step.
+
+## Shared state — /api/state
+
+Daily boards, assignments and snoozes are stored server-side so every screen
+agrees. Previously each browser kept its own copy in `localStorage`, which meant
+nothing typed on one machine was visible anywhere else.
+
+### Setup (one step)
+
+Provision **Vercel KV** on the project. It injects `KV_REST_API_URL` and
+`KV_REST_API_TOKEN`, and the route picks them up automatically — no package to
+install, since it talks to KV over its REST API with plain `fetch`. Any Upstash
+Redis works too.
+
+Without those vars the dashboard still runs, but each browser keeps its own copy
+and an amber **"Local only — changes are not shared"** banner appears at the top.
+The banner is driven by the `shared` flag the API returns, so it can't
+silently lie about whether syncing is on.
+
+### How it behaves
+
+- **Writes are debounced 400ms**, so typing a line is one request, not one per
+  keystroke.
+- **Reads poll every 10s.** Another person's edit appears within that window.
+- **Daily is keyed per shift date** (`pl:v1:daily:2026-08-26`), so two people
+  working on different days can't overwrite each other. Within one section it is
+  still last-write-wins.
+- **A poll never clobbers an in-flight edit** — `pendingWrites` blocks adoption
+  while a save is outstanding, and a poll is skipped entirely when the server
+  revision hasn't changed.
+- **localStorage is kept as an offline mirror** so the UI paints immediately on
+  load, before the first server round-trip returns.
+- **Failures are silent and non-destructive.** The API returns 200 with an
+  `error` field rather than a status code, and the client keeps its local copy
+  and retries on the next poll.
+
+### Verified
+
+Two independent browser contexts against one store: a line typed on A (with an
+assignee) appeared on B after one poll, complete with the assignee pip; an
+assignment made on A showed on B's Assignments panel; and an edit made on B
+appeared back on A. Both directions, no errors.
+
+### Known limits
+
+Last-write-wins within a section. Two people editing the *same* Daily column at
+the same time can overwrite each other — the per-day keying narrows this but
+doesn't eliminate it. If that becomes a real problem, the fix is per-line
+records rather than a per-day blob.
+
+## Neon backend
+
+`/api/state` picks its backend from env, preferring Neon:
+
+| present | backend | shared |
+|---|---|---|
+| `DATABASE_URL` | Neon Postgres | yes |
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | Vercel KV | yes |
+| neither | module memory | **no** — amber banner |
+
+`GET /api/state` reports which one is live in its `backend` field.
+
+### Setup
+
+Vercel → Storage → Create Database → **Neon** → connect to this project. That
+injects `DATABASE_URL`. Nothing else to do — the table is created on first use:
+
+```sql
+create table if not exists pl_state (
+  key        text primary key,
+  value      jsonb        not null,
+  updated_at timestamptz  not null default now()
+);
+```
+
+This adds the one dependency the project has, `@neondatabase/serverless`, which
+Vercel installs on deploy.
+
+### ⚠ jsonb cannot be cast straight to int
+
+The revision counter lives in the same table as a bare jsonb number, and
+`value::int` is a **syntax error** in Postgres. The increment uses
+`(value #>> '{}')::int`, which extracts the scalar as text first. Worth knowing
+before anyone "simplifies" that expression.
+
+### Testing status
+
+The backend selection, response shape and emitted SQL were verified against a
+stubbed driver, and the KV and memory fallbacks were confirmed. **The Neon path
+has not been run against a live Postgres** — there was none available in the
+build environment. First deploy is the real test: open `/api/state` and confirm
+`"backend":"neon"` and `"shared":true`, then type a Daily line and reload to
+confirm it persists.

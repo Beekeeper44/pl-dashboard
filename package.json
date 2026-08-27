@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Precision Labeling dashboard — card release ticker and recomp throughput, backed by Metabase.",
+  "description": "Precision Labeling dashboard \u2014 card release ticker and recomp throughput, backed by Metabase.",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
   }
 }
