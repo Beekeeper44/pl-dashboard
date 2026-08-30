@@ -1697,6 +1697,30 @@ They now load at their declarations via `loadLocal(key)`. `zAssign` and
 This is the same class of bug as the `DAILY_COLS` hoisting failure noted above.
 Worth checking the pattern before adding a fourth store.
 
+## Dates don't apply to Orders
+
+Grain, Start date and End date measure work **completed** in a window. Orders
+and its subtabs answer a different question — what is open *right now* — which
+has no window.
+
+`params()` already stripped `start_date`, `end_date` and `grain` for that tab,
+so the rows were always returned regardless. The problem was that the controls
+stayed on screen, implying a filter that was never applied.
+
+Three changes:
+
+- The three fields are tagged `data-not-orders` and hidden on that tab. The
+  hide handler already existed and was querying that attribute — **nothing in
+  the document carried it**, so the selector matched nothing and the code was
+  dead.
+- `load()`'s date validation is wrapped in `tabUsesDates()`. Without this, a
+  blank or reversed date would refuse to run a query that never used the dates.
+  Tested: Orders loads with blank *and* reversed dates; Cards is still blocked
+  by both.
+- The footer said "Window: shift total measures 2 PM–11 PM PT" on Orders, which
+  made the same false claim. It now reads *"Showing every open order — no date
+  window applies here."*
+
 ## Order # filter (Orders and Card Queue)
 
 First control in both filter rows. **Substring, not prefix or exact**: order

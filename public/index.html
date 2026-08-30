@@ -1283,7 +1283,11 @@
 </nav>
 
 <div class="filters">
-  <div class="fld">
+  <!-- Grain and the date range measure work COMPLETED in a window. The Orders
+       tab shows what is currently open, which has no window - params() already
+       strips these for it, so showing them there implies a filter that does
+       nothing. data-not-orders hides them on that tab. -->
+  <div class="fld" data-not-orders>
     <label for="grain">Grain</label>
     <select id="grain">
       <option value="day" selected>Day</option>
@@ -1291,11 +1295,11 @@
       <option value="month">Month</option>
     </select>
   </div>
-  <div class="fld">
+  <div class="fld" data-not-orders>
     <label for="start_date">Start date</label>
     <input type="date" id="start_date">
   </div>
-  <div class="fld">
+  <div class="fld" data-not-orders>
     <label for="end_date">End date</label>
     <input type="date" id="end_date">
   </div>
@@ -6725,14 +6729,22 @@
   // at a timeout. Resolves either way — the error branch below already reports
   // the failure to the user, so rejecting here would just be a second channel
   // for the same news.
+  // Orders and its subtabs answer "what is open right now", which has no date
+  // window; params() strips start/end/grain for them. So the date validation
+  // has to be skipped there too -- otherwise a blank date field would block a
+  // query that never used the dates in the first place.
+  function tabUsesDates(){ return TAB !== "orders"; }
+
   function load(){
-    if(!$("start_date").value || !$("end_date").value){
-      banner("Pick a start and end date to run the query.","err");
-      return Promise.resolve("error");
-    }
-    if($("start_date").value > $("end_date").value){
-      banner("Start date is after end date.","err");
-      return Promise.resolve("error");
+    if(tabUsesDates()){
+      if(!$("start_date").value || !$("end_date").value){
+        banner("Pick a start and end date to run the query.","err");
+        return Promise.resolve("error");
+      }
+      if($("start_date").value > $("end_date").value){
+        banner("Start date is after end date.","err");
+        return Promise.resolve("error");
+      }
     }
     $("run").disabled = true;
     $("run").textContent = "Loading";
@@ -7000,9 +7012,14 @@
       showOrdersPanel();
     }
     $("statusline").innerHTML = "<b>Precision Labeling</b> · " + fillTz(cfg.subtitle);
-    $("f-window").textContent = (name==="cards")
-      ? "Window: 2 PM–3 AM PT, Mon–Fri shift start"
-      : "Window: shift total measures 2 PM–11 PM PT, extra time to 3 AM";
+    // The window note describes the measurement period for completed work.
+    // Orders has none -- it is a snapshot of what is open right now -- and
+    // leaving the shift-window text there implied a filter that isn't applied.
+    $("f-window").textContent = (name==="orders")
+      ? "Showing every open order \u2014 no date window applies here"
+      : (name==="cards")
+        ? "Window: 2 PM\u20133 AM PT, Mon\u2013Fri shift start"
+        : "Window: shift total measures 2 PM\u201311 PM PT, extra time to 3 AM";
     document.querySelectorAll("[data-cards-only]").forEach(function(el){
       el.hidden = !cfg.showSourceFilters;
     });
