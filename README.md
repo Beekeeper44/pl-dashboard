@@ -1697,6 +1697,33 @@ They now load at their declarations via `loadLocal(key)`. `zAssign` and
 This is the same class of bug as the `DAILY_COLS` hoisting failure noted above.
 Worth checking the pattern before adding a fourth store.
 
+## ⚠ Orders could never load on a deployment
+
+`Could not load data. Unknown tab/view: orders`
+
+`api/ticker.js` builds its lookup key as `tab:view` only for tabs listed in
+`VIEWED`, and that set was hand-written as
+`['recomp', 'cardtype', 'review']` — **`orders` was missing**. So the Orders tab
+asked for the key `orders`, while the map holds `orders:all` and
+`orders:queue`. The card IDs (35872, 35905) were correct and completely
+unreachable.
+
+This never showed in the demo because the mock intercepts `/api/ticker` and
+routes on `tab`/`view` itself, so it never touched this code path. It only
+appears against a real backend.
+
+`VIEWED` is now **derived from the `CARDS` map** rather than restated:
+
+```js
+const VIEWED = new Set(
+  Object.keys(CARDS).filter(k => k.includes(':')).map(k => k.split(':')[0])
+);
+```
+
+A hand-maintained list next to the thing it must mirror is a standing invitation
+to this exact bug. A test now walks every `CARDS` entry, rebuilds its key, and
+fails on any that can't be reached.
+
 ## Dates don't apply to Orders
 
 Grain, Start date and End date measure work **completed** in a window. Orders

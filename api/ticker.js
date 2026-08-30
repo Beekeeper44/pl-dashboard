@@ -354,7 +354,17 @@ export default async function handler(req, res) {
   const tab  = String(q.tab  || 'cards').toLowerCase();
   const view = String(q.view || 'total').toLowerCase();
   // Tabs whose saved question depends on the selected pill.
-  const VIEWED = new Set(['recomp', 'cardtype', 'review']);
+  //
+  // 'orders' MUST be here. Its entries in CARDS are 'orders:all' and
+  // 'orders:queue', but without this the key was built as bare 'orders', which
+  // matches nothing -> "Unknown tab/view: orders". The card IDs were correct
+  // and unreachable; the tab could never load on a deployment.
+  //
+  // Derive the set from CARDS instead of listing it by hand, so adding a
+  // 'foo:bar' entry can't go the same way.
+  const VIEWED = new Set(
+    Object.keys(CARDS).filter(k => k.includes(':')).map(k => k.split(':')[0])
+  );
   const key  = VIEWED.has(tab) ? `${tab}:${view}` : tab;
 
   try {
