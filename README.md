@@ -1954,6 +1954,35 @@ panel does (`ensureOrderDays`, 5-minute cache), and the column is sortable via a
 A dash means the join hasn't landed or failed, **not** zero days — same rule and
 same severity colours as the Orders table.
 
+### The join is on digits only
+
+`orderKeyOf()` strips everything but digits from both sides. The two questions
+are free to format an order number differently — `"17787772"`, `17787772`,
+`" 17787772"`, `"#17787772"`, `"17,787,772"` — and a strict string compare
+matches only the first, yielding a silent column of dashes.
+
+### An empty column now says why
+
+Three different causes produced identical dashes. The panel now names which:
+
+- *"the orders question returned no rows"*
+- *"the orders question has no in_process_days column"*
+- *"no queue order number matched the orders question"*
+
+Shown in the filter row, not just the console, with the counts and sample keys
+logged alongside for diagnosis.
+
+### Blank category labels
+
+`cleanCategory()` can return `""` for a value it doesn't recognise (or one that
+is nothing but a trailing `P3`), which rendered a coloured dot with **no label**
+— indistinguishable from a rendering fault. `categoryLabel(key, raw)` now falls
+back to the raw text, and to an em dash if even that is empty.
+
+Both questions also log their actual column names once per load
+(`card queue columns: [...]`), because when a column renders blank the
+question's real shape is the only thing worth knowing.
+
 ## "Grey" row text was never grey
 
 Both tables already set `color:#FFFFFF` with no dimming rule anywhere — sampling
