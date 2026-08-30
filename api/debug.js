@@ -7,9 +7,17 @@
 import { runQuery } from './ticker.js';
 
 export default async function handler(req, res) {
-  const cardParam = req.query?.card;           // optional: ?card=cards|recomp-total|recomp-age
+  // ?card=<known key>  or  ?id=<any Metabase question id>
+  //
+  // The id form runs a bare question with no parameters and reports its columns
+  // and row count — enough to tell whether a question is the Orders set or the
+  // Card Queue set before wiring it to a tab.
+  const cardParam = req.query?.card;
+  const rawId     = req.query?.id;
   const key = cardParam === 'recomp-total' ? 'recomp:total'
             : cardParam === 'recomp-age'   ? 'recomp:age'
+            : cardParam === 'orders'       ? 'orders:all'
+            : cardParam === 'queue'        ? 'orders:queue'
             : 'cards';
 
   const today = new Date().toISOString().slice(0, 10);
@@ -28,6 +36,36 @@ export default async function handler(req, res) {
       METABASE_EV_AGE_CARD_ID: process.env.METABASE_EV_AGE_CARD_ID || '(default 34387)',
     },
   };
+
+  if (rawId) {
+    if (!/^\d+$/.test(String(rawId))) {
+      res.status(400).json({ error: 'id must be a number' });
+      return;
+    }
+    try {
+      const r = await runQuery('__adhoc__', q, { cardId: String(rawId), noParams: true });
+      const cols = r.rows.length ? Object.keys(r.rows[0]) : [];
+      res.status(200).json({
+        checkedAt: out.checkedAt,
+        questionId: String(rawId),
+        result: 'OK',
+        transport: r.via,
+        rowCount: r.rows.length,
+        columns: cols,
+        // Best guess at which tab it belongs to, from the columns present.
+        looksLike: cols.includes('ac_number') || cols.includes('card_status') ? 'Card Queue'
+                 : cols.includes('in_process_days') || cols.includes('full_name') ? 'Orders'
+                 : 'unrecognised — check the columns above',
+        firstRow: r.rows[0] || null,
+      });
+    } catch (err) {
+      res.status(200).json({
+        checkedAt: out.checkedAt, questionId: String(rawId),
+        result: 'FAILED', error: String(err.message || err),
+      });
+    }
+    return;
+  }
 
   try {
     const r = await runQuery(key, q);

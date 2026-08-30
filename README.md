@@ -37,6 +37,8 @@ shape, it says so and names the env vars, rather than rendering blank.
 | `METABASE_CARD_ID` | no | `34321` — Cards tab |
 | `METABASE_RECOMP_CARD_ID` | no | `34354` — Recomp → Total Recomps |
 | `METABASE_EV_AGE_CARD_ID` | no | `34387` — Recomp → Avg EV Age |
+| `METABASE_ORDERS_CARD_ID` | no | `35872` — Orders → Orders |
+| `METABASE_CARD_QUEUE_CARD_ID` | no | `35905` — Orders → Card Queue |
 | `TICKER_CACHE_SECONDS` | no | `30` |
 
 Question IDs are assumed to map in the order they were provided. `/api/verify`
@@ -929,6 +931,139 @@ dragged between columns.
 **Clear all** wipes every line for the day currently selected, confirming first
 with the count. Other days are untouched.
 
+## ⚠ The demo must never reach the deploy
+
+`vercel.json` sets `outputDirectory: "public"`, so **everything in `public/` is
+served** — `demo.html` included. Deployed, it would be live at `/demo.html`:
+a page that looks exactly like the dashboard and is entirely fabricated. On a
+wall display that's worse than an outage, because nobody can tell.
+
+Two locks:
+
+1. **`.vercelignore`** lists `public/demo.html`, so it isn't uploaded at all.
+2. **A host guard at the top of the mock.** Even if the file is copied
+   somewhere it shouldn't be, the mock installs nothing unless the hostname is
+   local — `file://` / `srcdoc` / `blob:` (empty hostname), `localhost`,
+   loopback, `*.local`, or a private LAN range. On anything else it returns
+   before overriding `fetch`, logs a console warning, and repaints the amber
+   banner red reading *"Demo mock DISABLED on this host — showing live data."*
+   `?demo=1` overrides deliberately.
+
+`index.html` itself contains **zero** demo code — verified by grep on every
+build, not assumed.
+
+## Demo build (`public/demo.html`)
+
+`demo.html` is `index.html` plus a mock layer that intercepts `/api/*`, so the
+whole dashboard runs with no Metabase, no Neon and no deploy. Everything on it
+is fabricated. Deleting that one `<script>` block gives the production file
+back.
+
+Seeded so the assignment paths are actually exercisable rather than merely
+populated:
+
+| seed | why |
+|---|---|
+| 50 of 58 people have skills | the other 8 stay idle, so idle capacity is visible |
+| baseball / basketball / football / pokemon / one_piece have deep primary coverage | that's where the volume is |
+| **star_wars has no primary holder, only 2nd-option holders** | fires auto-assign's "went to a second skill" fallback |
+| **combat has nobody at all** | fires the "skipped — nobody has that category" path |
+| Adrian Carlo is stored as a **legacy flat array** | proves the migration against real data, not just a unit test |
+| 26 cards pre-assigned, unevenly | least-loaded auto-assign has an existing load to correct against |
+| **queue cards are built FROM the order rows** | an order number read off the Orders tab actually exists on Card Queue |
+| 2 Daily lines + 1 zone assignment | Recomp Assignments isn't empty on open |
+
+Card-queue rows are **memoized**, because the seeded assignments are keyed on
+`order|ac|card_status` — regenerating rows per request would orphan every one
+of them. Orders are memoized for the same reason *and* because the queue is
+generated from them: each card inherits its order's number, status, due date
+and category. Before that, both tabs invented independent random order numbers,
+so no order number existed on both and the find-an-order workflow couldn't be
+tested at all.
+
+### ⚠ Interception must not depend on `new URL()`
+
+The first demo build loaded, printed its console banner, and then let every
+request through to the real network — the app showed *"The API route isn't live
+yet"* while the mock sat there apparently working.
+
+`new URL(relative, base)` **throws** when `location.href` is opaque: `srcdoc`
+iframes, `blob:` and `about:` documents. The fallback kept the raw string as the
+path, query string still attached, so `/\/api\/ticker$/` never matched
+`/api/ticker?tab=cards` and the request escaped.
+
+`parseReq()` now splits path and query by hand and only *upgrades* to `new URL`
+inside a try. `isRoute()` matches `(^|/)api/<name>/?$`, tolerating a leading
+slash, a relative path, a trailing slash, an absolute URL and a fragment.
+
+The lesson generalises: a mock that fails open is worse than one that fails
+loudly, because the symptom points at the server rather than at the mock.
+
+A seeded PRNG means a reload gives identical numbers, so a bug you spot is
+still there when you look again. `LAT` adds 260ms of fake latency so spinners
+are visible.
+
+Two things the demo cannot show: shared state is per-tab memory, so cross-screen
+sync needs a real deploy, and `/api/playerimage` returns 404 so athlete tiles
+fall back to initials (bundled Pokemon portraits still resolve).
+
+## Global Refresh button
+
+Sits in the top control bar next to **Auto 60s**, so it's on every tab.
+
+Two independent things go stale on any tab: the **Metabase query** behind it,
+and the **shared board** (assignments, skills, daily lines). Refreshing only one
+leaves half the screen out of date, so the button does both — fired in parallel,
+since they hit different endpoints and neither depends on the other.
+
+It reports the **worse** of the two outcomes, and names which half failed:
+
+| result | label |
+|---|---|
+| both succeeded | `Updated` |
+| query failed | `Data failed` |
+| shared board failed | `Board failed` |
+| both failed | `Offline` |
+
+"The numbers are stale" and "someone else's edits are missing" need different
+responses from whoever is watching the wall, so a single green `Updated` while
+the query silently failed would be a lie.
+
+`load()` now **returns its promise** and resolves with `ok` / `error` (it used
+to return nothing, so a caller couldn't tell when the data had landed). It
+resolves rather than rejects on failure — the error branch already reports to
+the user, and rejecting would be a second channel for the same news.
+
+### What `force` does and does not waive### What `force` does and does not waive
+
+`pullState(initial, force)`:
+
+```js
+var fresh = (d.rev > stateRev) || (force && d.rev === stateRev);
+if(!initial && (pendingWrites > 0 || !fresh)) return "skipped";
+```
+
+- **Waived: equality.** The poll ignores an equal revision because nothing
+  changed. On an explicit click, re-adopting the same revision is a no-op and
+  lets the button give a real answer rather than silently doing nothing.
+- **Not waived: a lower revision.** A reset store or stale replica returning
+  rev 3 against our rev 70 would wipe saved work — that is the failure that cost
+  70 auto-assigned cards and the rule stays absolute.
+- **Not waived: an in-flight write.** That guard protects unsaved edits, and a
+  click shouldn't override it. Clicking mid-write returns `skipped`; the flush
+  step means this is rare in practice.
+
+`pullState` now **resolves with a status** (`ok` / `skipped` / `error`) rather
+than rejecting. The boot call is `pullState(true).then(startStatePolling)` — a
+rejection there would leave the dashboard running with no polling at all.
+
+Refresh also fixed a routing bug: **Assignments and Team render from `qRows`**
+(the card queue) plus shared state, not from the order-level question. Pressing
+Refresh on those subtabs used to fetch Orders and leave the cards stale, and
+going Orders -> Assignments without ever opening Card Queue showed an empty
+panel, because nothing had fetched the queue. `ordersWantsQueue()` now decides:
+queue for every Orders subtab except Orders itself.
+
 ## Daily / Assignments do not call Metabase
 
 Both views are entirely local — there is no saved question behind either.
@@ -1270,3 +1405,1138 @@ Widen the range by hand for a trend.
 
 High End is the deliberate exception: a day's comps aren't complete until the
 day is over, so it opens on yesterday. The Yesterday / Today buttons switch it.
+
+## Orders tab
+
+Fifth top-level tab, after Review. Backed by:
+
+```
+'orders:all': { env: 'METABASE_ORDERS_CARD_ID', fallback: '35872' },
+```
+
+Question **35872**. The env var overrides it if the question is ever replaced.
+
+Columns: `URL · number · status · customer · kind · due · category · in process ·
+raw · pre-graded`, sorted by days in process, longest first. Status is a
+coloured chip and sets the row's left border. Days is the large number, since
+"how long has this been sitting" is the question the tab answers.
+
+Sends no parameters — the card's filters are all optional, so the set is pulled
+once and filtered in the browser.
+
+### Categories
+
+Canonical set (`ORDER_CATEGORIES`):
+
+```
+baseball · basketball · football · pokemon · one_piece · combat
+dc · disney · hockey · marvel · soccer · star_wars
+```
+
+`cleanCategory()` strips a trailing tier token (`pN`) plus the separator it
+leaves behind, then runs the rest through `canonSport()`:
+
+| source | key | shown |
+|---|---|---|
+| `baseball - p3` | `baseball` | Baseball |
+| `one piece` | `one_piece` | One Piece |
+| `star wars - p3` | `star_wars` | Star Wars |
+| `ufc - p2` | `combat` | Combat |
+| `special - goat p1` | `special_goat` | Special Goat |
+
+Only a **trailing** `pN` is stripped, so `special - goat p1` keeps "goat".
+Anything outside the canonical list still renders (title-cased) and is appended
+to the dropdown, so a new category shows up rather than vanishing. The raw value
+stays in the cell's `title` for hover.
+
+Labels and the colour dot come from the existing `sportLabel()` / `sportColor()`
+helpers — already verified against a 290-row sample. A second lookup for the
+same twelve values would only drift.
+
+The dropdown lists them in canonical order, not alphabetically.
+
+### ⚠ fillSelect was already taken
+
+The file already had a `fillSelect()` for the sport/pack filters, further down.
+Function declarations hoist, so the later one won and every Orders dropdown
+rendered raw values (`one_piece` instead of "One Piece") while still filtering
+correctly — a silent, display-only failure. The Orders version is now
+`fillOrderSelect()`.
+
+### Filters
+
+Status is **multi-select**; Category and Kind are single. All three use the dashboard's own
+`.filters` / `.fld` markup and run through `enhanceSelect()`, so they get the
+same custom menu as the top bar rather than raw native selects.
+
+Options come from the data that actually returned, so no selection ever yields
+nothing. They compose, a choice survives a refresh when the value still exists,
+and **Clear filters** resets all three.
+
+**⚠ `syncLabel` only fired on click or on an options change.** Setting `.value`
+in code — which is what Clear filters does — left the button showing the old
+choice while the table underneath had already reset. `enhanceSelect` now also
+listens for `change`, so a programmatic update resyncs the label. This affects
+every enhanced select, not just Orders.
+
+### The days column is in-process days
+
+Header reads **In process** and each value carries a small `d` suffix; the KPI
+is **Avg in process**. It was labelled "Days", which read like a date.
+
+### ⚠ Panel placement
+
+`#opanel` must be a **sibling** of `#panel-recomp`, not a child. It was nested
+inside initially, and since the Orders tab hides `#panel-recomp`, the panel
+rendered its 40 rows into a zero-height box — data present in the DOM, nothing
+on screen. `panel-recomp` is a `<div>`, not a `<section>`.
+
+## Order status colours
+
+Specified by Alan, shared by Orders and — when it lands — Cards, so a status
+reads the same wherever it appears. Defined once in `OSTATUS_COLOR`; the value
+drives the chip text, the chip's tinted background and the row's left border.
+
+| status | colour | hex |
+|---|---|---|
+| pending_grading | purple | `#A855F7` |
+| pending_review | blue | `#38BDF8` |
+| pending_release | orange | `#F5A524` |
+| pending_rescan | dark red | `#CF5A5A` |
+| pending_data_issue | red | `#FF4D4D` |
+| pending_authentication | light pink | `#F9A8D4` |
+| pending_rejection | medium pink | `#EC4899` |
+| pending_scan | light green | `#86EFAC` |
+| pending_customer_support | dark purple | `#8A6BE0` |
+
+### The two "dark" shades are lighter than their names
+
+A true dark red or dark purple is unreadable as 12px chip text on a `#0E141B`
+panel. `#C64F4F` and `#7C5CD6` were tried first and measured 4.08 and 3.84
+against the panel — below the 4.5 minimum for small text. They were lifted to
+`#CF5A5A` and `#8A6BE0`, both 4.64, which is the darkest that stays legible.
+
+All nine now clear 4.5. They remain clearly darker than their bright
+counterparts — dark red vs red `#FF4D4D`, dark purple vs purple `#A855F7` —
+which is the distinction that carries the meaning.
+
+## Orders → Card Queue, Assignments, Team
+
+The Orders tab now carries four pills: **Orders · Card Queue · Assignments · Team**.
+
+```
+'orders:queue': { env: 'METABASE_CARD_QUEUE_CARD_ID', fallback: '35905' },
+```
+
+Question **35905**. It declares an optional `order_number` filter, which the
+proxy leaves blank — `orders:queue` sits in `NO_PARAMS`, so the whole queue is
+pulled once and filtered in the browser, same as Orders.
+
+### Card Queue
+
+Card-level rows: card link, task link, task status, order number, order status,
+due date, AC number, card status, pre-graded, category, and an **Assignee**
+column immediately after pre-graded.
+
+- **Per-row dropdown** assigns anyone. People who don't hold that category are
+  still listed but marked `· no skill`, so a manual override is possible but
+  never accidental.
+- **Checkboxes + Bulk assign** for a selection. The prompt only offers people
+  skilled in *every* category in that selection.
+- **Auto-assign by skill** places every unassigned card in the current filter.
+- Filters: category, card status, assignee (including **Unassigned**).
+
+### Team — the skills model
+
+Each roster member holds categories at **two tiers**: **primary** (their main
+work) and **2nd skill** (they can cover it, but shouldn't be first pick).
+Adrian, for example: primary One Piece / Pokemon / Disney / Marvel, second
+Basketball.
+
+#### The mode pills
+
+Two pills sit directly under the name: **PRIMARY** and **2ND OPTION**, each
+carrying its own count. They're sized larger than the category chips below,
+because the chips are modal and the mode has to be readable in the same glance
+as the thing it governs. The active pill is neon for primary, blue for 2nd; the
+chip row picks up a matching top border, so the mode is legible from the row
+itself and not only from the pill.
+
+**The chip row is scoped to the active tier.** In 2nd Option mode the lit chips
+are that person's 2nd options — their primaries are still saved, they're just
+not what this row is showing. Switch back and they're all there. Showing both
+tiers lit at once made the row look like it hadn't registered the mode change.
+
+A category held in the *other* tier renders dim with a small `1st` / `2nd` tag
+rather than as untouched. It has to: a category lives in exactly one tier, so
+clicking it **moves** it, and an unmarked chip would make that look like a free
+add.
+
+Click a pill to arm a tier, then click categories to file them there:
+
+- category not held -> added to the active tier
+- category held in the *other* tier -> moved to the active tier, no need to
+  clear it first
+- category held in the *active* tier -> removed. The same click always undoes
+  itself.
+
+Mode is **per person** and lives in `teamMode`, which is local only. It's a
+cursor position, not data — pushing it to `/api/state` would make one person's
+mode jump on someone else's screen.
+
+Tiers are told apart by fill, not hue, so the chip still reads as its category:
+primary is filled with a solid border, 2nd is a dashed outline with almost no
+fill plus a small `2` tag. The tag matters — border style alone is a weak cue
+at wall-display distance.
+
+The counts live on the pills, so there's no separate summary row.
+
+#### Search
+
+An input above the grid filters the roster. It reuses `graderMatches()` from
+the Recomp grader filter, so "rod" finds Rodel and "jay sal" finds Jay-R
+Salili. Escape or **Clear** resets. The count reads "N matches", or "no match
+on the roster" in amber so an empty grid is explained rather than blank.
+
+Note the matcher works on whole tokens: `Jay-R` normalises to two tokens, so
+"jayr" finds nothing while "jay-r" and "jay" both work. Pre-existing behaviour,
+shared with the grader filter.
+
+#### Clearing skills
+
+**Per person** — a `Clear` button appears in a card's header only when that
+person actually has skills set; an always-present button on 58 idle cards is
+noise. Armed like every other destructive control: first click reads
+`Clear 3?`, second click empties both tiers. Each card keeps its own timer, so
+arming one doesn't disturb another.
+
+**Whole roster** — `Clear all skills` sits at the right of the search bar,
+apart from the search controls and coloured warm rather than neutral. It's the
+most destructive control on the page: with no skills set, auto-assign has
+nothing to match on and stops placing cards entirely. So it names what it's
+about to destroy (`Wipe 12 people? Click again`), and its banner says the
+consequence out loud rather than reporting a bland success.
+
+The button is disabled when nothing is set, rather than arming and then
+reporting "no skills are set".
+
+#### Storage shape and migration
+
+`teamSkills[person]` is `{primary:[], secondary:[]}`. It used to be a flat
+array. Other surfaces and older browsers can still write that shape at any
+point in the session, so **every read goes through `normSkills()`** rather than
+migrating once at boot — a poll can hand back a legacy record long after load.
+A flat array becomes all-primary. A category appearing in both tiers resolves
+to primary, keeping the two lists disjoint.
+
+##### ⚠ Normalise once, in place
+
+`skillRec()` repairs a record only when it isn't already canonical, and
+canonical includes *disjointness*, not just field types.
+
+Normalising unconditionally returned a **new object on every call**, which broke
+every edit: the click handler does `var rec = skillRec(p)` and then calls
+`tierOf(p, c)` on the next line — which calls `skillRec` again, replaces the
+stored object, and leaves `rec` pointing at a detached copy. The pushes and
+splices all landed on the orphan. Nothing threw; the chips simply never changed.
+Caught by a unit test on the handler, not by reading it.
+
+### Auto-assign
+
+For each unassigned card in the current filter, it takes everyone whose skills
+include that card's category and gives it to whoever has the **shortest queue**.
+Least-loaded rather than round-robin, so it self-corrects when someone is
+already carrying work from an earlier run.
+
+**Tier gates the pool before load does.** Primary holders are considered first;
+secondary holders only when *nobody* holds that category as primary. A primary
+holder with six cards still beats an idle secondary — otherwise the tier would
+be advisory only, and one busy day would quietly route everything to whoever
+happened to be free. Verified: with a primary holder and an idle secondary, all
+six pokemon cards went to the primary.
+
+The banner reports the fallback separately from the skips: *"2 auto-assigned. 1
+went to a second skill — nobody holds that category as primary."*
+
+Bulk assign shows the two shortlists as separate blocks (`PRIMARY` /
+`2ND SKILL`) rather than merging them, and the per-row dropdown marks people
+`· 2nd` or `· no skill`.
+
+Cards whose category nobody holds are **skipped and reported**, not silently
+dropped: *"12 skipped — nobody has that category as a skill."* Running it with
+no skills set says so plainly rather than appearing to do nothing.
+
+### Assignments
+
+Groups assigned cards by **person** or by **category** — a Group by dropdown
+switches. Person view shows each queue with the order number and category;
+category view shows who holds each card. Idle team members stay visible.
+
+### ⚠ Only adopt a strictly newer revision
+
+`pullState` used to adopt whenever `d.rev !== stateRev`. A server returning a
+*lower* rev — a reset store, a stale replica — would then overwrite work this
+browser had already saved. Caught in testing: 70 auto-assigned cards vanished on
+the next 10-second poll. It now adopts only when `d.rev > stateRev`.
+
+## ⚠ Fixed: three localStorage mirrors never worked
+
+`heDone`, `teamSkills` and `cardAssign` were loaded from localStorage around
+line 1875, but declared with `var` some 1,600 lines further down. `var` hoists
+the *name*, not the assignment — so the load ran, and then
+`var teamSkills = {}` executed later and reset it to empty.
+
+The offline mirror for those three was dead. Only the server pull restored
+them, so the UI painted blank until the first round-trip and stayed blank
+whenever `/api/state` was unreachable — which reads as "my skills didn't save"
+rather than as a sync failure.
+
+They now load at their declarations via `loadLocal(key)`. `zAssign` and
+`zSnooze` were never affected; both are declared before they load.
+
+This is the same class of bug as the `DAILY_COLS` hoisting failure noted above.
+Worth checking the pattern before adding a fourth store.
+
+## Order # filter (Orders and Card Queue)
+
+First control in both filter rows. **Substring, not prefix or exact**: order
+numbers get read off a screen or a packing slip, and the digits people actually
+remember are usually the tail — so "2522" finds 17622522. Non-digits are
+stripped from the query, so a pasted `#17622522` or `order 17622522` still
+matches, and a query of only punctuation behaves as empty rather than matching
+nothing.
+
+Filters as you type (the selects beside it only fire on change). Escape clears
+it, as does **Clear filters**. The border turns neon while it holds a value —
+a filter that silently hides 219 of 220 rows has to be visible from across the
+room.
+
+Note substring means `2522` also matches `17252200`. That's intended; use more
+digits to narrow.
+
+### Empty results say WHICH filter emptied them
+
+"No orders match these filters" is the least useful half of the message. When a
+filtered view comes back empty, `emptyReason()` re-runs the set with each filter
+dropped in turn and reports what it finds:
+
+- **A filter that matches nothing at all** → *"order # 16568979 matches nothing
+  in this data."* Checked **first**: a dead filter also brings rows back when
+  removed, so it would otherwise be reported as an ordinary culprit — true, but
+  the wrong news.
+- **One filter is uniquely to blame** → *"Nothing matches once category is
+  applied — clear it and 1 row comes back."*
+- **Several filters each hide what the others keep** → named, with no false
+  claim that clearing one fixes it.
+
+Applies to both Orders and Card Queue.
+
+## Select 5 / 10 -> choose a person -> Bulk assign
+
+The Card Queue filter row now carries **Select 5 · 10 · None**, an **Assign to**
+dropdown, and the existing **Bulk assign** button, in that order.
+
+`pickN()` takes the first N **unassigned** cards in the current filter, in
+display order. Unassigned rather than "first N rows": picking cards that already
+carry a name means the next assign quietly overwrites someone else's work.
+
+It **adds** to the selection rather than replacing it, so 5 then 5 gives 10. If
+fewer than N remain it takes what it can and says so, rather than silently
+under-picking; if none remain it explains whether that's because everything is
+assigned or because the filter is empty.
+
+### Why the ticks aren't always the first five rows
+
+Because it skips assigned cards, the picks are frequently **non-contiguous** —
+rows 1, 5, 6, 7, 8 rather than 1-5 — and some can sit below the fold. With only
+a 16px checkbox marking them, that reads as "the button half-worked". Three
+things address it:
+
+- Selected rows carry a **full-row highlight** (`.qrow.sel`), visible without
+  hunting for checkboxes.
+- The first pick is **scrolled into view**, so an entirely off-screen selection
+  can't look like nothing happened.
+- The banner **names the skips**: *"Picked 5 — skipped 3 already-assigned cards
+  along the way."*
+
+A running `N selected` count sits beside the Select buttons. That total used to
+live in the panel heading, which was removed; the Bulk assign label alone is
+easy to miss at the far end of the row.
+
+The pick buttons carry `user-select:none` — they get clicked repeatedly, and
+without it a fast second click selects the label text instead of firing.
+
+### The Assign to combobox
+
+**Typeable.** A real `<input>`, not a `<select>` — so text editing, mobile
+keyboards and selection all behave normally, and `enhanceSelect` (which only
+grabs `.filters select`) leaves it alone. Type to filter with the same matcher
+as everywhere else, arrow keys to move, Enter takes the top match, Escape closes
+then clears, blur snaps back to the confirmed pick so half-typed text can't
+strand the box.
+
+The menu is bound on **mousedown, not click** — blur fires first on click and
+would close the menu before the button ever saw the event.
+
+#### ⚠ Coverage, not all-or-nothing
+
+The old rule required a person to hold **every** category in the selection or
+they were labelled "no skill". Select 5 cards spanning marvel, hockey and soccer
+and that tagged the *entire roster* unskilled — both useless and false, since
+most of them can take most of the cards.
+
+Coverage is a count instead, so it degrades sensibly:
+
+| selection | label |
+|---|---|
+| one category | `primary` / `2nd option` / `no skill` |
+| all covered, all primary | `primary · all 3` |
+| all covered, mixed tiers | `covers all 3` |
+| some covered | `covers 2/3` |
+| none | `no skill` |
+
+Sorted by coverage desc, then primaries ahead of second options at equal
+coverage, then least-loaded, then alphabetical. Coverage never yields to load: a
+fully-skilled person with nine cards still outranks an idle one who can't do the
+work.
+
+A zero-length category list is guarded explicitly — without it `pri === total`
+is `0 === 0` and the whole roster gets tagged `primary · all 0`, which is
+confidently wrong rather than merely unhelpful.
+
+Picking someone not skilled for the selection is **allowed but flagged** — the
+banner reads *"Assigned 5 cards to Dee. 4 outside their skills."* in the error
+colour. The queue still has to clear on a short-staffed day, and a silent
+mismatch is worse than an explicit one.
+
+Leaving the dropdown on the placeholder and clicking Bulk assign falls back to
+the old typed prompt, so that path still works.
+
+#### Three things the enhanced-select wrapper forced
+
+`enhanceSelect()` replaces every `.filters select` with a custom button and
+menu, which constrains anything built dynamically:
+
+1. **No `<optgroup>`.** The menu builder walks `sel.options`, which flattens
+   groups and drops their labels — the grouping would vanish from the only
+   dropdown users actually see. The tier goes in each option's text instead.
+2. **Style the button, not the select.** `.csel select` is `opacity:0` and
+   zero-sized, so the armed state is `.csel.armed .cselbtn`.
+3. **Don't set `disabled` on the select.** The visible control is the button,
+   which stays clickable regardless. The wrapper gets an `armed` class and the
+   placeholder option carries the message.
+
+A `MutationObserver` on `childList` already rebuilds the menu when options are
+repopulated, so rewriting `innerHTML` is safe.
+
+## Due dates render like Metabase
+
+`2026-07-06` shows as **Jul 6, 2026**, matching the question's own rendering.
+
+`fmtDue()` parses the string **by hand** rather than via `new Date(str)`. A bare
+`YYYY-MM-DD` is parsed as UTC midnight and then printed in local time, so
+anywhere west of Greenwich every date lands a day early — on a Pacific wall
+display "due Jul 6" silently becomes "Jul 5" for the entire table. There's a
+test asserting the naive approach really does shift it and that `fmtDue`
+doesn't.
+
+Anything that isn't a plain ISO date passes through untouched (including month
+`00` or `13`), because a mangled date is worse than an unstyled one. The stored
+value stays ISO — only the display changes — which is what lets date sorting
+stay a plain string compare.
+
+## Sortable columns (Orders and Card Queue)
+
+Click any header to sort; click it again to flip. Arrow keys work too
+(`role="button"`, Enter/Space).
+
+**One metadata list drives both the header and the comparator** (`OCOLS`,
+`QCOLS`), so a header can't end up sorting by a different field than it names.
+Each column declares a `type`:
+
+- `num` — real numbers
+- `numstr` — numeric strings like order numbers, because a text sort puts `9`
+  after `17622522`
+- `date` — ISO strings, which compare correctly as text
+- `text` — everything else, compared with `numeric:true` collation
+
+Three behaviours worth keeping:
+
+- **Missing values sink in both directions.** Flipping to find the oldest due
+  date shouldn't surface a wall of blanks first. Zero is a value, not a blank.
+- **A new column starts in the direction that's useful first** — biggest for
+  numbers, earliest for dates, A-Z for text. Re-clicking the active column
+  flips it.
+- **`sortRows` copies before sorting.** For the queue, the array it's handed is
+  the live `qRows`; sorting in place would reorder the underlying data.
+
+**Both tables now open sorted by due date, oldest first** — the queue is worked
+in due order, so the row to pick up next is at the top. Orders previously opened
+on days-in-process descending, which answers a different question ("what is most
+stuck") and is still one header click away. The arrow is always present so columns don't
+shift width when the active one changes — it just dims when inactive.
+
+The queue's select-all checkbox now lives in `QCOLS` as a `raw` cell rather than
+being spliced into the generated header with a string replace, which would have
+broken the moment a column's styling changed.
+
+## ⚠ The Orders grid had one track too many
+
+`--ocols` declared **eleven** tracks for **ten** columns. Every cell from "in
+process" rightward sat in the wrong track, and Pre-graded landed in the 74px
+meant for Raw — which is why its header wrapped onto two lines. Both the wide
+and narrow declarations were wrong.
+
+There's now a test that parses `OCOLS`/`QCOLS`, counts the cells the row
+actually emits, counts the tracks in *every* `--ocols`/`--qcols` declaration
+including the media-query overrides, and fails if the three disagree. This class
+of bug is invisible in a syntax check and easy to miss by eye — the table still
+renders, just misaligned.
+
+## In-process days on the Card Queue
+
+The queue question doesn't carry `in_process_days`; it's on the order question.
+The Card Queue now uses the same cached `order -> days` lookup the Assignments
+panel does (`ensureOrderDays`, 5-minute cache), and the column is sortable via a
+`__ipd` synthetic key.
+
+A dash means the join hasn't landed or failed, **not** zero days — same rule and
+same severity colours as the Orders table.
+
+## "Grey" row text was never grey
+
+Both tables already set `color:#FFFFFF` with no dimming rule anywhere — sampling
+the screenshots confirms peak text pixels at **250 and 255**. What reads as grey
+is **stroke antialiasing**: at `font-weight:400` most pixels of a thin glyph are
+partial coverage (~rgb(170)) and only the stroke centre reaches white, so a row
+looks grey next to a bold order number.
+
+Changing the colour would have been a literal no-op. The fix is weight:
+`.orow`, `.qrow` and `.acell` now carry `font-weight:500` with an explicit
+`color:var(--tx)`, and row links went to 500 too so they aren't the thin ones
+instead. Row font sizes went up half a step (14.5 / 14px).
+
+The `.z` zero state keeps its dimming on purpose — a zero is an absence, not a
+value competing for attention.
+
+### Same fix on the Team page
+
+Skill chips had `opacity:.78` on top of 12.5px/400 text, which lands around
+rgb(150). They're now `opacity:1`, 13px, weight 500.
+
+**Set vs unset survives without dimming**: a selected chip carries a coloured
+border *and* a fill, and an other-tier chip carries a coloured border plus its
+`1st`/`2nd` tag. That was always a stronger signal than faded text — the fade
+was doing nothing except making the label hard to read. Hover now shifts the
+border instead of the opacity.
+
+Also lifted: the mode pills (`.6` -> `.85`, weight 500), the per-person Clear
+button (`.4` -> `.7`), and the tier tag (9.5px -> 10.5px at weight 600).
+
+**Three inline `opacity:.5` dims** were hiding from the stylesheet — the "idle"
+count on Team cards, the "no cards" count on Assignments cards, and the same on
+the zone panel. All three now stay secondary by *colour and size* rather than by
+fading the glyphs. A test asserts none are left.
+
+## Table headers
+
+`.ohead`, `.qhead` and `.hhead` all moved from 10.5px to 12.5px with tighter
+letter-spacing, and stay at one shared level across the three tabs.
+
+## Orders table — days-in-process severity
+
+`In process` carries a colour band instead of being one more grey number, so
+the eye lands on the worst rows without reading any of them:
+
+| days | class | colour |
+|---|---|---|
+| < 7 | `d-ok` | normal text |
+| 7-13 | `d-warn` | amber |
+| 14-29 | `d-bad` | red |
+| 30+ | `d-crit` | red, semibold |
+
+**7 is the same line the `7+ DAYS` KPI draws**, so the number above the table
+and the colours inside it can't disagree — there's a test asserting the KPI
+count equals the coloured-row count. 14 and 30 split what's left: with a 28-day
+average almost every row clears 7, and a single red would colour the whole
+screen and say nothing.
+
+`null` days render blank and uncoloured; `0` is a real value, not a missing one.
+
+## Orders / Card Queue — headings removed
+
+The `<h2>Orders — 140 of 140 orders` and `<h2>Card queue — 220 of 220 cards`
+lines are gone. Both counts duplicated the KPI card directly beneath them
+(`ORDERS 140 all`, `CARDS 220 all`), and the subtab pill above already names
+the panel. The Card Queue hint also carried "N selected", which still shows on
+the Bulk assign button ("Bulk assign 5"), so nothing was lost.
+
+Two things this needed beyond deleting the markup:
+
+- **Guard the writers.** `$()` is `getElementById`, which returns `null`, so
+  `$("ohint").textContent = …` would throw and abort the whole render. Both
+  writes are now `if($("ohint"))`, left in place rather than deleted so the
+  heading can be restored by putting the markup back with no JS change.
+- **Replace the spacing.** There is no `.panel` CSS rule at all — `class="panel"`
+  is unstyled — and `.subtabs` has `padding-bottom:0` while `.ofilters` zeroes
+  its own padding. The `<h2>` was the only thing holding the filter row off the
+  pills. `.ofilters` now carries `margin:18px 0 16px`.
+
+Assignments and Team still have their headings, so the four Orders subtabs are
+no longer consistent with each other.
+
+## Category colours
+
+One map (`SPORT_COLORS` -> `sportColor()`) drives category colour on **every**
+surface — Assignments rows, the Card Queue table, the Team skill chips, the
+per-card picker and both modals all call it, so a change lands everywhere at
+once.
+
+| category | colour | |
+|---|---|---|
+| baseball | blue | `#1E88E5` |
+| basketball | orange | `#F5822A` |
+| football | brown | `#8B5A2B` |
+| pokemon | yellow | `#FFD84D` |
+| one piece | grey | `#9CA3AF` |
+| soccer | sky blue | `#8ED8FF` |
+| disney | purple | `#A855F7` |
+| marvel | red | `#E23636` |
+
+### The unspecified ones
+
+Chosen for semantic fit, then measured:
+
+| category | colour | why |
+|---|---|---|
+| hockey | ice cyan `#22D3EE` | reads as ice |
+| dc | indigo `#4338CA` | DC is blue, but blue sits between baseball and soccer |
+| star wars | green `#4ADE80` | lightsaber; grey went to one piece |
+| combat / ufc | deep crimson `#9F1239` | fight-sport red, kept much darker than marvel |
+| wrestling | teal green `#14B8A6` | |
+| yu-gi-oh | magenta `#E879F9` | |
+| multi sports | dark slate `#64748B` | not one piece grey |
+| grail | gold `#FACC15` | |
+
+Blue and sky blue are the same hue by definition, so **baseball and soccer are
+separated by lightness** (`l=0.51` vs `l=0.78`) rather than hue.
+
+### Every pair is distance-checked
+
+A test measures hue, lightness *and* saturation distance between every distinct
+colour in the map — not hue alone, since two blues differing only in lightness
+are still tellable apart. It caught four collisions that would otherwise have
+shipped:
+
+- baseball vs soccer, 1 degree apart
+- marvel red vs the first combat pink, 19 apart
+- basketball orange vs the first wrestling amber, 8 apart
+- disney purple vs the first yu-gi-oh violet, 18 apart
+
+Closest surviving pair is baseball vs hockey at 20. `combat` and `ufc` share a
+colour deliberately — they're the same thing.
+
+Unselected Team chips moved from `opacity:.55` to `.78`: the lower value dimmed
+the category dot along with the chip and made the colours hard to read.
+
+## Raw = blue, pre-graded = purple
+
+One colour pair for this distinction everywhere it appears:
+
+| | colour | var |
+|---|---|---|
+| Raw | `#38BDF8` blue | `--raw` |
+| Pre-graded | `#8B5CF6` purple | `--pre` |
+
+**These are not new colours.** The Review tab already drew exactly this
+distinction in exactly these two values (`REVIEW_RAW_COLOR` /
+`REVIEW_PREGRADED_COLOR`); they're now promoted to CSS vars so Orders, Card
+Queue and Cards reuse the same convention instead of inventing a second one.
+
+Applied to:
+
+- **Orders** — the Raw and Pre-graded columns and their headers, plus both
+  halves of the `RAW / PRE-GRADED` KPI (`kpiHTML` injects `v` as HTML, so the
+  two numbers carry their own colours around a dimmed slash).
+- **Card Queue** — the Pre-graded column reads yes/no, so it carries *both*
+  colours: purple for yes, blue for no. It previously used neon green for yes,
+  which collided with the "selected" meaning green carries elsewhere.
+- **Cards** — the `Raw / shift` and `Pre-graded / shift` KPIs.
+
+A zero gets `.z` (plain text at 35%) rather than the full colour: a zero is an
+absence, not a quantity, and colouring it as loudly as a real count makes empty
+columns compete with full ones. Nulls render blank and also carry `.z`.
+
+### What was deliberately left alone
+
+The Cards tab's **group cards** (`renderGroups`) already use a per-source pair —
+each source's own colour for raw and a darker variant for pre-graded
+(`cust`/`cust2`, `slab`/`slab2`). Recolouring those to blue/purple would make
+every source look identical and erase the distinction those cards exist to
+draw. The aggregate KPIs above them are safe to recolour because they're summed
+across sources.
+
+## Contrast pass
+
+- Table headers (`.ohead`, `.qhead`, `.hhead`) moved from `opacity:.55` to
+  `.8` and now share one level across all three tabs.
+- `.o-num`, `.o-raw`, `.o-pre` lost their `opacity:.8` — they're data, and there
+  was no hierarchy reason for them to be dimmer than the row they sit in.
+- The Order # placeholder is styled explicitly (`var(--tx)` at `.5`) rather
+  than left to the browser's mid-grey, which was the lowest-contrast text on
+  the page.
+- Inactive tab labels keep their `.55` — that dimming is what marks the
+  selected tab, so lifting it would cost more than it gained.
+
+## Filter row spacing
+
+Labels sat 5px above their controls with 14px between columns, so the headers
+read as one run of text rather than as captions. Now 9px below the label and
+20px between columns — more gap below a label than between the words in it, and
+more between columns than within one.
+
+## Assignments — find a team member
+
+A **Find** box sits first in the Assignments filter row, before Group by. Same
+matcher as the Team and grader filters (`graderMatches`), so "rod" finds Rodel
+and "jay sal" finds Jay-R Salili. Filters as you type; Escape clears it.
+
+**The search is always about a person, whichever grouping is showing.** Grouped
+by person it matches the card's own name. Grouped by category it keeps the
+categories that person actually has cards in — "what is Bea working on?" is the
+question worth asking there, and matching a category name nobody typed would be
+a different feature. Typing "marvel" therefore matches nothing; that's
+deliberate.
+
+The hint reports `2 of 4 categories match "abagael"` or `nobody matches "zzz"`,
+and a no-match search renders an explicit empty state rather than an empty grid,
+which would read as a broken panel.
+
+## Per-card Assign button
+
+The Assignee column is a **button**, not a `<select>`. With 58 people a native
+dropdown is a scroll-hunt: no search, no skill tier, no way to see who is
+already buried. The button shows the current assignee (or `Assign…`, or
+`Assign · no skill match` when nobody holds the category) and opens the same
+ranked, typeable picker the bulk control uses, scoped to that one card.
+
+The picker shows the card's AC number, category, status and player at the top,
+then every roster member ordered **primary -> 2nd option -> no skill**, and
+least-loaded first inside each tier, with each person's current queue size.
+Type to filter, arrows to move, Enter takes the top match, Escape or the
+backdrop closes.
+
+When the card is already assigned, an **Unassign — currently X** row sits at the
+top of the list, and the current person is highlighted.
+
+A category nobody holds still lists everyone, all tagged `no skill` — assigning
+is allowed but flagged, because the queue still has to clear on a short-staffed
+day. Opening the picker with a stale card key closes cleanly instead of showing
+a blank dialog.
+
+## Names are data, not controls
+
+The base `button` rule sets `text-transform:uppercase`, which is right for
+controls and wrong for names. The Assign to options, the per-card assign button
+and the picker rows are all `<button>`s, so every roster name rendered as
+`ABRAHAM SALISI`.
+
+Those three now opt out (`text-transform:none`, no letter-spacing, normal
+weight) and sit at 15px rather than 13.5px. A name renders as it was typed.
+
+## Name typeahead on all three search boxes
+
+`attachNameSuggest(inputId, render)` wraps an existing text input and adds a
+suggestion menu: type to filter, arrows to move, Enter to take the highlighted
+name, Escape to close, click to pick. Each entry shows the person's avatar and
+current queue size.
+
+Attached to **Assignments → Find** and **Team → Search**, so all three name
+fields behave the same way instead of only the Assign to combobox.
+
+Details worth keeping:
+
+- It's **additive**. The input still works as free-text filtering if the menu
+  never opens; nothing about the existing behaviour changed.
+- The list is **capped at 12** — 58 names would run off the screen.
+- Bound on **mousedown**, not click: blur fires first and would close the menu
+  before the option saw the event.
+- An `_suggest` flag makes a second attach a no-op, and both call sites sit
+  inside `bindQueue()` which is already `.done`-guarded.
+- Team search's own Escape handler now checks `defaultPrevented`, so Escape
+  closes the menu first and only clears the box on a second press.
+
+## Focus mode — clicking a name
+
+Clicking a group name on Assignments **filters to that person in place**: it
+fills the Find box and re-renders. When the filter leaves exactly one group, the
+card goes full width and lists **every** card rather than the first 8, with the
+full row detail and a per-row `×` to unassign.
+
+That replaces the modal as the primary path — one view instead of two showing
+the same thing differently. The modal is still reachable from the **avatar**,
+for when you want it floating over the grid.
+
+The per-row `×` only appears in focus mode: in the grid the cards are too narrow
+to carry another control without squeezing the order number out.
+
+`.agrid.focus` switches to a single column. Without it the grid's
+`auto-fit, minmax(360px, 1fr)` would keep the focused card at 360px and defeat
+the point.
+
+## Idle people are hidden by default
+
+54 empty "no cards" tiles push the handful that matter off the screen. Idle
+people are now hidden unless you toggle **Show idle**, and the hint says
+`· idle hidden` so the roster doesn't look like it shrank.
+
+The filter is skipped while searching: if you typed a name you want that card
+whether or not they're currently holding anything.
+
+## Assignment card rows
+
+Each row is **one line, five columns**, with a header above the list:
+
+```
+URL        ORDER       CATEGORY                 DUE     IN PROC
+Click Me   17938811    ● Pokemon        Aug 6, 2024         41d
+```
+
+The row and the header share **one grid template**, so labels stay over their
+columns at every card width instead of drifting as the card resizes. A unit test
+counts the grid children on both and fails if they diverge — a mismatch there
+silently shifts every column right of it.
+
+`78px 108px minmax(120px,190px) 1fr 58px`. The first three tracks are fixed and
+narrow so URL, Order and Category pack against the left edge and read as one
+group. The `1fr` sits on **Due**, which pushes Due and In proc to the right
+where a date and an age belong. An earlier version put the `1fr` first, which
+stretched the order cell and shoved everything else into the middle of the card.
+
+Order number sits at 17px in full white with tabular figures — it's what gets
+cross-referenced against Metabase, and a column of them lines up.
+
+**No dimmed data.** Order, URL, category, due and days are all things people
+read off the screen, so none of them carry reduced opacity; the header sits at
+85% rather than 60%. The only faded things left in these rows are *absences* —
+`no task`, `no cards`, `+ N more` — which aren't data.
+
+**No player name.** It isn't guaranteed to come back from the queue question, so
+it's gone from the row rather than rendering an empty cell.
+
+The person modal used `r.player || "—"`, which would have put a bare dash where
+a name used to be on every row. It now leads with `Order <number>` when the
+player is absent, and drops the now-redundant `order N ·` prefix from the meta
+line beneath it. With a player name present, nothing changed.
+
+**Click Me** is a plain blue link, no button chrome. It repeats on every row and
+a border on each turns the card into a wall of boxes.
+
+Rows that aren't data — `no cards`, `+ N more` — span the row instead of using
+the grid.
+
+#### ⚠ These columns are `ac-` prefixed, not `c-`
+
+High End already owns `.c-player`, `.c-set`, `.c-ev` and friends as **global**
+classes, including a `.hrow2.done .c-player{text-decoration:line-through}` rule.
+A bare `.c-player` here would have inherited the strikethrough whenever a High
+End row was marked done — a bug that only shows up on a different tab, after an
+unrelated action.
+
+### Ordered by due date
+
+Cards in an assignment card, and in the person modal, are sorted **oldest due
+date first** — a queue is worked in due order, so the row to pick up next is at
+the top. This also means the `+ N more` cut keeps the 8 most urgent rather than
+whatever the question happened to return first.
+
+Undated rows **sink to the bottom**. Sorting `""` as an ordinary string would
+put them first, ahead of everything genuinely overdue, which is exactly backwards.
+
+ISO strings compare correctly as text, so there's no parsing and no timezone to
+get wrong — the same reason the table's `date` sort type needs no `Date` object.
+
+`cardsFor()` sorts its own result and `groups[n]` is sliced before sorting, so
+`qRows` is never reordered underneath the rest of the app.
+
+### Days-in-process needs a join
+
+`in_process_days` is on the **order** question (35872), not the card queue
+(35905). The Assignments panel fetches the order list once and caches
+`order number -> days` for 5 minutes — well inside how fast a day-counter
+moves, and it stops a wall display refetching on every poll.
+
+A row shows `—` when the join hasn't landed or failed, **not** `0d`: "not
+loaded" and "zero days" are different facts and shouldn't look the same. The
+dash carries no severity colour for the same reason. A failed join leaves the
+rows rendering normally with dashes in that column rather than blanking the
+panel.
+
+The severity bands are the same `daysClass()` the Orders table uses, so a card
+that's red there is red here.
+
+## Breakdown pill
+
+A fifth Orders subtab. Two views of one number:
+
+- **Category totals** across the top, as bars — pokemon 500, basketball 456,
+  baseball 345. Bars scale to the *biggest category*, not to the grand total:
+  with a dozen categories, scaling to the total makes every bar a sliver.
+- **A team table** below, sorted most-to-least, each row showing rank, name,
+  a chip per category they worked with its own count, and their total.
+
+Both come from one `completedTotals()` call, so the two halves can never
+disagree about what the numbers are. There's a test asserting the category
+totals and the person totals both sum to the same grand total.
+
+### What counts as "done"
+
+**Opening a card's Click Me card-type link.** That's the signal already used to
+take a card off someone's queue, so counting it costs no extra interaction.
+
+The manual `×` unassign does **not** count — it's a reassignment, not work
+completed, and counting it would let anyone inflate a tally by shuffling cards.
+**Undo decrements**, so a misclick doesn't permanently credit someone for work
+they didn't do.
+
+Counts never go below zero, and a person whose count reaches zero drops off the
+table rather than sitting there as a `0` row.
+
+### Storage
+
+`completed = {by: {person: {category: n}}, since: "YYYY-MM-DD"}` in a new shared
+`completed` state section. Nested rather than flat because both breakdowns fall
+out of one structure — sum a row for a person's total, sum a column for a
+category's.
+
+It is **cumulative** and does *not* clear at the 22:00 Manila rollover; that
+resets assignments, which is a different thing from a tally of work done. The
+header shows what it's counting since, and **Reset counts** (armed, like every
+destructive control) restamps it to today.
+
+### ⚠ Also fixed: a dead button
+
+The focus-mode per-row `×` on assignment cards rendered but had **no handler at
+all** — clicking it did nothing. Found while tracing which paths needed to feed
+the tally. It now unassigns with an undo, and correctly does not count as a
+completion.
+
+## Person modal — the AC numbers in a queue
+
+Clicking a name (or a category) on the Assignments pill opens a modal listing
+that queue's cards. **AC number leads each row** — it's the number read off the
+slab, and the reason for opening the thing — followed by player, then a meta
+line of order, category, card status, card-type status and due date, then two
+links and a `×` to unassign that one card.
+
+**Card** goes to the card; **Card type** goes to the card-type task. Two
+different destinations, so they carry different colours rather than sitting
+there as two identical blue links. Either is omitted when the row has no URL
+for it. The card-type task's own status shows in the meta line as
+`type: pending`, so you don't have to open the link to find out. The full task
+URL is the link's `title`, so it's visible on hover and copyable by right-click
+without a 60-character link wrapping the row.
+
+### Opening the card-type task removes the card
+
+Clicking **Card type** opens the task *and* takes the card off that person's
+queue — opening it means they're working it. The click is not
+`preventDefault`ed, so the link still opens in its new tab; the removal happens
+alongside.
+
+That's a destructive side effect on a link, so it comes with a **one-step
+undo**: an amber strip appears at the top of the list naming the AC number, with
+an Undo button. Without it a misclick silently costs someone their card and
+there is no way back — the assignment is gone from shared state the moment it
+saves. The `×` button uses the same path and gets the same undo, minus the
+"card-type task opened" wording.
+
+The undo offer belongs to the queue it was made in. Opening a different person's
+list clears it, so you can't undo into a card you never touched.
+
+Text throughout the modal is sized up: AC number 20px, player 17px, meta 14.5px,
+links 14.5px.
+
+### ⚠ The link never rendered at all
+
+The modal checked `r.url`. That's the **Orders** row shape; queue rows carry
+`cardUrl` and `taskUrl`, so the condition was always false and no link was ever
+drawn. Nothing errored — the element just silently wasn't there.
+
+The modal was also printing raw ISO due dates (`due 2024-08-05`) while both
+tables showed `Aug 5, 2024`. It runs through `fmtDue` now.
+
+Keyboard-reachable (`role="button"`, Enter/Space), closes on `×`, backdrop
+click or Escape. Unassigning repaints the modal in place so the list doesn't
+vanish under the cursor.
+
+It lists only cards still present in `qRows`: an assignment whose card has left
+the queue is finished work, not a row.
+
+## Auto-clearing finished cards
+
+After a successful Card Queue load, `pruneFinished()` drops any assignment whose
+card no longer comes back from the queue question — the card is done, so the
+person's count falls on its own.
+
+This deletes shared state that other screens can see, so it has two hard guards:
+
+- **Only after a load that succeeded.** An errored or aborted load leaves
+  `qRows` empty or stale, and pruning against that wipes the board.
+- **Only when the queue returned rows.** A question that legitimately returns
+  zero is indistinguishable here from one that broke, and the cost of guessing
+  wrong is every queue at once.
+
+This also fixes a quieter bug: `queueSizeOf()` counts `cardAssign` without
+checking the queue, so finished cards were inflating everyone's counts. The
+Assignments cards hid this (they filter by `qRows`), but the Team pill and
+auto-assign's least-loaded ordering both used the inflated number.
+
+### ⚠ Prune matches identity, not `cardKey`
+
+`cardKey` is `order|ac|cardStatus`. A card moving `pending_data` ->
+`pending_verify` therefore gets a **new key**, and pruning on the full key would
+read that as finished and delete the assignment of a card still sitting in the
+queue. `cardIdent()` (`order|ac`) is used instead — identity is the card, not
+the stage it's at.
+
+The related issue is NOT fixed: assignments are still *stored* under the
+status-bearing key, so when a card advances a stage it appears unassigned in the
+queue while the old assignment lingers under the old key. Prune no longer
+deletes it, but it doesn't follow the card either. Fixing that means changing
+`cardKey` to `order|ac` and migrating existing shared state.
+
+## Daily reset — 22:00 Manila
+
+Card assignments belong to one work day and clear when the next one starts.
+
+**The boundary is 22:00 in Asia/Manila, not local midnight.** The PL floor is in
+the Philippines; a reset keyed to the viewer's clock would fire at a different
+moment on every screen, and the Portland wall display would clear the Manila
+team's board mid-shift.
+
+`CLEAR_TZ` and `CLEAR_HOUR_MNL` are the whole behaviour — moving the rollover
+means changing those two and nothing else.
+
+`assignDayKey()` returns the work day a moment belongs to. Subtracting the
+boundary hour means 21:59 Manila is still the previous day and 22:00 starts the
+next, so comparisons are a plain string compare. Date and hour come from a
+single `formatToParts` call on the same instant, so the two can't disagree
+across a boundary.
+
+The stamp lives in shared state as a new `assignday` section, so all screens
+agree on which day is current and only the first one to notice does the
+clearing.
+
+### Guards
+
+Same class of hazard as `pruneFinished` — it deletes shared state nobody clicked
+a button for:
+
+- **A stamp we've never seen is recorded, not acted on.** A fresh browser must
+  not wipe a board just because it has nothing to compare against.
+- **It only moves forward.** A stale replica returning an older day must not
+  read as a rollover; a *newer* one must not either.
+- Clearing an already-empty board is silent — no banner, no write.
+- Repeated calls are idempotent, which matters because it runs both after every
+  queue load and on a 60s timer (a wall display can sit untouched across the
+  boundary, so a load-only check would miss it).
+
+When it does fire: *"New work day in Manila — cleared 12 card assignments from
+the previous day."*
+
+### Manual clear is independent
+
+**Clear all assignments** (and the per-group `×`, and the per-card unassign)
+stay available at any time and do **not** touch the day stamp. The 22:00
+boundary owns the day, not the button:
+
+- Clearing manually at 3pm doesn't "use up" the day. Cards assigned afterwards
+  are still cleared at 22:00.
+- Auto-clear on an already-empty board is silent — no second banner — but the
+  stamp still advances so it doesn't retry every minute for the rest of the day.
+
+Both paths write to shared state, so either one propagates to every screen.
+
+Verified across the 21:59/22:00 boundary, month end, year end, a leap day, and
+from a non-Manila viewer timezone.
+
+## Clearing assignments
+
+**Clear all assignments** sits next to Group by on the Assignments pill, and
+each group card carries a `×` to unassign just that person or category. Auto-
+assign fills the board in one click, so starting over had to be one click too —
+otherwise it's 191 dropdown changes on the Card Queue.
+
+### ⚠ window.confirm() is why this looked broken
+
+`Clear all assignments` did nothing when clicked. The handler was bound and
+firing — but **`window.confirm()` returns `false`, silently, inside a sandboxed
+iframe without `allow-modals`**, which is how the demo build and any embedded
+view run. The guard bailed on every click and nothing changed on screen. Same
+family as the `new URL()` failure in the mock: the API doesn't throw, it just
+quietly reports "no".
+
+All four blocking dialogs are gone. Destructive buttons now **arm**: first click
+swaps the label to `Clear 191? Click again` and turns the button amber, second
+click within 4s runs it, no second click and it disarms itself. No modal, so it
+works everywhere — and it's faster than a dialog for something done often.
+
+`armAction(btn, label, fn)` / `disarmAction(btn)` handle this. Each button keeps
+its own timer, so arming one group's `×` doesn't disturb another's. Clearing an
+already-empty Daily board skips the arming step — there's nothing to lose.
+
+The Bulk assign `prompt()` fallback is gone for the same reason. If no one is
+picked in **Assign to**, the button now says so and focuses that dropdown
+instead of opening a dialog that may never appear.
+
+Both clear paths clear **only assignments whose card is still
+in the loaded queue**. Wiping `cardAssign` wholesale would also discard
+assignments for cards outside the current filter window — someone else's work,
+invisible from this screen. The confirm counts live keys for the same reason.
+
+## Multi-select status filters
+
+Status is the one filter people genuinely want to combine — "everything except
+released", "grading plus rescan" — so Orders **Status** and Card Queue **Card
+status** use a checkbox dropdown instead of a single-choice select.
+
+`msel(id, {label, color, onchange})` builds one; `mselValues()` repopulates it
+from the data; `mselSelected()` returns the chosen values. An **empty selection
+means All**, which reads better than forcing every option on by default.
+
+- The button shows the single choice by name, or `N selected` with a count chip.
+- Each option carries its status colour in the tick box.
+- **The menu stays open while you pick** — closing after each click would make
+  choosing three statuses a three-trip job. Click elsewhere or press Escape to
+  close.
+- Selections that no longer exist in refreshed data are dropped silently.
+
+The app's own `enhanceSelect` is single-choice only, so this is a separate
+component rather than an extension of it. Category, Kind and Assignee still use
+`enhanceSelect`, since picking one value is the right interaction there.
+
+## Two rosters
+
+| roster | size | used by |
+|---|---|---|
+| `RECOMP_ROSTER` | 17 | Recomp grader filter, Hot/Cold Zone assign modal, Daily line assignees, Recomp Assignments |
+| `ORDERS_ROSTER` | 58 | Orders → Card Queue assignee, Team skills, Card Assignments, bulk/auto assign |
+
+They overlap on three names only: Anjello Bumanglag, Charles Pellas, Raquel
+Valdecantos. (Benedict Bueno is *not* an overlap — the recomp roster has Ian
+Benedict Banua, a different person.)
+
+`PERSON_INDEX` is built from **both** rosters concatenated, deduped, so all 58
+Orders names get their own spaced hue rather than falling back to the hash and
+colliding. Verified: 58 unique avatar colours across 58 people. `PERSON_SLOTS`
+replaces the old `RECOMP_ROSTER.length` so the hue spacing matches the real
+total.
+
+### ⚠ Four names to confirm
+
+Read off a bar chart where the labels were cramped: **Ian F**, **Kean Sta.**,
+**One David**, **Ludpitka Huerta**. The first three look truncated in the
+source. Correct them in `ORDERS_ROSTER` when you have the real spellings —
+skills and assignments key on the exact string, so a rename after people have
+been assigned will orphan their queues.

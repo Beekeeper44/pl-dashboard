@@ -17,6 +17,10 @@ const CARDS = {
   'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '34618' },
   // Review — pre-graded and premium/raw are separate saved questions.
   'recomp:zone':      { env: 'METABASE_HOT_COLD_ZONE_CARD_ID',     fallback: '34849' },
+  // Orders — order-level rows.
+  'orders:all':       { env: 'METABASE_ORDERS_CARD_ID',            fallback: '35872' },
+  // Card Queue — card-level rows behind the orders.
+  'orders:queue':     { env: 'METABASE_CARD_QUEUE_CARD_ID',         fallback: '35905' },
   // Value Tracker — high-end comps. Tier + date are filtered client-side.
   'recomp:highend':   { env: 'METABASE_VALUE_TRACKER_CARD_ID',     fallback: '3213' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
@@ -31,6 +35,8 @@ const TEXT_VARS = {
   'cardtype:verify': ['grain'],
   'recomp:zone':      ['grain', 'sport'],
   'recomp:highend':   [],   // no grain; see SINGLE_DATE
+  'orders:all':       [],   // see NO_PARAMS
+  'orders:queue':     [],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -131,13 +137,18 @@ async function getTagIds(host, apiKey, cardId) {
 // not declare — made Metabase reject the run and left the tab on LOADING.
 const SINGLE_DATE = new Set(['recomp:highend']);
 
+// Cards whose filters are all optional — we pull the set and filter in the
+// browser, so sending nothing is both valid and cheaper than guessing.
+const NO_PARAMS = new Set(['orders:all', 'orders:queue']);
+
 // Numeric template tags, sent only when the client provides a value.
 const NUM_VARS = {
   'recomp:highend': ['min_estimated_value_usd', 'max_estimated_value_usd'],
 };
 
-function buildParameters(query, key, tagIds) {
+function buildParameters(query, key, tagIds, noParams) {
   const parameters = [];
+  if (noParams || NO_PARAMS.has(key)) return parameters;
 
   if (SINGLE_DATE.has(key)) {
     const value = query.single_date;
@@ -209,7 +220,11 @@ function buildParameters(query, key, tagIds) {
   return parameters;
 }
 
-export async function runQuery(key, query) {
+// `opts.cardId` runs an arbitrary question id, and `opts.noParams` sends no
+// parameters with it — used by /api/debug?id=NNN to identify an unknown card
+// before it is wired to a tab.
+export async function runQuery(key, query, opts) {
+  opts = opts || {};
   const host   = (process.env.METABASE_HOST || HOST_DEFAULT).replace(/\/+$/, '');
   const apiKey = process.env.METABASE_API_KEY;
 
@@ -219,17 +234,17 @@ export async function runQuery(key, query) {
     throw err;
   }
 
-  const spec = CARDS[key];
+  const spec = opts.cardId ? { env: null, fallback: opts.cardId } : CARDS[key];
   if (!spec) {
     const err = new Error(`Unknown tab/view: ${key}`);
     err.status = 400;
     throw err;
   }
 
-  const cardId = process.env[spec.env] || spec.fallback;
+  const cardId = (spec.env ? process.env[spec.env] : null) || spec.fallback;
   const tagInfo = await getTagIds(host, apiKey, cardId);
   const tagIds = tagInfo.map;
-  const parameters = buildParameters(query, key, tagIds);
+  const parameters = buildParameters(query, key, tagIds, opts.noParams);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);

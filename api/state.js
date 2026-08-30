@@ -67,12 +67,19 @@ async function ensureTable() {
 async function pgReadAll() {
   await ensureTable();
   const rows = await sql`select key, value from pl_state`;
-  const out = { daily: {}, assign: {}, snooze: {}, hedone: {}, rev: 0 };
+  const out = { daily: {}, assign: {}, snooze: {}, hedone: {},
+                skills: {}, cardassign: {}, assignday: {}, completed: {}, rev: 0 };
   for (const r of rows) {
     if (r.key === REV_KEY) out.rev = Number(r.value) || 0;
     else if (r.key === PREFIX + 'assign') out.assign = r.value || {};
     else if (r.key === PREFIX + 'snooze') out.snooze = r.value || {};
     else if (r.key === PREFIX + 'hedone') out.hedone = r.value || {};
+    else if (r.key === PREFIX + 'skills') out.skills = r.value || {};
+    else if (r.key === PREFIX + 'cardassign') out.cardassign = r.value || {};
+    // Which Manila work-day the card assignments belong to. See CLEAR_HOUR_MNL.
+    else if (r.key === PREFIX + 'assignday') out.assignday = r.value || {};
+    // Per-person, per-category tally of card-type tasks opened. See recordCompletion.
+    else if (r.key === PREFIX + 'completed') out.completed = r.value || {};
     else if (r.key.startsWith(DAILY_P)) out.daily[r.key.slice(DAILY_P.length)] = r.value || {};
   }
   return out;
@@ -117,10 +124,14 @@ function parse(raw, fallback) {
 }
 
 async function kvReadAll() {
-  const [a, s, hd, rev, days] = await Promise.all([
+  const [a, s, hd, sk, ca, ad, cp, rev, days] = await Promise.all([
     kv(['GET', PREFIX + 'assign']),
     kv(['GET', PREFIX + 'snooze']),
     kv(['GET', PREFIX + 'hedone']),
+    kv(['GET', PREFIX + 'skills']),
+    kv(['GET', PREFIX + 'cardassign']),
+    kv(['GET', PREFIX + 'assignday']),
+    kv(['GET', PREFIX + 'completed']),
     kv(['GET', REV_KEY]),
     kv(['SMEMBERS', IDX_KEY]),
   ]);
@@ -129,8 +140,9 @@ async function kvReadAll() {
     const b = parse(await kv(['GET', DAILY_P + iso]), null);
     if (b) daily[iso] = b;
   }));
-  return { daily, assign: parse(a, {}), snooze: parse(s, {}),
-           hedone: parse(hd, {}), rev: Number(rev || 0) };
+  return { daily, assign: parse(a, {}), snooze: parse(s, {}), hedone: parse(hd, {}),
+           skills: parse(sk, {}), cardassign: parse(ca, {}), assignday: parse(ad, {}),
+           completed: parse(cp, {}), rev: Number(rev || 0) };
 }
 
 async function kvWrite(key, value, isDaily, dayKey) {
@@ -150,6 +162,10 @@ function memReadAll() {
     assign: mem.get(PREFIX + 'assign') || {},
     snooze: mem.get(PREFIX + 'snooze') || {},
     hedone: mem.get(PREFIX + 'hedone') || {},
+    skills: mem.get(PREFIX + 'skills') || {},
+    cardassign: mem.get(PREFIX + 'cardassign') || {},
+    assignday: mem.get(PREFIX + 'assignday') || {},
+    completed: mem.get(PREFIX + 'completed') || {},
     rev: mem.get(REV_KEY) || 0,
   };
 }
@@ -176,7 +192,9 @@ export default async function handler(req, res) {
       if (section === 'daily') {
         if (!key) { res.status(400).json({ error: 'daily needs a key (ISO date)' }); return; }
         storeKey = DAILY_P + key;
-      } else if (section === 'assign' || section === 'snooze' || section === 'hedone') {
+      } else if (section === 'assign' || section === 'snooze' || section === 'hedone'
+                 || section === 'skills' || section === 'cardassign'
+                 || section === 'assignday' || section === 'completed') {
         storeKey = PREFIX + section;
       } else {
         res.status(400).json({ error: 'unknown section' });
