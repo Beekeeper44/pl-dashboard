@@ -1724,6 +1724,51 @@ A hand-maintained list next to the thing it must mirror is a standing invitation
 to this exact bug. A test now walks every `CARDS` entry, rebuilds its key, and
 fails on any that can't be reached.
 
+## Avg EV Age: Cards Kept / In Warehouse
+
+Two pills under the Avg EV Age subtab:
+
+| pill | question | population |
+|---|---|---|
+| Cards Kept | 34387 (`METABASE_EV_AGE_CARD_ID`) | cards that sold |
+| In Warehouse | 37588 (`METABASE_EV_AGE_WAREHOUSE_CARD_ID`) | what's currently in the warehouse |
+
+**One renderer, two row sets.** The pill only changes which card ID the proxy
+hits (`view=age` vs `view=agewh`); the KPI strip, the bar chart, the
+by-pack/by-sport toggle, the average/median/90th toggle and the aging table are
+the same code path. The two views cannot drift apart in how they present, which
+is the whole point of doing it this way rather than building a second panel.
+
+The chart title names the population — `Average EV age by pack category — in
+warehouse`. Two identical-looking charts with different numbers is an easy way
+to misread a dashboard.
+
+### In Warehouse is by sport only
+
+37588 has **no pack category** — it reports by sport. So on that pill the
+pack/sport toggle is hidden and the grouping is forced to sport; offering the
+choice would let you select a grouping that returns nothing. Switching back to
+Cards Kept leaves you on sport rather than flipping the chart under you.
+
+The chart title follows: *"Average EV age by sport — in warehouse"*.
+
+#### ⚠ The shape guard keyed on the wrong column
+
+It identified this question by the presence of `pack category`, so a sport-only
+EV-age question was classified `unknown` and rejected. The real signature is an
+**EV-age column**, which both have:
+
+```js
+var hasEvAge = cols.some(c => c.indexOf("ev age") >= 0);
+```
+
+A test asserts the new guard accepts both and that the old one would have
+rejected 37588's shape.
+
+Everything else is assumed identical: `cards sold`, `avg ev age (days)`, the
+percentiles and `percent over N days`. If any of those differ the guard warns
+rather than rendering silently wrong, and the console logs the real names.
+
 ## Dates don't apply to Orders
 
 Grain, Start date and End date measure work **completed** in a window. Orders

@@ -12,6 +12,9 @@ const CARDS = {
   'cards':        { env: 'METABASE_CARD_ID',        fallback: '34321' },
   'recomp:total': { env: 'METABASE_RECOMP_CARD_ID', fallback: '34354' },
   'recomp:age':   { env: 'METABASE_EV_AGE_CARD_ID', fallback: '34387' },
+  // Same question shape as recomp:age, different population: 34387 is cards
+  // KEPT, 37588 is what is currently IN WAREHOUSE. Both render identically.
+  'recomp:agewh': { env: 'METABASE_EV_AGE_WAREHOUSE_CARD_ID', fallback: '37588' },
   // Card Type — Data and Data Verify are separate saved questions.
   'cardtype:data':   { env: 'METABASE_CARDTYPE_DATA_CARD_ID',   fallback: '34552' },
   'cardtype:verify': { env: 'METABASE_CARDTYPE_VERIFY_CARD_ID', fallback: '34618' },
@@ -31,6 +34,7 @@ const TEXT_VARS = {
   'cards':        ['grain', 'source', 'card_type'],
   'recomp:total': ['grain'],
   'recomp:age':   ['grain', 'sport', 'pack_category'],
+  'recomp:agewh': ['grain', 'sport', 'pack_category'],
   'cardtype:data':   ['grain'],
   'cardtype:verify': ['grain'],
   'recomp:zone':      ['grain', 'sport'],

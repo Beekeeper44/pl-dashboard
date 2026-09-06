@@ -1040,6 +1040,10 @@
 
   /* ---------- sub-tabs ---------- */
   .subtabs{display:flex;gap:10px;padding:16px 22px 0}
+  /* Second-level pills inside a subtab. Smaller than the row above so the
+     hierarchy reads: tab > subtab > source. */
+  .agesrc{padding-top:12px}
+  .agesrc .subtab{padding:7px 16px;font-size:13px}
   .subtab{
     background:transparent;color:var(--tx);border:1px solid var(--line2);
     border-radius:999px;padding:9px 20px;cursor:pointer;
@@ -1439,6 +1443,13 @@
   <div class="subtabs" id="review-subtabs" hidden>
     <button class="subtab" id="sub-pregraded" aria-selected="true">Review (Pre-Graded)</button>
     <button class="subtab" id="sub-raw"       aria-selected="false">Review Premium (Raw)</button>
+  </div>
+
+  <!-- Source toggle for Avg EV Age. Two questions, identical shape and identical
+       rendering: 34387 counts cards KEPT, 37588 counts what is IN WAREHOUSE. -->
+  <div class="subtabs agesrc" id="age-src" hidden>
+    <button class="subtab" id="agesrc-kept" aria-selected="true">Cards Kept</button>
+    <button class="subtab" id="agesrc-wh"   aria-selected="false">In Warehouse</button>
   </div>
 
   <div class="kpis" id="rkpis" style="margin-top:16px"></div>
@@ -1875,6 +1886,9 @@
 
   // ---- recomp state ----
   var SUB = "total";
+  // Which population the Avg EV Age view is showing. "kept" -> question 34387,
+  // "warehouse" -> 37588. Same columns, same renderer; only the row set differs.
+  var AGESRC = "kept";
   var CTSUB = "data";
   var RVSUB = "pregraded";
   // Tabs that render through the shared grader panel (KPIs, shift rail,
@@ -6546,8 +6560,11 @@
         '<span><b>Color = '+(rgroup==="sport"?"sport":"pack tier")+'.</b></span>'+
         '<span><b>Weighted by cards sold — see the table for the full spread.</b></span>';
 
-      $("rcharttitle").textContent = MNAME[rmetric] + " EV age by " +
-        (rgroup==="sport" ? "sport" : "pack category");
+      // Name the population in the title. Two identical-looking charts with
+      // different numbers is an easy way to misread a dashboard.
+      $("rcharttitle").textContent = MNAME[rmetric] + " EV age by "
+        + ((rgroup==="sport" || AGESRC==="warehouse") ? "sport" : "pack category")
+        + (AGESRC === "warehouse" ? " \u2014 in warehouse" : " \u2014 cards kept");
       return;
     }
 
@@ -6685,7 +6702,10 @@
     $("rkpis").hidden         = !opts.kpis;
     $("rviewtoggle").hidden   = !opts.viewToggle;
     $("rmetrictoggle").hidden = !opts.metricToggle;
-    $("rgrouptoggle").hidden  = !opts.groupToggle;
+    // 37588 (In Warehouse) has no pack category, so the pack/sport choice is
+    // meaningless there -- offering it would let you pick a grouping that
+    // returns nothing. Forced to sport, toggle hidden.
+    $("rgrouptoggle").hidden  = !opts.groupToggle || (SUB==="age" && AGESRC==="warehouse");
   }
 
   function renderRecomp(){
@@ -6752,7 +6772,8 @@
       q.set("view", ordersWantsQueue() ? "queue" : "all");
       q.delete("start_date"); q.delete("end_date"); q.delete("grain");
     } else if(TAB==="recomp"){
-      q.set("view", SUB);
+      // Avg EV Age has two sources behind one subtab.
+      q.set("view", SUB === "age" && AGESRC === "warehouse" ? "agewh" : SUB);
       if(SUB==="highend"){
         // 3213 filters server-side: one calendar day, plus the value range for
         // the selected tier. Any time on that day counts — there is no shift
@@ -6832,8 +6853,12 @@
         if(arr.length){
           var cols = Object.keys(arr[0]).map(function(c){ return c.toLowerCase(); });
           var has = function(c){ return cols.indexOf(c)>=0; };
+          // The real signature of this question is an EV-age column. Keying on
+          // "pack category" alone rejected 37588, which reports by sport and
+          // has no pack column at all.
+          var hasEvAge = cols.some(function(c){ return c.indexOf("ev age") >= 0; });
           var looks = has("grader") ? "grader"
-                    : (has("pack category")||has("pack_category")) ? "recomp-age"
+                    : (hasEvAge || has("pack category") || has("pack_category")) ? "recomp-age"
                     : (has("source")&&has("card_type")) ? "cards" : "unknown";
 
           // Recomp, Card Type and Review all legitimately return the grader
@@ -7139,6 +7164,7 @@
     $("rpanel-highend").hidden = (name!=="highend");
     $("sub-total").setAttribute("aria-selected", name==="total");
     $("sub-age").setAttribute("aria-selected", name==="age");
+    $("age-src").hidden = (name !== "age");
     syncFilterVisibility();
 
     // Daily and Assignments are entirely local — there is no Metabase question
@@ -7169,6 +7195,27 @@
   }
   $("sub-total").onclick = function(){ setSub("total"); };
   $("sub-age").onclick   = function(){ setSub("age"); };
+
+  // Source pills. Switching population re-runs the query; everything else --
+  // KPIs, the bar chart, the aging table -- is the same code path, so the two
+  // views cannot drift apart in how they present.
+  function setAgeSrc(v){
+    if(AGESRC === v) return;
+    AGESRC = v;
+    // In Warehouse is reported by sport only. Switching to it forces the
+    // grouping; switching back leaves you on sport rather than silently
+    // flipping the chart under you.
+    if(v === "warehouse") rgroup = "sport";
+    $("rgPack").setAttribute("aria-pressed", rgroup==="pack");
+    $("rgSport").setAttribute("aria-pressed", rgroup==="sport");
+    $("agesrc-kept").setAttribute("aria-selected", v === "kept");
+    $("agesrc-wh").setAttribute("aria-selected", v === "warehouse");
+    // renderRecomp() rewrites the chart title with the population name, so
+    // there is nothing else to sync here.
+    load();
+  }
+  $("agesrc-kept").onclick = function(){ setAgeSrc("kept"); };
+  $("agesrc-wh").onclick   = function(){ setAgeSrc("warehouse"); };
   $("sub-zone").onclick   = function(){ setSub("zone"); };
   $("sub-daily").onclick  = function(){ setSub("daily"); };
   $("sub-assign").onclick  = function(){ setSub("assign"); };
