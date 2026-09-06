@@ -1765,9 +1765,34 @@ var hasEvAge = cols.some(c => c.indexOf("ev age") >= 0);
 A test asserts the new guard accepts both and that the old one would have
 rejected 37588's shape.
 
-Everything else is assumed identical: `cards sold`, `avg ev age (days)`, the
-percentiles and `percent over N days`. If any of those differ the guard warns
-rather than rendering silently wrong, and the console logs the real names.
+#### ⚠ 37588's volume column is named differently
+
+Every figure on this view is **weighted by volume**. 34387 calls that column
+`Cards Sold`; 37588 calls it **`Cards In Warehouse`**. Unmapped, it read `0`, so
+every weighted figure collapsed to a dash while unweighted ones (Oldest) still
+rendered — which is exactly what the empty chart with a lone `936` was.
+
+`normalizeAge` now accepts `cards_in_warehouse` / `cards in warehouse` too.
+Everything else in 37588 matches on case-insensitive lookup:
+`Avg EV Age (Days)`, `Median`, `75th Pct`, `90th Pct`, `Oldest`,
+`Percent Over 7/30/90 Days`. Its extra columns (`Cards Without EV`,
+`Cards $10+`, `Cards Under $9`, the `Oldest EV Age $10+/Under $9` pair) are
+simply unused.
+
+#### Labels follow the population
+
+Every label on this view said "cards sold", which is wrong the moment the
+population is warehouse stock. `ageNoun()` returns `cards sold` or
+`cards in warehouse` per the active pill, and drives the KPI captions, the bar
+tooltips, the chart footnote and the Aging heading.
+
+#### The demo mirrors 37588 exactly
+
+The mock emits the real column names, the real 28-sport list including the long
+tail (`garbage_pail_kids`, `volleyball`, `star_trek`, `multi_sport`), and no
+pack column. A demo that invents friendlier names hides precisely the mismatches
+that break the page — this one is fed through the app's own normalizer in the
+test to prove the weighted average comes out as a number rather than a dash.
 
 ## Dates don't apply to Orders
 

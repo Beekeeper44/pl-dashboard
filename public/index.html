@@ -1590,7 +1590,7 @@
 
   <section id="ragingsec" hidden>
     <div class="shead">
-      <h2>Aging <span class="hint">share of cards sold past each EV age threshold</span></h2>
+      <h2>Aging <span class="hint" id="raginghint">share of cards sold past each EV age threshold</span></h2>
       <span class="sub" id="ragingnote"></span>
     </div>
     <div class="card">
@@ -1889,6 +1889,10 @@
   // Which population the Avg EV Age view is showing. "kept" -> question 34387,
   // "warehouse" -> 37588. Same columns, same renderer; only the row set differs.
   var AGESRC = "kept";
+  // What the volume column counts on the active pill. Every label on this view
+  // referred to "cards sold", which is wrong the moment the population is
+  // warehouse stock rather than sales.
+  function ageNoun(){ return AGESRC === "warehouse" ? "cards in warehouse" : "cards sold"; }
   var CTSUB = "data";
   var RVSUB = "pregraded";
   // Tabs that render through the shared grader panel (KPIs, shift rail,
@@ -6002,7 +6006,13 @@
         period: String(pick(r,["period","Period"])||"").slice(0,10),
         pack:   pick(r,["pack_category","pack category","Pack Category","pack"]) || "Misc.",
         sport:  pick(r,["sport","Sport"]) || "",
-        sold:        num(["cards_sold","cards sold","Cards Sold"]) || 0,
+        // 37588 counts what is IN WAREHOUSE, so its volume column is named
+        // "Cards In Warehouse" rather than "Cards Sold". Everything on this
+        // view is weighted by this number, so when it read 0 every weighted
+        // figure collapsed to a dash while unweighted ones (oldest) still
+        // showed -- which is exactly what the empty chart looked like.
+        sold:        num(["cards_sold","cards sold","Cards Sold",
+                          "cards_in_warehouse","cards in warehouse"]) || 0,
         avg_age:     num(["avg_ev_age","avg ev age (days)","avg ev age","Avg Ev Age (Days)"]),
         median_age:  num(["median_ev_age","median ev age (days)","median ev age"]),
         p75_age:     num(["p75_ev_age","75th pct ev age (days)","75th pct ev age"]),
@@ -6503,11 +6513,11 @@
         return (r.oldest_age!=null && r.oldest_age>a) ? r.oldest_age : a; }, 0);
       var o30 = wavg(rrows,"pct30");
       cards = [
-        {c:"total", k:"Avg EV age", v:d1(avg), n:"days · weighted by cards sold"},
+        {c:"total", k:"Avg EV age", v:d1(avg), n:"days · weighted by "+ageNoun()},
         {c:"", k:"Median EV age", v:d1(med), n:"days"},
         {c:"", k:"90th pct", v:d1(p90), n:"days"},
         {c:"", k:"Oldest", v:d1(oldest), n:"days"},
-        {c:"", k:"Over 30 days", v:(o30==null?"—":d1(o30)+"%"), n:"of cards sold"}
+        {c:"", k:"Over 30 days", v:(o30==null?"—":d1(o30)+"%"), n:"of "+ageNoun()}
       ];
     }
 
@@ -6549,7 +6559,7 @@
                '<div class="stack" style="height:'+hh+'px">'+
                '<div class="seg" style="height:100%;'+gradFor(groupColor(k))+
                '" title="'+esc(k)+' — '+MNAME[rmetric]+': '+d1(g.val)+
-               ' days · '+fmt(g.sold)+' cards sold"></div></div></div>';
+               ' days · '+fmt(g.sold)+' '+ageNoun()+'"></div></div></div>';
       }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
 
       $("rchartx").innerHTML = order.map(function(k){
@@ -6558,7 +6568,7 @@
       $("rlegend").innerHTML =
         '<span><b>Bar height = days.</b></span>'+
         '<span><b>Color = '+(rgroup==="sport"?"sport":"pack tier")+'.</b></span>'+
-        '<span><b>Weighted by cards sold — see the table for the full spread.</b></span>';
+        '<span><b>Weighted by '+ageNoun()+' \u2014 see the table for the full spread.</b></span>';
 
       // Name the population in the title. Two identical-looking charts with
       // different numbers is an easy way to misread a dashboard.
@@ -6653,7 +6663,9 @@
       : '<div class="msg">No rows.</div>';
 
     var w90=wavg(rrows,"pct90");
-    $("ragingnote").textContent = w90==null ? "" : d1(w90)+"% of cards sold were over 90 days old";
+    if($("raginghint")) $("raginghint").textContent =
+      "share of " + ageNoun() + " past each EV age threshold";
+    $("ragingnote").textContent = w90==null ? "" : d1(w90)+"% of "+ageNoun()+" were over 90 days old";
   }
 
   function renderRecompTable(){

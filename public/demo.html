@@ -1594,7 +1594,7 @@
 
   <section id="ragingsec" hidden>
     <div class="shead">
-      <h2>Aging <span class="hint">share of cards sold past each EV age threshold</span></h2>
+      <h2>Aging <span class="hint" id="raginghint">share of cards sold past each EV age threshold</span></h2>
       <span class="sub" id="ragingnote"></span>
     </div>
     <div class="card">
@@ -1843,6 +1843,14 @@
   var SPORTS = ["basketball","baseball","football","pokemon","one_piece",
                 "soccer","hockey","combat","marvel","dc","star_wars","disney"];
 
+  // The exact sport list 37588 returns, long tail included. The tail is the
+  // interesting part: it is where unmapped categories and tiny volumes show up.
+  var WAREHOUSE_SPORTS = ["pokemon","football","baseball","one_piece","basketball",
+    "hockey","soccer","combat","marvel","star_wars","yugioh","disney","racing",
+    "dragon_ball","media","other","magic","wrestling","golf","tennis","dc",
+    "boxing","garbage_pail_kids","digimon","game_of_thrones","volleyball",
+    "star_trek","multi_sport"];
+
   var PACKS = ["Misc.","Silver","Gold","Ruby","Emerald","Diamond","Legendary",
                "Crown Jewel","Special Series"];
 
@@ -1990,34 +1998,37 @@
   // instead of looking like it did nothing.
   function ageRows(start, end, wh){
     var rows = [];
-    // In Warehouse reports BY SPORT ONLY -- no pack category column at all.
-    // Emitting a pack column here would have hidden the fact that the app has
-    // to cope with its absence.
-    var packs = wh ? [null] : PACKS;
-    // In Warehouse reports EVERY sport -- it is one row per sport, so there is
-    // no reason to truncate. Cards Kept is packs x sports, so it stays capped
-    // to keep the demo grid a sane size.
-    var sports = wh ? SPORTS : SPORTS.slice(0, 6);
+    // In Warehouse (37588) reports BY SPORT with no pack column, and names its
+    // volume column "Cards In Warehouse" rather than "Cards Sold". Both are
+    // reproduced exactly -- a demo that invents friendlier column names hides
+    // the mismatches that actually break the page.
+    var packs  = wh ? [null] : PACKS;
+    var sports = wh ? WAREHOUSE_SPORTS : SPORTS.slice(0, 6);
     packs.forEach(function(pack){
       sports.forEach(function(sport){
-        // Warehouse stock skews older and is a smaller population than the
-        // cards that sold.
-        var sold = wh ? ri(1, 240) : ri(1, 560);
-        var avg  = (wh ? ri(20, 210) : ri(2, 120)) + rnd();
+        var vol = wh ? ri(20, 29000) : ri(1, 560);
+        var avg = (wh ? ri(10, 500) : ri(2, 120)) + rnd();
         var row = {
-          "period": start,
-          "sport": sport,
-          "cards sold": sold,
-          "avg ev age (days)": Math.round(avg*10)/10,
-          "median ev age (days)": Math.round(avg*0.8*10)/10,
-          "75th pct ev age (days)": Math.round(avg*1.3*10)/10,
-          "90th pct ev age (days)": Math.round(avg*1.7*10)/10,
-          "oldest ev age (days)": Math.round(avg*3.4),
-          "percent over 7 days":  Math.round(rnd()*100),
-          "percent over 30 days": Math.round(rnd()*70),
-          "percent over 90 days": Math.round(rnd()*30)
+          "Period": start,
+          "Sport": sport,
+          "Avg EV Age (Days)":        Math.round(avg*10)/10,
+          "Median EV Age (Days)":     Math.round(avg*0.8*10)/10,
+          "75th Pct EV Age (Days)":   Math.round(avg*1.3*10)/10,
+          "90th Pct EV Age (Days)":   Math.round(avg*1.7*10)/10,
+          "Oldest EV Age (Days)":     Math.round(avg*3.4),
+          "Percent Over 7 Days":      Math.round(rnd()*100),
+          "Percent Over 30 Days":     Math.round(rnd()*70),
+          "Percent Over 90 Days":     Math.round(rnd()*30)
         };
-        if(pack !== null) row["pack category"] = pack;
+        if(wh){
+          row["Cards In Warehouse"]  = vol;
+          row["Cards Without EV"]    = 0;
+          row["Cards $10+"]          = Math.round(vol * 0.01);
+          row["Cards Under $9"]      = vol - Math.round(vol * 0.01);
+        } else {
+          row["pack category"] = pack;
+          row["cards sold"]    = vol;
+        }
         rows.push(row);
       });
     });
@@ -2551,6 +2562,10 @@
   // Which population the Avg EV Age view is showing. "kept" -> question 34387,
   // "warehouse" -> 37588. Same columns, same renderer; only the row set differs.
   var AGESRC = "kept";
+  // What the volume column counts on the active pill. Every label on this view
+  // referred to "cards sold", which is wrong the moment the population is
+  // warehouse stock rather than sales.
+  function ageNoun(){ return AGESRC === "warehouse" ? "cards in warehouse" : "cards sold"; }
   var CTSUB = "data";
   var RVSUB = "pregraded";
   // Tabs that render through the shared grader panel (KPIs, shift rail,
@@ -6664,7 +6679,13 @@
         period: String(pick(r,["period","Period"])||"").slice(0,10),
         pack:   pick(r,["pack_category","pack category","Pack Category","pack"]) || "Misc.",
         sport:  pick(r,["sport","Sport"]) || "",
-        sold:        num(["cards_sold","cards sold","Cards Sold"]) || 0,
+        // 37588 counts what is IN WAREHOUSE, so its volume column is named
+        // "Cards In Warehouse" rather than "Cards Sold". Everything on this
+        // view is weighted by this number, so when it read 0 every weighted
+        // figure collapsed to a dash while unweighted ones (oldest) still
+        // showed -- which is exactly what the empty chart looked like.
+        sold:        num(["cards_sold","cards sold","Cards Sold",
+                          "cards_in_warehouse","cards in warehouse"]) || 0,
         avg_age:     num(["avg_ev_age","avg ev age (days)","avg ev age","Avg Ev Age (Days)"]),
         median_age:  num(["median_ev_age","median ev age (days)","median ev age"]),
         p75_age:     num(["p75_ev_age","75th pct ev age (days)","75th pct ev age"]),
@@ -7165,11 +7186,11 @@
         return (r.oldest_age!=null && r.oldest_age>a) ? r.oldest_age : a; }, 0);
       var o30 = wavg(rrows,"pct30");
       cards = [
-        {c:"total", k:"Avg EV age", v:d1(avg), n:"days · weighted by cards sold"},
+        {c:"total", k:"Avg EV age", v:d1(avg), n:"days · weighted by "+ageNoun()},
         {c:"", k:"Median EV age", v:d1(med), n:"days"},
         {c:"", k:"90th pct", v:d1(p90), n:"days"},
         {c:"", k:"Oldest", v:d1(oldest), n:"days"},
-        {c:"", k:"Over 30 days", v:(o30==null?"—":d1(o30)+"%"), n:"of cards sold"}
+        {c:"", k:"Over 30 days", v:(o30==null?"—":d1(o30)+"%"), n:"of "+ageNoun()}
       ];
     }
 
@@ -7211,7 +7232,7 @@
                '<div class="stack" style="height:'+hh+'px">'+
                '<div class="seg" style="height:100%;'+gradFor(groupColor(k))+
                '" title="'+esc(k)+' — '+MNAME[rmetric]+': '+d1(g.val)+
-               ' days · '+fmt(g.sold)+' cards sold"></div></div></div>';
+               ' days · '+fmt(g.sold)+' '+ageNoun()+'"></div></div></div>';
       }).join("") || '<div class="msg" style="flex:1">No rows.</div>';
 
       $("rchartx").innerHTML = order.map(function(k){
@@ -7220,7 +7241,7 @@
       $("rlegend").innerHTML =
         '<span><b>Bar height = days.</b></span>'+
         '<span><b>Color = '+(rgroup==="sport"?"sport":"pack tier")+'.</b></span>'+
-        '<span><b>Weighted by cards sold — see the table for the full spread.</b></span>';
+        '<span><b>Weighted by '+ageNoun()+' \u2014 see the table for the full spread.</b></span>';
 
       // Name the population in the title. Two identical-looking charts with
       // different numbers is an easy way to misread a dashboard.
@@ -7315,7 +7336,9 @@
       : '<div class="msg">No rows.</div>';
 
     var w90=wavg(rrows,"pct90");
-    $("ragingnote").textContent = w90==null ? "" : d1(w90)+"% of cards sold were over 90 days old";
+    if($("raginghint")) $("raginghint").textContent =
+      "share of " + ageNoun() + " past each EV age threshold";
+    $("ragingnote").textContent = w90==null ? "" : d1(w90)+"% of "+ageNoun()+" were over 90 days old";
   }
 
   function renderRecompTable(){
