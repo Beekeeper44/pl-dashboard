@@ -315,7 +315,15 @@
   .wmname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
           font-size:15px}
   /* Multi-select tick. Fixed width so names stay aligned whether ticked or not. */
-  .wmtick{flex:0 0 auto;width:14px;color:var(--neon);font-size:14px;line-height:1}
+  /* A real checkbox, not a tick glyph: on a list you are choosing several from,
+     the unchecked state has to be visible too. */
+  .wmtick{flex:0 0 auto;width:17px;height:17px;border-radius:5px;
+          border:1px solid var(--line2);display:inline-flex;align-items:center;
+          justify-content:center;font-size:12px;line-height:1;color:#06240A}
+  .wmopt.cur .wmtick{background:var(--neon);border-color:var(--neon)}
+  .wmfoot{display:flex;align-items:center;gap:10px;padding:12px 2px 2px;
+          border-top:1px solid var(--line);margin-top:10px}
+  .wmfoot-n{flex:1;font-family:var(--mono);font-size:12.5px;opacity:.8}
   .wmclear{color:var(--warn)}
   .wmnone{padding:14px 10px;font-size:13px;opacity:.7;font-family:var(--mono)}
   .qsel,#q-all{width:16px;height:16px;accent-color:#39FF14;cursor:pointer}
@@ -450,6 +458,8 @@
                 border-radius:0;border-bottom:1px solid var(--line);
                 font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.85}
   .dnrank{font-size:14px;opacity:.6;font-variant-numeric:tabular-nums;text-align:center}
+  .dnname.clickable{cursor:pointer}
+  .dnname.clickable:hover{color:var(--neon)}
   .dnname{display:flex;align-items:center;gap:9px;font-size:15px;min-width:0;
           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dnchips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
@@ -512,6 +522,13 @@
     text-transform:none;letter-spacing:0;font-weight:400;
   }
   .qcopt:hover,.qcopt.active{background:rgba(255,255,255,.07)}
+  /* Multi-select checkbox in the assign list. Fixed width so names stay
+     aligned whether ticked or not. */
+  .qcbox{flex:0 0 auto;width:15px;height:15px;border-radius:4px;
+         border:1px solid var(--line2);display:inline-flex;align-items:center;
+         justify-content:center;font-size:11px;line-height:1;color:#06240A}
+  .qcopt.on .qcbox{background:var(--neon);border-color:var(--neon)}
+  .qcopt.on .qcname{color:var(--neon)}
   .qcname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
           font-size:15px}
   .qctag{font-size:11.5px;flex:0 0 auto;padding:2px 7px;border-radius:999px;
@@ -532,13 +549,17 @@
   .nsmenu{min-width:300px}
   /* Sortable header cell. The arrow is always present so the columns don't
      shift width when the active one changes; it just dims when inactive. */
-  .sortcol{display:inline-flex;align-items:center;gap:5px}
+  /* max-width + min-width:0 so a long label shrinks instead of pushing the
+     arrow out of the cell. */
+  .sortcol{display:inline-flex;align-items:center;gap:5px;max-width:100%;min-width:0}
   .sortcol:hover{color:var(--neon)}
   .sortcol.on{color:var(--neon)}
   .sortcol .sortar{font-style:normal;font-size:8px;opacity:.3}
   .sortcol.on .sortar{opacity:1}
   .ohead .sortcol[style*="text-align:right"],
   .qhead .sortcol[style*="text-align:right"]{justify-content:flex-end}
+  /* The arrow never shrinks; the label does. */
+  .sortcol .sortar{flex:0 0 auto}
   .tsearchbar{display:flex;align-items:center;gap:12px;margin:0 0 16px}
   .tsearch{
     background:var(--panel2);color:var(--tx);border:1px solid var(--line2);
@@ -568,8 +589,8 @@
   /* TEN tracks for TEN columns. This had eleven, so every cell from "in
      process" rightward sat in the wrong track and Pre-graded got squeezed into
      the 74px meant for Raw -- which is why its header wrapped onto two lines. */
-  .otable{--ocols:34px 66px 96px 150px minmax(120px,1fr) minmax(130px,1fr) 110px
-          minmax(104px,0.8fr) 92px 68px 96px minmax(172px,1fr)}
+  .otable{--ocols:34px 60px 92px 132px 92px minmax(112px,1fr) minmax(122px,1fr) 106px
+          minmax(98px,0.8fr) 88px 64px 92px minmax(160px,1fr)}
   .ohead,.orow{display:grid;grid-template-columns:var(--ocols);gap:12px;align-items:center}
   .ohead{padding:0 14px 13px;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;
          opacity:.9;border-bottom:1px solid var(--line)}
@@ -601,14 +622,80 @@
   .o-days.d-crit{color:var(--warn);font-weight:600}
   .o-raw,.o-pre{font-variant-numeric:tabular-nums;text-align:right}
   .o-rev{display:flex;align-items:center;gap:8px;min-width:0}
+  /* % complete: a bar behind the number, so the column scans as a shape at
+     wall distance and still reads exactly up close. */
+  .o-pct{position:relative;display:flex;align-items:center;justify-content:flex-end;
+         border-radius:5px;background:var(--panel);overflow:hidden;
+         padding:3px 7px;font-variant-numeric:tabular-nums;font-size:13px}
+  /* Fill is set inline from the band; 30% keeps it a backdrop rather than a
+     block of colour the number has to fight. */
+  .o-pct i{position:absolute;left:0;top:0;bottom:0;opacity:.3}
+  /* The number takes the band colour at full strength, so it stays legible over
+     its own fill at every width -- including 100%, where the fill covers the
+     whole cell. */
+  .o-pct b{position:relative;font-weight:700;font-size:13.5px}
+  .o-pct.none{justify-content:flex-end;background:transparent;opacity:.35}
+  /* Expand toggle on the order number. */
+  .oexp{background:transparent;border:0;padding:0;color:var(--tx);cursor:pointer;
+        font-family:var(--mono);font-size:14.5px;font-weight:500;letter-spacing:0;
+        text-transform:none;display:inline-flex;align-items:center;gap:6px;
+        font-variant-numeric:tabular-nums}
+  .oexp i{font-style:normal;font-size:10px;opacity:.6;width:9px}
+  .oexp:hover{color:var(--neon)}
+  .oexp.on{color:var(--neon)}
+  .oexp.on i{opacity:1}
+  /* The expanded card list spans the whole table width rather than sitting in
+     a column, so it is not constrained by the order grid above it. */
+  .ocards{grid-column:1 / -1;padding:4px 0 14px 34px}
+  .octable{display:block;border-left:2px solid var(--line2);padding-left:14px}
+  .ocrow{display:grid;gap:10px;align-items:center;padding:8px 0;
+         grid-template-columns:26px 64px 94px 128px 64px 98px 74px repeat(7, minmax(66px,1fr))
+                               minmax(142px,0.9fr)}
+  .ocrow.ochead{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+                opacity:.8;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .oc-ac{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .oc-url a{color:#38BDF8;text-decoration:none;font-size:13px;font-weight:500}
+  .oc-url a:hover{text-decoration:underline}
+  .oc-nourl{opacity:.3}
+  .oc-rev{display:flex;align-items:center;gap:7px;min-width:0}
+  .ocrow.sel{background:color-mix(in srgb,var(--panel2) 70%, #39FF14 10%);
+             box-shadow:inset 0 0 0 1px color-mix(in srgb,#39FF14 30%,transparent);
+             border-radius:6px}
+  .ocbar{display:flex;align-items:center;gap:8px;padding:0 0 12px 14px;flex-wrap:wrap}
+  .ocbar-l{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;
+           margin-right:2px}
+  .ocbar-n{font-family:var(--mono);font-size:12.5px;color:var(--neon)}
+  .ocbar-combo{min-width:230px}
+  .ocbar-combo .qcinput{padding:7px 11px;font-size:13px}
+  .oc-rev .qassignbtn{font-size:12px;padding:5px 8px}
+  .oc-num{text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px}
+  /* The two progress figures are what the floor reads first, so they are the
+     largest thing in the row and full white. */
+  /* Tasks complete takes the same band colour as the percentage beside it --
+     they are two readings of one number, so they should not disagree. */
+  .oc-done{text-align:right;font-variant-numeric:tabular-nums;
+           font-size:17px;font-weight:700}
+  .oc-pct{justify-self:end;border-radius:6px;padding:3px 10px;
+          font-variant-numeric:tabular-nums;font-size:17px;font-weight:700;
+          letter-spacing:.02em}
+  .oc-pct.none{background:transparent;color:var(--tx);opacity:.35;font-weight:500}
+  .oc-pre{color:var(--pre)}
+  .oc-raw{color:var(--raw)}
+  /* Task state chip. Colours are set inline from TASK_COLORS so the palette
+     lives in one place in the JS rather than being split across a stylesheet. */
+  .ocstate{display:inline-block;border-radius:999px;padding:3px 9px;
+           font-family:var(--mono);font-size:11px;letter-spacing:.02em;
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .ocempty{padding:12px 0 12px 14px;opacity:.6;font-size:13.5px;
+           border-left:2px solid var(--line2)}
   .o-raw{color:var(--raw)}
   .o-pre{color:var(--pre)}
   /* A zero is an absence, not a quantity -- colouring it as loudly as a real
      count makes empty columns compete with full ones. */
   .o-raw.z,.o-pre.z{color:var(--tx);opacity:.35}
   @media (max-width:1500px){
-    .otable{--ocols:30px 58px 84px 132px minmax(104px,1fr) minmax(112px,1fr) 92px
-            minmax(90px,0.8fr) 80px 58px 84px minmax(140px,1fr)}
+    .otable{--ocols:30px 54px 78px 118px 84px minmax(98px,1fr) minmax(104px,1fr) 88px
+            minmax(84px,0.8fr) 76px 56px 80px minmax(132px,1fr)}
     .ohead,.orow{gap:9px;font-size:13px}
     .o-days{font-size:17px}
   }
@@ -1664,7 +1751,9 @@
           <div id="o-assignee-menu" class="qcmenu" role="listbox" hidden></div>
         </div></div>
       <div class="fld"><label>&nbsp;</label>
-        <button class="btn ghost" id="o-bulk" disabled>Bulk assign</button>
+        <button class="btn ghost" id="o-split" disabled>Split evenly</button></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="o-bulk" disabled>Assign all</button>
       </div>
     </div>
     <div class="kpis" id="okpis"></div>
@@ -1700,7 +1789,8 @@
                  aria-controls="q-assignee-menu" placeholder="Pick cards first">
           <div id="q-assignee-menu" class="qcmenu" role="listbox" hidden></div>
         </div></div>
-      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-bulk" disabled>Bulk assign</button></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-split" disabled>Split evenly</button></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-bulk" disabled>Assign all</button></div>
       <div class="fld"><label>&nbsp;</label><span class="qnote" id="q-note"></span></div>
     </div>
     <div class="kpis" id="qkpis"></div>
@@ -2282,6 +2372,7 @@
     if(d.assignday) assignDay = d.assignday;
     if(d.completed) completed = d.completed;
     if(d.orderassign) orderAssign = d.orderassign;
+    if(d.cardrev) cardRev = d.cardrev;
     if(d.cardassign) cardAssign = d.cardassign;
     if(d.daily){
       dailyStore = d.daily;
@@ -3898,7 +3989,8 @@
     var oPicked = Object.keys(oSelected).filter(function(k){ return oSelected[k]; }).length;
     if($("o-bulk")){
       $("o-bulk").disabled = !oPicked;
-      $("o-bulk").textContent = oPicked ? "Bulk assign " + oPicked : "Bulk assign";
+      $("o-bulk").textContent = oPicked ? "Assign all " + oPicked : "Assign all";
+    if($("o-split")) $("o-split").disabled = !oPicked;
     }
     if($("o-pick0")) $("o-pick0").disabled = !oPicked;
     if($("o-pickn")) $("o-pickn").textContent = oPicked ? oPicked + " selected" : "";
@@ -3958,14 +4050,44 @@
     var head = '<div class="otable"><div class="ohead">'
       + sortHead(OCOLS, oSort, "o") + '</div>';
 
+    // Bind each expanded order's combo AFTER the paint below replaces its
+    // input element -- the factory's already-bound flag lives on the old node.
+    setTimeout(function(){
+      Object.keys(oOpen).forEach(function(num){
+        if(!oOpen[num]) return;
+        var c = ocComboFor(num);
+        c.bind();
+        c.fill(cPickedIn(num).length);
+      });
+    }, 0);
+
     $("ofeed").innerHTML = head + rows.map(function(r){
       var c = statusColor(r.status);
       var ok2 = r.number;
+      var pr = orderProgress(r.number);
+      // Same completion bands as the card rows. The bar is kept -- it is what
+      // makes the column scannable down a long table -- but its fill and its
+      // number now come from the band, so one measure does not speak two
+      // colour languages depending on which table you are looking at.
+      var oband = pctBand(pr && pr.pct);
+      var pctCell = (!pr || pr.pct == null)
+        ? '<span class="o-pct none">\u2014</span>'
+        : '<span class="o-pct" style="color:'+oband.bg+'" title="'+pr.done+' of '+pr.tasks
+          + ' tasks across '+pr.cards+' card'+(pr.cards===1?'':'s')+'">'
+          + '<i style="width:'+Math.max(2, Math.min(100, pr.pct))+'%;background:'+oband.bg+'"></i>'
+          + '<b>'+ (pr.pct >= 99.95 ? 100 : pr.pct) +'%</b></span>';
       return '<div class="orow'+(oSelected[ok2]?' sel':'')+'" style="--ostat:'+c+'">'
         + '<span><input type="checkbox" class="osel" data-k="'+esc(ok2)+'"'+(oSelected[ok2]?' checked':'')+'></span>'
         + '<span class="o-url">'+(r.url ? '<a href="'+esc(r.url)+'" target="_blank" rel="noopener">Click Me</a>' : "")+'</span>'
-        + '<span class="o-num">'+esc(r.number)+'</span>'
+        // The number doubles as the expand toggle -- it is the thing you are
+        // already looking for, so it is the thing to click.
+        + '<span class="o-num"><button class="oexp'+(oOpen[ok2]?' on':'')+'"'
+        +   ' data-exp="'+esc(ok2)+'" aria-expanded="'+(!!oOpen[ok2])+'"'
+        +   ' title="Show the cards in this order">'
+        +   '<i>'+(oOpen[ok2] ? '\u25BE' : '\u25B8')+'</i>'+esc(r.number)+'</button></span>'
         + '<span><span class="ostat" style="background:'+c+'22;color:'+c+'">'+esc(prettyStatus(r.status))+'</span></span>'
+        // % of the order's grading tasks completed, from its cards.
+        + pctCell
         + '<span title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
         + '<span title="'+esc(r.kind)+'">'+esc(r.kind)+'</span>'
         + '<span>'+esc(fmtDue(r.due))+'</span>'
@@ -3994,7 +4116,9 @@
               + '</button>';
             })()
         + '</span>'
-        + '</div>';
+        + '</div>'
+        // The expanded card list, if this order is open.
+        + (oOpen[ok2] ? orderCardsHTML(r) : '');
     }).join("") + '</div>';
   }
 
@@ -4024,6 +4148,7 @@
     {label:"URL",        key:null},
     {label:"Number",     key:"number", type:"numstr"},
     {label:"Status",     key:"status", type:"text"},
+    {label:"% done",     key:"__pct",  type:"num", right:true},
     {label:"Customer",   key:"name",   type:"text"},
     {label:"Kind",       key:"kind",   type:"text"},
     {label:"Due",        key:"due",    type:"date"},
@@ -4067,6 +4192,7 @@
     // Sort on the joined list so an order with several reviewers still has a
     // stable, meaningful sort key.
     if(col.key === "__rev") return orderReviewers(r.number).join(", ");
+    if(col.key === "__pct"){ var p = orderProgress(r.number); return p ? p.pct : null; }
     return r[col.key];
   }
 
@@ -4108,8 +4234,13 @@
       return '<span class="sortcol'+(on?" on":"")+'" data-sort="'+esc(c.key)+'" data-tbl="'+cls+'"'
         + ' role="button" tabindex="0" style="'+st+'cursor:pointer"'
         + ' title="Sort by '+esc(c.label)+'">'
+        // Right-aligned headers put the arrow BEFORE the label. With
+        // justify-content:flex-end a trailing arrow sits flush against the
+        // cell edge and gets clipped, so the numeric columns looked
+        // unsortable when they were not.
+        + (c.right ? '<i class="sortar">'+(on ? (sort.dir === "asc" ? "\u25B2" : "\u25BC") : "\u25BE")+'</i>' : '')
         + esc(c.label)
-        + '<i class="sortar">'+(on ? (sort.dir === "asc" ? "\u25B2" : "\u25BC") : "\u25BE")+'</i>'
+        + (c.right ? '' : '<i class="sortar">'+(on ? (sort.dir === "asc" ? "\u25B2" : "\u25BC") : "\u25BE")+'</i>')
         + '</span>';
     }).join("");
   }
@@ -4204,7 +4335,7 @@
       $(ORDER_PANELS[k]).hidden = (k !== OSUB);
       $("osub-"+k).setAttribute("aria-selected", k === OSUB);
     });
-    if(OSUB === "orders"){ oLoading = true; oError = ""; renderOrders(); load(); }
+    if(OSUB === "orders"){ oLoading = true; oError = ""; renderOrders(); ensureQueueCards(); load(); }
     if(OSUB === "queue"){  qLoading = true; qError = ""; renderQueue(); ensureOrderDays(); load(); }
     // Both render from qRows. Going Orders -> Assignments without ever opening
     // Card Queue left them empty, because nothing had fetched the queue: the
@@ -4247,6 +4378,14 @@
     };
     $("q-auto").onclick = autoAssign;
     $("oa-by").onchange = renderOrderAssign;
+    $("dn-people").addEventListener("click", function(e){
+      var d = e.target.closest(".dnname[data-dnperson]");
+      if(!d) return;
+      // The Breakdown counts REVIEW work, so open the review unit.
+      OAKIND = "orders";
+      openPersonModal(d.getAttribute("data-dnperson"), "person");
+    });
+
     $("dn-reset").onclick = function(){
       var btn = this, t = completedTotals();
       if(!t.grand){ disarmAction(btn); return; }
@@ -4260,7 +4399,7 @@
 
     // Cards / Orders pills. Switching unit re-renders through the same code
     // path -- grouping, search, focus mode, clearing and the modal all read
-    // through oaRows()/oaStore(), so the two views cannot drift apart.
+    // through oaRows()/oaHolders(), so the two views cannot drift apart.
     function setOaKind(v){
       if(OAKIND === v) return;
       OAKIND = v;
@@ -4293,14 +4432,18 @@
       oaRows().forEach(function(r){ idx[oaKeyOf(r)] = r; });
       // Only count assignments whose row is still loaded; stale
       // keys for cards that have since left shouldn't inflate the count.
-      var live = Object.keys(oaStore()).filter(function(k){ return idx[k]; });
+      // From the ROWS, not a store: the review unit has two behind it.
+      var live = oaRows().filter(function(r){ return oaHolders(r).length; })
+        .map(oaKeyOf);
       if(!live.length){ disarmAction(btn); banner("Nothing assigned to clear."); return; }
       armAction(btn, "Clear " + live.length + "? Click again", function(){
         // Drop only the live keys. Wiping the whole object would also discard
         // assignments for cards outside the current filter window, which are
         // someone else's work and not visible from here.
-        var st = oaStore();
-        live.forEach(function(k){ delete st[k]; });
+        live.forEach(function(k){
+          var r = idx[k];
+          oaHolders(r).forEach(function(w){ oaRemove(k, w); });
+        });
         oaSave();
         if(OAKIND === "orders") renderOrders(); else renderQueue();
         renderOrderAssign();
@@ -4338,21 +4481,13 @@
       if(t){
         var k = t.getAttribute("data-done");
         var tgroup = t.closest(".zcard") ? t.closest(".zcard").getAttribute("data-group") : "";
-        var store = oaStore();
-        var who;
-        if(OAKIND === "orders"){
-          // Opening the order means THIS reviewer has picked it up, so it comes
-          // off their queue and stays on everyone else's.
-          who = tgroup && orderReviewers(k).indexOf(tgroup) >= 0
-              ? tgroup : orderReviewers(k)[0];
-          if(!who) return;
-          removeOrderReviewer(k, who);
-        } else {
-          who = store[k];
-          if(!who) return;
-          delete store[k];
-        }
         var trow = oaRows().filter(function(r){ return oaKeyOf(r) === k; })[0];
+        // Opening the link means THIS holder has picked it up, so it comes off
+        // their queue and stays on everyone else's.
+        var holders = trow ? oaHolders(trow) : [];
+        var who = tgroup && holders.indexOf(tgroup) >= 0 ? tgroup : holders[0];
+        if(!who) return;
+        oaRemove(k, who);
         var tcat = trow ? trow.cat : "";
         recordCompletion(who, tcat, 1);
         oaSave();
@@ -4371,20 +4506,13 @@
       if(rx){
         var rk = rx.getAttribute("data-drop");
         var rgroup = rx.getAttribute("data-group") || "";
-        var rstore = oaStore();
-        var rw;
-        if(OAKIND === "orders"){
-          // The row is shown under ONE reviewer, so the x removes that
-          // reviewer -- not every reviewer on the order.
-          rw = rgroup && orderReviewers(rk).indexOf(rgroup) >= 0
-             ? rgroup : orderReviewers(rk)[0];
-          if(!rw) return;
-          removeOrderReviewer(rk, rw);
-        } else {
-          rw = rstore[rk];
-          if(!rw) return;
-          delete rstore[rk];
-        }
+        // The row is shown under ONE holder, so the x removes that holder --
+        // not everyone on the order or card.
+        var rrow = oaRows().filter(function(r){ return oaKeyOf(r) === rk; })[0];
+        var rhold = rrow ? oaHolders(rrow) : [];
+        var rw = rgroup && rhold.indexOf(rgroup) >= 0 ? rgroup : rhold[0];
+        if(!rw) return;
+        oaRemove(rk, rw);
         oaSave();
         if(OAKIND === "orders") renderOrders(); else renderQueue();
         renderOrderAssign();
@@ -4433,14 +4561,18 @@
       var name = b.getAttribute("data-clear"), by = b.getAttribute("data-by");
       var idx = {};
       oaRows().forEach(function(r){ idx[oaKeyOf(r)] = r; });
-      var gstore = oaStore();
-      var hit = Object.keys(gstore).filter(function(k){
-        var r = idx[k]; if(!r) return false;
-        return by === "person" ? gstore[k] === name : r.cat === name;
-      });
+      var hit = oaRows().filter(function(r){
+        var hs = oaHolders(r);
+        return by === "person" ? hs.indexOf(name) >= 0 : hs.length && r.cat === name;
+      }).map(oaKeyOf);
       if(!hit.length) return;
       armAction(b, "\u00d7 " + hit.length + "?", function(){
-        hit.forEach(function(k){ delete gstore[k]; });
+        hit.forEach(function(k){
+          var r = idx[k];
+          // Grouped by person: drop only THAT person. Grouped by category:
+          // the row is there because someone holds it, so drop them all.
+          (by === "person" ? [name] : oaHolders(r)).forEach(function(w){ oaRemove(k, w); });
+        });
         oaSave();
         if(OAKIND === "orders") renderOrders(); else renderQueue();
         renderOrderAssign();
@@ -4501,11 +4633,51 @@
     $("q-pick10").onclick = function(){ pickN(10); };
     $("q-pick0").onclick  = function(){ qSelected = {}; renderQueue(); };
 
+    // Split the selected cards into contiguous blocks by AC number, one block
+    // per ticked person: 10 cards across 2 gives the first 5 and the last 5.
+    $("q-split").onclick = function(){
+      var picked = Object.keys(qSelected).filter(function(k){ return qSelected[k]; });
+      if(!picked.length) return;
+      var whos = qCombo.picks;
+      if(!whos.length){
+        banner("Tick one or more names in <b>Assign to</b> first.", "err");
+        var s0 = $("q-assignee");
+        if(s0 && s0.focus) s0.focus();
+        return;
+      }
+      var idx = {}; qRows.forEach(function(r){ idx[cardKey(r)] = r; });
+      // Ascending by AC, whatever the table is sorted by: "1-5 and 6-10" has to
+      // mean the same thing every time.
+      var rows = picked.map(function(k){ return idx[k]; }).filter(Boolean)
+        .sort(function(a, b){
+          return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
+               - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
+        });
+      var ranges = [];
+      splitBlocks(rows, whos).forEach(function(b){
+        b.items.forEach(function(r){ cardAssign[cardKey(r)] = b.who; });
+        ranges.push(esc(b.who) + " " + (b.items[0].ac || "?")
+          + (b.items.length > 1 ? "\u2013" + (b.items[b.items.length-1].ac || "?") : ""));
+      });
+      qSelected = {};
+      qCombo.clear();
+      saveCardAssign();
+      renderQueue(); renderOrderAssign();
+      banner(ranges.join(" \u00b7 ") + " \u2014 split in order");
+    };
+
     $("q-bulk").onclick = function(){
       var picked = Object.keys(qSelected).filter(function(k){ return qSelected[k]; });
       if(!picked.length) return;
-      var chosen = qCombo.pick;
+      var chosen = qCombo.picks[0];
       if(chosen){
+        // A card has ONE owner, so "assign all" with several ticked would have
+        // to pick a winner. Name the ambiguity instead of resolving it silently.
+        if(qCombo.picks.length > 1){
+          banner("A card can only have one owner \u2014 use <b>Split evenly</b> "
+                 + "to divide these between "+qCombo.picks.length+" people.", "err");
+          return;
+        }
         assignPicked(picked, chosen);
         return;
       }
@@ -4527,9 +4699,70 @@
     });
     $("ofeed").addEventListener("click", function(e){
       var b = e.target.closest(".qassignbtn[data-oassign]");
-      if(b) openAssignPicker(b.getAttribute("data-oassign"), "order");
+      if(b){ openAssignPicker(b.getAttribute("data-oassign"), "order"); return; }
+      var cb = e.target.closest(".qassignbtn[data-cassign]");
+      if(cb){ openAssignPicker(cb.getAttribute("data-cassign"), "ordercard"); return; }
+
+      // Select N cards WITHIN this order. Skips ones that already have a
+      // reviewer, same rule as the order and queue pickers -- picking those
+      // would mean the next assign quietly adds to someone else's work.
+      var cp = e.target.closest("[data-cpick]");
+      if(cp){
+        var onum = cp.getAttribute("data-ord");
+        var mode = cp.getAttribute("data-cpick");
+        var mine = oCards.filter(function(c){
+          return orderKeyOf(c.order) === orderKeyOf(onum);
+        }).sort(function(a, b){
+          return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
+               - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
+        });
+        if(mode === "0"){
+          mine.forEach(function(c){ delete cSelected[cardRevKey(c)]; });
+        } else if(mode === "all"){
+          mine.forEach(function(c){ cSelected[cardRevKey(c)] = true; });
+        } else {
+          var want = Number(mode), added = 0, skipped = 0;
+          for(var i = 0; i < mine.length && added < want; i++){
+            var k = cardRevKey(mine[i]);
+            if(cSelected[k]) continue;
+            if(cardRevs(k).length){ skipped++; continue; }
+            cSelected[k] = true; added++;
+          }
+          if(!added){
+            banner(skipped
+              ? "Nothing left to pick \u2014 every remaining card in this order already has a reviewer."
+              : "No cards left to pick in this order.", "err");
+          } else if(added < want){
+            banner("Picked <b>"+added+"</b> \u2014 that's every unassigned card in this order.");
+          } else if(skipped){
+            banner("Picked <b>"+added+"</b> \u2014 skipped <b>"+skipped
+                   + "</b> already-assigned card"+(skipped===1?"":"s")+".");
+          }
+        }
+        renderOrders();
+        return;
+      }
+
+      // Split / Assign all, straight from the toolbar.
+      var sp = e.target.closest("[data-csplit]");
+      if(sp){ commitCardAssign(sp.getAttribute("data-csplit"), "split"); return; }
+      var al = e.target.closest("[data-call]");
+      if(al){ commitCardAssign(al.getAttribute("data-call"), "all"); return; }
+
+      var cc = e.target.closest("[data-cclear]");
+      if(cc){ clearCardAssign(cc, cc.getAttribute("data-cclear")); return; }
+      var ex = e.target.closest(".oexp[data-exp]");
+      if(ex){
+        var k = ex.getAttribute("data-exp");
+        oOpen[k] = !oOpen[k];
+        // Expanding needs the card queue; the Orders tab does not load it.
+        if(oOpen[k] && !oCards.length) ensureQueueCards();
+        renderOrders();
+      }
     });
 
+    $("wm-split").onclick = function(){ wmCommit("split"); };
+    $("wm-all").onclick   = function(){ wmCommit("all"); };
     $("wm-close").onclick = closeAssignPicker;
     $("wmodal").addEventListener("click", function(e){
       if(e.target === $("wmodal")) closeAssignPicker();
@@ -4640,6 +4873,16 @@
       if($("t-search")) $("t-search").value = "";
       renderTeam();
     }
+    // Clicking a name on Team opens the same person modal the Assignments panel
+    // uses, pointed at the roster's unit of work -- reviewers hold orders and
+    // cards, data staff hold queue cards.
+    $("tfeed").addEventListener("click", function(e){
+      var t = e.target.closest(".zname[data-tperson]");
+      if(!t) return;
+      OAKIND = TEAMKIND === "review" ? "orders" : "cards";
+      openPersonModal(t.getAttribute("data-tperson"), "person");
+    });
+
     $("tkind-data").onclick   = function(){ setTeamKind("data"); };
     $("tkind-review").onclick = function(){ setTeamKind("review"); };
 
@@ -4678,6 +4921,17 @@
 
     // Selection + bulk assign, mirroring the Card Queue.
     $("ofeed").addEventListener("change", function(e){
+      var cbx = e.target.closest(".ocsel");
+      if(cbx){ cSelected[cbx.getAttribute("data-k")] = cbx.checked; renderOrders(); return; }
+      var call = e.target.closest(".ocall");
+      if(call){
+        var on = call.checked, onum2 = call.getAttribute("data-ord");
+        oCards.forEach(function(c){
+          if(orderKeyOf(c.order) === orderKeyOf(onum2)) cSelected[cardRevKey(c)] = on;
+        });
+        renderOrders();
+        return;
+      }
       var box = e.target.closest(".osel");
       if(box){ oSelected[box.getAttribute("data-k")] = box.checked; renderOrders(); return; }
       if(e.target.id === "o-all"){
@@ -4717,13 +4971,45 @@
     $("o-pick10").onclick = function(){ oPickN(10); };
     $("o-pick0").onclick  = function(){ oSelected = {}; renderOrders(); };
 
+    // Split the selected orders into contiguous blocks by order number, one
+    // block per ticked reviewer: 10 orders across 2 gives the first 5 and the
+    // last 5, not alternating.
+    $("o-split").onclick = function(){
+      var picked = sortRows(oFiltered(), oSort, OCOLS)
+        .filter(function(r){ return oSelected[r.number]; });
+      if(!picked.length) return;
+      var whos = oCombo.picks;
+      if(!whos.length){
+        banner("Tick one or more names in <b>Assign to</b> first.", "err");
+        var sel0 = $("o-assignee");
+        if(sel0 && sel0.focus) sel0.focus();
+        return;
+      }
+      // Ascending by order number, whatever the table happens to be sorted by:
+      // "1-5 and 6-10" has to mean the same thing every time.
+      picked.sort(function(a, b){
+        return (Number(orderKeyOf(a.number)) || 0) - (Number(orderKeyOf(b.number)) || 0);
+      });
+      var ranges = [];
+      splitBlocks(picked, whos).forEach(function(b){
+        b.items.forEach(function(r){ addOrderReviewer(r.number, b.who); });
+        ranges.push(esc(b.who) + " " + b.items[0].number
+          + (b.items.length > 1 ? "\u2013" + b.items[b.items.length-1].number : ""));
+      });
+      oSelected = {};
+      oCombo.clear();
+      saveOrderAssign();
+      renderOrders(); renderOrderAssign();
+      banner(ranges.join(" \u00b7 ") + " \u2014 split in order");
+    };
+
     $("o-bulk").onclick = function(){
       var picked = Object.keys(oSelected).filter(function(k){ return oSelected[k]; });
       if(!picked.length) return;
-      var who = oCombo.pick;
-      if(!who){
-        banner("Pick someone in <b>Assign to</b> first \u2014 it lists who's "
-               + "skilled for the "+picked.length+" selected order"
+      var whos = oCombo.picks;
+      if(!whos.length){
+        banner("Tick one or more names in <b>Assign to</b> first \u2014 it lists "
+               + "who's skilled for the "+picked.length+" selected order"
                + (picked.length===1?"":"s")+".", "err");
         var sel = $("o-assignee");
         if(sel && sel.focus) sel.focus();
@@ -4731,7 +5017,9 @@
       }
       // ADD, not toggle: bulk-assigning someone already on an order must not
       // remove them, and must not drop whoever else is on it either.
-      picked.forEach(function(k){ addOrderReviewer(k, who); });
+      picked.forEach(function(k){
+        whos.forEach(function(w){ addOrderReviewer(k, w); });
+      });
       oSelected = {};
       oCombo.clear();
       saveOrderAssign();
@@ -4741,13 +5029,19 @@
       var idx = {}; oRows.forEach(function(r){ idx[r.number] = r; });
       // "Outside their skills" for an order means they hold neither review
       // skill the order needs -- not that they lack its sport.
-      var unskilled = picked.filter(function(k){
-        if(!idx[k]) return false;
-        var need = reviewSkillsFor(idx[k]), have = skillsOf(who);
-        return !need.some(function(c){ return have.indexOf(c) >= 0; });
-      }).length;
+      // Counted per order-person pair: two reviewers both lacking the skill on
+      // one order is two mismatches, and reporting one would understate it.
+      var unskilled = 0;
+      picked.forEach(function(k){
+        if(!idx[k]) return;
+        var need = reviewSkillsFor(idx[k]);
+        whos.forEach(function(w){
+          var have = skillsOf(w);
+          if(!need.some(function(c){ return have.indexOf(c) >= 0; })) unskilled++;
+        });
+      });
       banner("Assigned <b>"+picked.length+"</b> order"+(picked.length===1?"":"s")
-             +" to <b>"+esc(who)+"</b>."
+             +" to <b>"+esc(whos.join(", "))+"</b>."
              + (unskilled ? " <b>"+unskilled+"</b> outside their skills." : ""),
              unskilled ? "err" : "");
     };
@@ -4781,7 +5075,10 @@
   ];
 
   // Which roster a unit of work draws from.
-  function rosterOf(kind){ return kind === "order" ? REVIEWERS : ORDERS_ROSTER; }
+  function rosterOf(kind){
+    return (kind === "order" || kind === "ordercard" || kind === "cardsel")
+      ? REVIEWERS : ORDERS_ROSTER;
+  }
 
   var ORDERS_ROSTER = [
     "Abagael Calasin","Abraham Salisi","Adrian Carlo","Aljen Magat","Anjello Bumanglag",
@@ -4870,7 +5167,63 @@
   }
   // Tick state for the Orders table. Session-only, like qSelected -- a
   // selection is a thing you are doing right now, not shared state.
+  // AC number -> array of reviewers, for a single card inside an order.
+  //
+  // Keyed on the AC number alone, not order|ac|status: the AC identifies the
+  // slab and does not change as the card moves through statuses, so an
+  // assignment follows the card instead of being orphaned by its own progress.
+  var cardRev = loadLocal("pl_cardrev_v1");
+
+  function cardRevKey(c){ return String((c && c.ac) || "").trim(); }
+  function cardRevs(k){
+    var v = cardRev[k];
+    if(!v) return [];
+    return Array.isArray(v) ? v : [v];
+  }
+  function setCardRevs(k, list){
+    var out = (list || []).filter(function(x, i, a){ return x && a.indexOf(x) === i; });
+    if(out.length) cardRev[k] = out; else delete cardRev[k];
+  }
+  function addCardRev(k, who){
+    var l = cardRevs(k);
+    if(l.indexOf(who) < 0) l.push(who);
+    setCardRevs(k, l);
+  }
+  function toggleCardRev(k, who){
+    var l = cardRevs(k), i = l.indexOf(who);
+    if(i >= 0) l.splice(i, 1); else l.push(who);
+    setCardRevs(k, l);
+  }
+  function cardRevSizeOf(person){
+    var n = 0;
+    for(var k in cardRev){ if(cardRevs(k).indexOf(person) >= 0) n++; }
+    return n;
+  }
+  function saveCardRev(){
+    try { window.localStorage.setItem("pl_cardrev_v1", JSON.stringify(cardRev)); } catch(e){}
+    pushState("cardrev", null, cardRev);
+  }
+
+  // Ticked cards inside expanded orders, keyed by AC. Session-only, like every
+  // other selection.
+  var cSelected = {};
+  function cPicked(){
+    return Object.keys(cSelected).filter(function(k){ return cSelected[k]; });
+  }
+  // Ticked cards belonging to ONE order -- Select 5 works within the order you
+  // clicked it in, not across every order you happen to have open.
+  function cPickedIn(num){
+    var mine = {};
+    oCards.forEach(function(c){
+      if(orderKeyOf(c.order) === orderKeyOf(num)) mine[cardRevKey(c)] = 1;
+    });
+    return cPicked().filter(function(k){ return mine[k]; });
+  }
+
   var oSelected = {};
+  // Which orders are expanded to show their cards. Session-only: an open row
+  // is a thing you are doing now, not shared state.
+  var oOpen = {};
   var assignDay  = loadLocal("pl_assignday_v1");    // {day:"YYYY-MM-DD"}  (shared)
   // person -> category -> count of card-type tasks opened.  (shared)
   // Nested rather than flat so both breakdowns fall out of one structure: sum a
@@ -4881,6 +5234,151 @@
   // A card row has no stable id of its own; ac_number is the closest thing but
   // isn't guaranteed unique across orders, so compose it with the order.
   function cardKey(r){ return [r.order, r.ac, r.cardStatus].join("|"); }
+
+  // The grading steps a card moves through, as columns on the queue question.
+  // Task-state palette, as specified:
+  //   queued            pink
+  //   done              light green
+  //   done_skip_verify  very dark green
+  //   approved          dark green -- the SAME green as done_skip_verify
+  //
+  // done_skip_verify and approved deliberately share a colour: they are both
+  // "finished, no further check needed", and giving them separate greens would
+  // imply a distinction the floor doesn't act on.
+  var TASK_COLORS = {
+    // Grey: queued is "not started", which is an absence of progress rather
+    // than a state worth drawing the eye. Pink now only means the 50-69% band.
+    "queued":           {bg:"#6B7280", fg:"#F3F4F6"},
+    "done":             {bg:"#86EFAC", fg:"#0A2A16"},
+    "done_skip_verify": {bg:"#14532D", fg:"#D7F7E2"},
+    "approved":         {bg:"#14532D", fg:"#D7F7E2"},
+    // Same dark green as approved and done_skip_verify: all three mean the step
+    // is finished and needs no further check, and the floor acts on them
+    // identically. (It was amber, then violet, to keep it distinct from the
+    // completion bands -- but green is what it means.)
+    "reviewer_override":{bg:"#14532D", fg:"#D7F7E2"}
+  };
+  function taskColor(v){
+    return TASK_COLORS[String(v||"").toLowerCase()]
+        // Anything the question starts returning that isn't in the list above
+        // renders neutral rather than silently borrowing another state's colour.
+        || {bg:"#26323F", fg:"#C8D2DE"};
+  }
+  // Completion bands, keyed to how many of the seven grading steps are done:
+  //
+  //   0 of 7    red
+  //   1-2       light red
+  //   3-4       orange
+  //   5         light green
+  //   6         green
+  //   7 of 7    dark green
+  //
+  // Expressed as SEVENTHS rather than raw counts so it still works if a card
+  // ever has a different number of steps, and so the order-level aggregate --
+  // which only has a percentage -- lands in the same bands. The cut points are
+  // the midpoints between adjacent sevenths.
+  //
+  // 0 and 100 are exact: "nothing started" and "fully complete" are states, not
+  // ranges, and rounding into them would be a lie.
+  var BAND_RED    = {bg:"#DC2626", fg:"#FFFFFF", key:"none"};
+  var BAND_LTRED  = {bg:"#FCA5A5", fg:"#450A0A", key:"low"};
+  var BAND_ORANGE = {bg:"#F59E0B", fg:"#2B1A00", key:"mid"};
+  var BAND_LTGRN  = {bg:"#86EFAC", fg:"#0A2A16", key:"high"};
+  var BAND_GREEN  = {bg:"#22C55E", fg:"#04240F", key:"higher"};
+  var BAND_DARK   = {bg:"#14532D", fg:"#FFFFFF", key:"done"};
+
+  function pctBand(p){
+    if(p == null) return null;
+    if(p <= 0)     return BAND_RED;      // 0 of 7
+    if(p >= 99.95) return BAND_DARK;     // 7 of 7
+    if(p < 35.72)  return BAND_LTRED;    // 1-2
+    if(p < 64.29)  return BAND_ORANGE;   // 3-4
+    if(p < 78.58)  return BAND_LTGRN;    // 5
+    return BAND_GREEN;                   // 6
+  }
+
+  // When the counts are known, band on them directly -- no rounding to worry
+  // about at the boundaries.
+  function stepBand(done, tasks){
+    if(done == null || !tasks) return null;
+    return pctBand(done / tasks * 100);
+  }
+
+
+  // A step only counts toward "tasks complete" once it has been VERIFIED.
+  // `done` means the work is finished but still awaiting approval, so it does
+  // not count -- which is what the question itself does: a card showing
+  // crop=done, card_type=approved, corner=done reports 1 of 7, not 3.
+  //
+  // done_skip_verify and reviewer_override are both terminal decisions, so both
+  // count.
+  var VERIFIED = {approved:1, done_skip_verify:1, reviewer_override:1};
+  function isVerified(v){ return !!VERIFIED[String(v||"").toLowerCase()]; }
+
+  function taskLabel(v){
+    var k = String(v||"").toLowerCase();
+    if(!k) return "\u2014";
+    if(k === "done_skip_verify") return "done skip verify";
+    if(k === "reviewer_override") return "reviewer override";
+    return k.replace(/_/g, " ");
+  }
+
+  var TASK_STEPS = [
+    {key:"crop",      label:"Crop",      names:["crop","CROP"]},
+    {key:"card_type", label:"Card type", names:["card_type","CARD_TYPE"]},
+    {key:"corner",    label:"Corner",    names:["corner","CORNER"]},
+    {key:"edge",      label:"Edge",      names:["edge","EDGE"]},
+    {key:"surface",   label:"Surface",   names:["surface","SURFACE"]},
+    {key:"centering", label:"Centering", names:["centering","CENTERING"]},
+    {key:"review",    label:"Review",    names:["review","REVIEW"]}
+  ];
+
+  // Distinguish "absent" from "zero". A card with 0 of 7 done is real progress
+  // information; a card whose question omits the column is not.
+  function numOrNull(v){
+    if(v === null || v === undefined || v === "") return null;
+    var n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+    return isFinite(n) ? n : null;
+  }
+
+  // 37687: card-level rows with per-task grading state. Its own normalizer
+  // because its column set differs from 35905 -- no category, no card-type task
+  // URL -- and a shared one would have to pretend those fields exist.
+  function normalizeOrderCards(raw){
+    return (raw||[]).map(function(r){
+      return {
+        cardUrl:  pick(r,["card_url","CARD_URL"]) || "",
+        order:    String(pick(r,["order_number","ORDER_NUMBER"]) || ""),
+        ordStat:  String(pick(r,["order_status","ORDER_STATUS"]) || ""),
+        due:      String(pick(r,["due_date","DUE_DATE"]) || ""),
+        ac:       String(pick(r,["ac_number","AC_NUMBER"]) || ""),
+        cardStatus: String(pick(r,["card_status","CARD_STATUS"]) || ""),
+        pre:      String(pick(r,["is_pre_graded","IS_PRE_GRADED"]) || "").toLowerCase()==="true",
+        doneCol:  numOrNull(pick(r,["done","DONE"])),
+        tasks:    numOrNull(pick(r,["tasks","TASKS"])),
+        remaining:numOrNull(pick(r,["remaining","REMAINING"])),
+        pct:      numOrNull(pick(r,["pct_complete","PCT_COMPLETE"])),
+        approved: numOrNull(pick(r,["approved","APPROVED"])),
+        awaiting: numOrNull(pick(r,["awaiting_approval","AWAITING_APPROVAL"])),
+        steps: TASK_STEPS.map(function(st){
+          return {key:st.key, label:st.label,
+                  val:String(pick(r, st.names) || "").toLowerCase()};
+        })
+      };
+    }).map(function(c){
+      // The question dropped its DONE column in favour of APPROVED /
+      // AWAITING_APPROVAL, so tasks-complete is derived. Prefer an explicit
+      // DONE if it ever comes back; otherwise tasks - remaining.
+      // Prefer the question's own figures. Fall back to counting VERIFIED
+      // steps, never merely-done ones, so a fallback can't disagree with the
+      // question about what "complete" means.
+      c.done = c.doneCol != null ? c.doneCol
+             : (c.tasks != null && c.remaining != null) ? c.tasks - c.remaining
+             : c.steps.filter(function(st){ return isVerified(st.val); }).length;
+      if(c.tasks == null) c.tasks = c.steps.length;
+      return c;
+    });
+  }
 
   function normalizeQueue(raw){
     return (raw||[]).map(function(r){
@@ -5076,7 +5574,11 @@
   // Load shown in the picker: cards for a card, orders for an order. Ranking a
   // reviewer by their card queue while assigning them orders would be a
   // plausible-looking lie.
-  function loadOf(p){ return wmKind === "order" ? orderSizeOf(p) : queueSizeOf(p); }
+  function loadOf(p){
+    return wmKind === "order" ? orderSizeOf(p)
+         : (wmKind === "ordercard" || wmKind === "cardsel") ? cardRevSizeOf(p)
+         : queueSizeOf(p);
+  }
 
   function rankAssignees(catList, loadFn, roster){
     loadFn = loadFn || loadOf;
@@ -5128,7 +5630,10 @@
   //
   // cfg: { prefix, unitPlural, rows(), keyOf(r), selected(), loadOf(p) }
   function makeAssignCombo(cfg){
-    var pick = "", rank = [], active = -1;
+    // `multi` combos hold a LIST. An order can be reviewed by several people,
+    // so the bulk control has to be able to name several in one go; a queue
+    // card is worked by one person, so that one stays single-select.
+    var pick = "", picks = [], rank = [], active = -1;
     var inId   = cfg.prefix + "-assignee";
     var wrapId = inId + "-wrap";
     var menuId = inId + "-menu";
@@ -5150,7 +5655,7 @@
       var q = (input ? input.value : "").trim();
       // Once someone is picked the box holds their name; typing it back
       // shouldn't narrow the list to just them.
-      if(!q || q === pick) return rank;
+      if(!q || q === label()) return rank;
       return rank.filter(function(a){ return graderMatches(a.name, q); });
     }
     function draw(){
@@ -5158,8 +5663,13 @@
       var list = matches();
       if(active >= list.length) active = list.length - 1;
       menu.innerHTML = list.length ? list.map(function(a, i){
-        return '<button type="button" class="qcopt'+(i===active?" active":"")+'"'
-          + ' role="option" aria-selected="'+(a.name===pick)+'" data-pick="'+esc(a.name)+'">'
+        var on = cfg.multi ? picks.indexOf(a.name) >= 0 : a.name === pick;
+        return '<button type="button" class="qcopt'+(i===active?" active":"")
+          + (on?" on":"")+'"'
+          + ' role="option" aria-selected="'+on+'" data-pick="'+esc(a.name)+'">'
+          // A real checkbox glyph, not a tint: on a multi-select list "which of
+          // these have I already chosen" has to be readable at a glance.
+          + (cfg.multi ? '<span class="qcbox">'+(on ? "\u2713" : "")+'</span>' : '')
           + '<span class="qcname">'+esc(a.name)+'</span>'
           + '<span class="qctag '+a.cls+'">'+esc(a.tag)+'</span>'
           + '<span class="qcload">'+(a.load ? a.load+" on queue" : "idle")+'</span>'
@@ -5178,9 +5688,23 @@
       if(input) input.setAttribute("aria-expanded","false");
       active = -1;
     }
+    function label(){
+      if(!cfg.multi) return pick;
+      if(!picks.length) return "";
+      return picks.length === 1 ? picks[0] : picks.length + " selected";
+    }
     function choose(name){
-      pick = name;
       var input = $(inId), wrap = $(wrapId);
+      if(cfg.multi){
+        var i = picks.indexOf(name);
+        if(i >= 0) picks.splice(i, 1); else picks.push(name);
+        if(input) input.value = label();
+        if(wrap) wrap.classList.toggle("chosen", !!picks.length);
+        // Stay open: choosing several is the whole point of a multi combo.
+        draw();
+        return;
+      }
+      pick = name;
       if(input) input.value = name;
       if(wrap) wrap.classList.add("chosen");
       close();
@@ -5191,7 +5715,7 @@
       if(!input || !wrap) return;
       wrap.classList.toggle("armed", !!count);
       if(!count){
-        rank = []; pick = "";
+        rank = []; pick = ""; picks = [];
         input.value = "";
         input.placeholder = "Pick " + cfg.unitPlural + " first";
         wrap.classList.remove("chosen");
@@ -5205,8 +5729,10 @@
         ? "Type a name \u2014 " + categoryLabel(cl[0])
         : "Type a name \u2014 " + cl.length + " categories";
       if(pick && cfg.roster().indexOf(pick) < 0) pick = "";
-      if(pick) input.value = pick;
-      wrap.classList.toggle("chosen", !!pick);
+      picks = picks.filter(function(n){ return cfg.roster().indexOf(n) >= 0; });
+      var lbl = label();
+      if(lbl) input.value = lbl;
+      wrap.classList.toggle("chosen", !!lbl);
       if(!$(menuId).hidden) draw();
     }
 
@@ -5214,6 +5740,9 @@
       var input = $(inId);
       if(!input || input._combo) return;
       input._combo = true;
+      // A combo that lives inside re-rendered markup gets a fresh element each
+      // paint, so `rank` is rebuilt by fill(); nothing here may assume the
+      // previous node still exists.
       input.onfocus = open;
       input.onclick = open;
       input.oninput = function(){ active = 0; open(); draw(); };
@@ -5240,7 +5769,7 @@
         if(e.key === "Escape"){
           e.preventDefault();
           if(!$(menuId).hidden){ close(); return; }
-          pick = ""; this.value = "";
+          pick = ""; picks = []; this.value = "";
           $(wrapId).classList.remove("chosen");
         }
       };
@@ -5248,8 +5777,8 @@
         var self = this;
         setTimeout(function(){
           close();
-          self.value = pick;
-          $(wrapId).classList.toggle("chosen", !!pick);
+          self.value = label();
+          $(wrapId).classList.toggle("chosen", !!label());
         }, 140);
       };
       // mousedown, not click: blur fires first and would close the menu before
@@ -5265,8 +5794,9 @@
     return {
       fill: fill, bind: bind,
       get pick(){ return pick; },
+      get picks(){ return cfg.multi ? picks.slice() : (pick ? [pick] : []); },
       clear: function(){
-        pick = "";
+        pick = ""; picks = [];
         var input = $(inId), wrap = $(wrapId);
         if(input) input.value = "";
         if(wrap) wrap.classList.remove("chosen");
@@ -5281,7 +5811,11 @@
     selected:function(){ return qSelected; },
     loadOf:queueSizeOf,
     roster:function(){ return ORDERS_ROSTER; },
-    catsOf:function(r){ return [r.cat]; }
+    catsOf:function(r){ return [r.cat]; },
+    // Multi so a batch can be SPLIT between people. A card still ends up with
+    // exactly one owner -- the list names who is sharing the batch, not who is
+    // sharing a card.
+    multi:true
   });
   var oCombo = makeAssignCombo({
     prefix:"o", unitPlural:"orders",
@@ -5290,7 +5824,10 @@
     selected:function(){ return oSelected; },
     loadOf:orderSizeOf,
     roster:function(){ return REVIEWERS; },
-    catsOf:reviewSkillsFor
+    catsOf:reviewSkillsFor,
+    // An order can be reviewed by several people, so its bulk control names
+    // several at once. The card queue stays single -- a card is worked by one.
+    multi:true
   });
 
   function refreshQueueFilters(){
@@ -5324,7 +5861,8 @@
     if($("qhint")) $("qhint").textContent = fmt(rows.length) + " of " + fmt(qRows.length) + " cards"
       + (picked ? " \u00b7 " + picked + " selected" : "");
     $("q-bulk").disabled = !picked;
-    $("q-bulk").textContent = picked ? "Bulk assign " + picked : "Bulk assign";
+    $("q-bulk").textContent = picked ? "Assign all " + picked : "Assign all";
+    if($("q-split")) $("q-split").disabled = !picked;
     if($("q-pick0")) $("q-pick0").disabled = !picked;
     // The running total used to live in the panel heading, which is gone; the
     // Bulk assign label alone is easy to miss at the far end of the row.
@@ -5447,19 +5985,50 @@
 
   // One source-of-truth accessor per unit, so every consumer below -- grouping,
   // counting, the modal, clearing -- reads the same way for both.
-  function oaRows(){   return OAKIND === "orders" ? oRows : qRows; }
-  function oaStore(){  return OAKIND === "orders" ? orderAssign : cardAssign; }
-  function oaKeyOf(r){ return OAKIND === "orders" ? r.number : cardKey(r); }
-  function oaSave(){   if(OAKIND === "orders") saveOrderAssign(); else saveCardAssign(); }
+  // The review unit holds TWO things: whole orders, and individual cards inside
+  // them. A reviewer's queue is both, so the Orders view lists both rather than
+  // hiding half the work behind another pill.
+  //
+  // Rows are tagged and keyed with a prefix, because an order number and an AC
+  // number are both bare digits and would otherwise collide in one map.
+  function reviewRows(){
+    return oRows.map(function(r){ return Object.assign({_unit:"order"}, r); })
+      .concat(oCards.map(function(c){ return Object.assign({_unit:"card"}, c); }));
+  }
+  function oaRows(){   return OAKIND === "orders" ? reviewRows() : qRows; }
+  function oaKeyOf(r){
+    if(OAKIND !== "orders") return cardKey(r);
+    return r._unit === "card" ? "c:" + cardRevKey(r) : "o:" + r.number;
+  }
+  // Who holds this row, whichever kind it is.
+  function oaHolders(r){
+    if(OAKIND !== "orders"){
+      var w = cardAssign[cardKey(r)];
+      return w ? [w] : [];
+    }
+    return r._unit === "card" ? cardRevs(cardRevKey(r)) : orderReviewers(r.number);
+  }
+  function oaSave(){
+    if(OAKIND !== "orders") return saveCardAssign();
+    // Either store may have changed; saving both is cheaper than tracking which.
+    saveOrderAssign(); saveCardRev();
+  }
+  // Drop ONE holder from a row, whichever kind of thing it is.
+  function oaRemove(key, who){
+    if(OAKIND !== "orders"){ delete cardAssign[key]; return; }
+    if(key.indexOf("c:") === 0) removeCardRev(key.slice(2), who);
+    else removeOrderReviewer(key.slice(2), who);
+  }
+  function oaRestore(key, who){
+    if(OAKIND !== "orders"){ cardAssign[key] = who; return; }
+    if(key.indexOf("c:") === 0) addCardRev(key.slice(2), who);
+    else addOrderReviewer(key.slice(2), who);
+  }
   function oaNoun(n){  return (OAKIND === "orders" ? "order" : "card") + (n===1 ? "" : "s"); }
 
   function cardsFor(name, by){
-    var store = oaStore();
-    var isOrd = OAKIND === "orders";
     return oaRows().filter(function(r){
-      var k = oaKeyOf(r);
-      // Orders hold a LIST of reviewers; membership, not equality.
-      var holders = isOrd ? orderReviewers(k) : (store[k] ? [store[k]] : []);
+      var holders = oaHolders(r);
       return by === "person" ? holders.indexOf(name) >= 0 : holders.length && r.cat === name;
     }).sort(byDue);
   }
@@ -5523,13 +6092,16 @@
     }
     if(seen === today) return 0;
     if(seen > today) return 0;          // clock skew or a stale read; ignore
-    var n = Object.keys(cardAssign).length + Object.keys(orderAssign).length;
+    var n = Object.keys(cardAssign).length + Object.keys(orderAssign).length
+          + Object.keys(cardRev).length;
     cardAssign = {};
     orderAssign = {};
+    cardRev = {};
     qSelected = {};
     assignDay = {day: today};
     saveCardAssign();
     saveOrderAssign();
+    saveCardRev();
     saveAssignDay();
     if(TAB === "orders"){ renderQueue(); renderOrderAssign(); }
     if(n) banner("New work day in Manila \u2014 cleared <b>"+n+"</b> card assignment"
@@ -5551,6 +6123,48 @@
   // the whole queue and absence really does mean finished. If that ever gains a
   // server-side filter, this has to be reconsidered — a filtered result would
   // read as "everything else is done".
+  // The review-side equivalent of pruneFinished: when Metabase stops returning
+  // a card or order, or reports every grading step verified, it drops out of
+  // whoever was holding it.
+  //
+  // Only runs when the source list actually loaded -- an empty list because a
+  // fetch failed would otherwise clear every reviewer's queue at once.
+  function pruneReview(){
+    var n = 0;
+
+    if(oCards.length){
+      var liveCards = {};
+      oCards.forEach(function(c){
+        var k = cardRevKey(c);
+        if(!k) return;
+        // Present AND still unfinished. A card whose steps are all verified is
+        // done, so it comes off the queue even though the question still
+        // returns it.
+        var finished = c.tasks != null && c.done != null && c.done >= c.tasks;
+        if(!finished) liveCards[k] = 1;
+      });
+      var goneCards = Object.keys(cardRev).filter(function(k){ return !liveCards[k]; });
+      goneCards.forEach(function(k){ delete cardRev[k]; });
+      if(goneCards.length){ saveCardRev(); n += goneCards.length; }
+    }
+
+    if(oRows.length){
+      var liveOrders = {};
+      oRows.forEach(function(r){ liveOrders[orderKeyOf(r.number)] = 1; });
+      var goneOrders = Object.keys(orderAssign).filter(function(k){
+        return !liveOrders[orderKeyOf(k)];
+      });
+      goneOrders.forEach(function(k){ delete orderAssign[k]; });
+      if(goneOrders.length){ saveOrderAssign(); n += goneOrders.length; }
+    }
+
+    if(n){
+      banner("Cleared <b>"+n+"</b> finished item"+(n===1?"":"s")
+             +" from review queues \u2014 no longer open in Metabase.");
+    }
+    return n;
+  }
+
   function pruneFinished(){
     if(loadFailed || !qRows.length) return 0;
     // Match on order|ac, NOT on the full cardKey. cardKey ends in cardStatus,
@@ -5578,12 +6192,50 @@
   // One picker, two units of work. Keeping a single implementation means the
   // ranking, the search and the keyboard behaviour cannot drift apart between
   // assigning a card and assigning an order.
+  // Three units of work now: a queue card, a whole order, and a single card
+  // inside an order. One picker for all three -- the ranking, search and
+  // keyboard behaviour cannot drift apart if there is only one of them.
   function wmTarget(){
-    if(wmKind === "order") return oRows.filter(function(r){ return r.number === wmKey; })[0] || null;
+    if(wmKind === "order")
+      return oRows.filter(function(r){ return r.number === wmKey; })[0] || null;
+    if(wmKind === "ordercard")
+      return oCards.filter(function(r){ return cardRevKey(r) === wmKey; })[0] || null;
+    if(wmKind === "cardsel")
+      return oRows.filter(function(r){ return r.number === wmKey; })[0]
+          || {number:wmKey, pre:0, raw:0};
     return qRows.filter(function(r){ return cardKey(r) === wmKey; })[0] || null;
   }
-  function wmStore(){ return wmKind === "order" ? orderAssign : cardAssign; }
-  function wmSave(){ if(wmKind === "order") saveOrderAssign(); else saveCardAssign(); }
+  function wmStore(){
+    return wmKind === "order" ? orderAssign
+         : (wmKind === "ordercard" || wmKind === "cardsel") ? cardRev
+         : cardAssign;
+  }
+  function wmSave(){
+    if(wmKind === "order") saveOrderAssign();
+    else if(wmKind === "ordercard" || wmKind === "cardsel") saveCardRev();
+    else saveCardAssign();
+  }
+  // Orders and the cards inside them are both reviewed, so both draw on the
+  // review roster and count review load.
+  function wmIsReview(){
+    return wmKind === "order" || wmKind === "ordercard" || wmKind === "cardsel";
+  }
+  // The AC keys the picker is acting on. One for a single card; the whole
+  // selection for a bulk assign.
+  // Names ticked in a bulk-selection picker. Deferred rather than applied on
+  // click, because the choice of WHO is separate from the choice of how to
+  // divide the cards among them.
+  var wmSel = [];
+  function wmSelToggle(n){
+    var i = wmSel.indexOf(n);
+    if(i >= 0) wmSel.splice(i, 1); else wmSel.push(n);
+  }
+
+  function wmCardKeys(){
+    if(wmKind === "cardsel") return cPickedIn(wmKey);
+    if(wmKind === "ordercard") return [wmKey];
+    return [];
+  }
 
   function wmRows(){
     var r = wmTarget();
@@ -5591,12 +6243,74 @@
     // rankAssignees over the single category gives plain "primary" / "2nd
     // option" / "no skill" wording, and orders least-loaded first inside each.
     // An order is reviewed by card kind, not by sport.
+    // A whole order needs whichever review skills its cards imply; a single
+    // card needs exactly one -- pre-graded or raw, never both.
     var list = rankAssignees(
-      wmKind === "order" ? reviewSkillsFor(r) : [r.cat],
+      wmKind === "order" ? reviewSkillsFor(r)
+      : wmKind === "ordercard" ? [r.pre ? "review_pregraded" : "review_raw"]
+      // A selection needs whichever kinds it actually contains.
+      : wmKind === "cardsel" ? (function(){
+          var out = {};
+          wmCardKeys().forEach(function(k2){
+            var c2 = oCards.filter(function(x){ return cardRevKey(x) === k2; })[0];
+            if(c2) out[c2.pre ? "review_pregraded" : "review_raw"] = 1;
+          });
+          return Object.keys(out);
+        })()
+      : [r.cat],
       loadOf, rosterOf(wmKind));
     var q = ($("wm-search") || {}).value || "";
     q = q.trim();
     return q ? list.filter(function(a){ return graderMatches(a.name, q); }) : list;
+  }
+
+  // Deal the selected cards out among the ticked reviewers, round-robin in AC
+  // order: 10 cards and 2 people gives 5 and 5. Round-robin rather than
+  // slicing into blocks so an uneven split spreads the remainder one card at a
+  // time (10 cards, 3 people -> 4/3/3) instead of dumping it on one person.
+  function wmSplit(){
+    var keys = wmCardKeys(), who = wmSel.slice();
+    if(!keys.length || !who.length) return null;
+    var order = oCards.filter(function(c){ return keys.indexOf(cardRevKey(c)) >= 0; })
+      .sort(function(a, b){
+        return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
+             - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
+      });
+    var tally = {};
+    order.forEach(function(c, i){
+      var n = who[i % who.length];
+      addCardRev(cardRevKey(c), n);
+      tally[n] = (tally[n] || 0) + 1;
+    });
+    return tally;
+  }
+
+  function wmAssignAll(){
+    var keys = wmCardKeys(), who = wmSel.slice();
+    if(!keys.length || !who.length) return null;
+    var tally = {};
+    keys.forEach(function(k){
+      who.forEach(function(n){ addCardRev(k, n); tally[n] = (tally[n] || 0) + 1; });
+    });
+    return tally;
+  }
+
+  function wmCommit(kind){
+    var tally = kind === "split" ? wmSplit() : wmAssignAll();
+    if(!tally){
+      banner("Tick at least one name first.", "err");
+      return;
+    }
+    saveCardRev();
+    // Clearing the card selection afterwards: leaving it ticked invites a
+    // second assign onto cards that already have one.
+    wmCardKeys().forEach(function(k){ delete cSelected[k]; });
+    wmSel = [];
+    closeAssignPicker();
+    renderOrders(); renderOrderAssign();
+    banner(Object.keys(tally).map(function(n){
+      return "<b>"+esc(n)+"</b> "+tally[n];
+    }).join(" \u00b7 ") + (kind === "split" ? " \u2014 split evenly" : " \u2014 all cards"));
   }
 
   function renderWm(){
@@ -5604,18 +6318,43 @@
     var list = wmRows();
     // Orders take SEVERAL reviewers; a card takes one. `cur` is a list either
     // way so the rest of the render doesn't branch.
-    var cur = wmKind === "order"
-      ? orderReviewers(wmKey)
-      : (wmStore()[wmKey] ? [wmStore()[wmKey]] : []);
+    // For a bulk selection, "currently assigned" means on EVERY selected card.
+    // Ticking someone who is on only some of them would claim more than is true.
+    // In bulk mode the ticks show what you have CHOSEN, not what is already
+    // assigned -- you are composing an action, not viewing state.
+    var cur = wmKind === "cardsel" ? wmSel
+            : wmKind === "order" ? orderReviewers(wmKey)
+            : wmKind === "ordercard" ? cardRevs(wmKey)
+            : (wmStore()[wmKey] ? [wmStore()[wmKey]] : []);
     if(wmActive >= list.length) wmActive = list.length - 1;
-    var head = cur.length
+    // In bulk mode "clear" means clear the CARDS, not the tick list.
+    var already = wmKind === "cardsel"
+      ? wmCardKeys().filter(function(k){ return cardRevs(k).length; }).length : 0;
+    var head = (wmKind === "cardsel" ? already : cur.length)
       ? '<button type="button" class="wmopt wmclear" data-who="__none__">'
         + '<span class="wmname">'
-        + (wmKind === "order"
-            ? "Clear all \u2014 " + cur.length + " assigned"
-            : "Unassign \u2014 currently " + esc(cur[0]))
+        + (wmKind === "cardsel"
+            ? "Clear reviewers from " + already + " card" + (already===1?"":"s")
+            : wmIsReview()
+              ? "Clear all \u2014 " + cur.length + " assigned"
+              : "Unassign \u2014 currently " + esc(cur[0]))
         + '</span></button>'
       : "";
+    var foot = $("wm-foot");
+    if(foot){
+      foot.hidden = wmKind !== "cardsel";
+      if(wmKind === "cardsel"){
+        var nk = wmCardKeys().length, nw = wmSel.length;
+        $("wm-foot-n").textContent = nk + " card" + (nk===1?"":"s") + " \u00b7 "
+          + (nw ? nw + " name" + (nw===1?"":"s") + " ticked" : "no names ticked");
+        // Assigning with nobody ticked does nothing -- disable rather than
+        // fail on click.
+        $("wm-split").disabled = !nw || !nk;
+        $("wm-all").disabled   = !nw || !nk;
+        $("wm-split").textContent = nw > 1
+          ? "Split evenly (" + Math.floor(nk / nw) + "+ each)" : "Split evenly";
+      }
+    }
     box.innerHTML = head + (list.length ? list.map(function(a, i){
       var on = cur.indexOf(a.name) >= 0;
       return '<button type="button" class="wmopt'+(i===wmActive?" active":"")
@@ -5632,23 +6371,39 @@
   }
 
   function openAssignPicker(k, kind){
+    // A fresh dialog starts with nothing ticked; carrying the last selection
+    // over would make the next assign act on names you cannot see.
+    wmSel = [];
     wmKind = kind === "order" ? "order" : "card";
     wmKey = k; wmActive = -1;
     var r = wmTarget();
     if(!r){ wmKey = null; return; }
-    $("wm-title").textContent = wmKind === "order"
-      ? ("Order " + r.number)
+    var nsel = wmKind === "cardsel" ? wmCardKeys().length : 0;
+    $("wm-title").textContent = wmKind === "order" ? ("Order " + r.number)
+      : wmKind === "cardsel" ? (nsel + " card" + (nsel===1?"":"s") + " selected")
+      : wmKind === "ordercard" ? ("AC " + (r.ac || "\u2014"))
       : (r.ac || ("Order " + r.order));
-    $("wm-sub").innerHTML = '<i class="hdot" style="background:'+sportColor(r.cat)+'"></i>'
-      + esc(categoryLabel(r.cat, r.catRaw))
-      + ' \u00b7 ' + esc(prettyStatus(wmKind === "order" ? r.status : r.cardStatus))
-      + (wmKind === "order"
-          ? (r.days != null ? ' \u00b7 ' + fmt(r.days) + 'd in process' : "")
-          : (r.player ? ' \u00b7 ' + esc(r.player) : ""));
-    // The picker serves both units; saying "card" while assigning an order is
-    // a small lie that makes the dialog look like the wrong one.
+    // An order-card row has no category and no player, so its subtitle is the
+    // order it belongs to, its status and its progress.
+    $("wm-sub").innerHTML = wmKind === "cardsel"
+      ? ('order ' + esc(r.number) + ' \u00b7 ' + nsel + ' selected')
+      : wmKind === "ordercard"
+      ? ('order ' + esc(r.order) + ' \u00b7 ' + esc(prettyStatus(r.cardStatus))
+         + ' \u00b7 ' + (r.pre ? "pre-graded" : "raw")
+         + (r.done != null && r.tasks ? ' \u00b7 ' + r.done + ' of ' + r.tasks + ' done' : ""))
+      : ('<i class="hdot" style="background:'+sportColor(r.cat)+'"></i>'
+         + esc(categoryLabel(r.cat, r.catRaw))
+         + ' \u00b7 ' + esc(prettyStatus(wmKind === "order" ? r.status : r.cardStatus))
+         + (wmKind === "order"
+             ? (r.days != null ? ' \u00b7 ' + fmt(r.days) + 'd in process' : "")
+             : (r.player ? ' \u00b7 ' + esc(r.player) : "")));
+    // Saying "card" while assigning an order is a small lie that makes the
+    // dialog look like the wrong one.
     if($("wm-label")) $("wm-label").textContent =
-      wmKind === "order" ? "Who should review this order?" : "Who should work this card?";
+      wmKind === "order" ? "Who should review this order?"
+      : wmKind === "cardsel" ? "Who should review these cards?"
+      : wmKind === "ordercard" ? "Who should review this card?"
+      : "Who should work this card?";
     var inp = $("wm-search"); if(inp) inp.value = "";
     renderWm();
     $("wmodal").hidden = false;
@@ -5659,10 +6414,29 @@
 
   function applyWmPick(who){
     if(!wmKey) return;
-    if(wmKind === "order"){
-      if(who === "__none__") setOrderReviewers(wmKey, []);
-      else toggleOrderReviewer(wmKey, who);
-      saveOrderAssign();
+    if(wmIsReview()){
+      if(wmKind === "cardsel"){
+        if(who === "__none__"){
+          wmCardKeys().forEach(function(k){ setCardRevs(k, []); });
+          saveCardRev();
+          renderOrders(); renderOrderAssign();
+          renderWm();
+          return;
+        }
+        // Ticking only composes the action; Split or Assign all commits it.
+        wmSelToggle(who);
+        renderWm();
+        return;
+      }
+      if(wmKind === "ordercard"){
+        if(who === "__none__") setCardRevs(wmKey, []);
+        else toggleCardRev(wmKey, who);
+        saveCardRev();
+      } else {
+        if(who === "__none__") setOrderReviewers(wmKey, []);
+        else toggleOrderReviewer(wmKey, who);
+        saveOrderAssign();
+      }
       renderOrders(); renderOrderAssign();
       // Stay OPEN: picking several reviewers is the point, and reopening the
       // dialog for each one would make the common case the slow one.
@@ -5705,14 +6479,16 @@
     $("pm-list").innerHTML = undoBar + (list.length ? list.map(function(r){
       var k = cardKey(r);
       return '<div class="pmrow" style="--pc:'+sportColor(r.cat)+'">'
-        + '<span class="pmac">'+esc(OAKIND === "orders" ? r.number : (r.ac || "\u2014"))+'</span>'
+        + '<span class="pmac">'
+        +   esc(r._unit === "order" ? r.number : (r.ac || "\u2014")) + '</span>'
         + '<span class="pmmid">'
         // Player name is not guaranteed to come back from the queue question,
         // so this leads with the order number when it's absent rather than
         // rendering a bare dash where a name used to be.
         +   '<span class="pmplayer">'
-        +     esc(OAKIND === "orders" ? (r.name || ("Order " + r.number))
-                                      : (r.player || ("Order " + r.order)))+'</span>'
+        +     esc(r._unit === "order" ? (r.name || ("Order " + r.number))
+              : r._unit === "card" ? ("Card in order " + r.order)
+              : (r.player || ("Order " + r.order)))+'</span>'
         +   '<span class="pmmeta">'
         +     (r.player ? 'order '+esc(r.order)+' \u00b7 ' : '')
         +     esc(categoryLabel(r.cat, r.catRaw))
@@ -5720,13 +6496,14 @@
         // The Card type link goes to the card-type task, so its status belongs
         // beside it -- otherwise you open the link just to find out.
         +     (r.taskStat ? ' \u00b7 type: '+esc(prettyStatus(r.taskStat)) : "")
-        +     (by === "category" && oaStore()[k] ? ' \u00b7 '+esc(oaStore()[k]) : "")
+        +     (by === "category" && oaHolders(r).length
+                 ? ' \u00b7 '+esc(oaHolders(r).join(", ")) : "")
         +     (r.due ? ' \u00b7 due '+esc(fmtDue(r.due)) : "")+'</span>'
         + '</span>'
         // Queue rows carry cardUrl / taskUrl -- NOT `url`, which is the Orders
         // shape. This checked r.url, so the link never rendered at all.
         + '<span class="pmlinks">'
-        +   (OAKIND === "orders"
+        +   (r._unit === "order"
               ? (r.url ? '<a class="pmlink" href="'+esc(r.url)+'" target="_blank" rel="noopener">Order</a>' : '')
               : (r.cardUrl ? '<a class="pmlink" href="'+esc(r.cardUrl)+'" target="_blank" rel="noopener">Card</a>' : ''))
         // data-done marks it: opening the card-type task means the person is
@@ -5751,16 +6528,21 @@
   var pmUndo = null;    // {key, who} or null
 
   function pmDrop(k, viaLink){
-    var store = oaStore();
-    if(!k || !store[k]) return;
-    var who = store[k];
+    if(!k) return;
     var row = oaRows().filter(function(r){ return oaKeyOf(r) === k; })[0];
+    // Read through oaHolders: on the review unit the holder lives in one of two
+    // stores, and indexing a single store directly finds neither.
+    var holders = row ? oaHolders(row) : [];
+    // The modal is open on one person, so that is the holder being dropped.
+    var who = (pmOpen && pmOpen.by === "person" && holders.indexOf(pmOpen.name) >= 0)
+      ? pmOpen.name : holders[0];
+    if(!who) return;
     var cat = row ? row.cat : "";
     // Only a card-type click counts as work done. The manual x is an
     // unassignment, not a completion, so it must not inflate anyone's tally.
     if(viaLink) recordCompletion(who, cat, 1);
     pmUndo = {key:k, who:who, viaLink:!!viaLink, cat:(viaLink ? cat : "")};
-    delete store[k];
+    oaRemove(k, who);
     oaSave();
     if(OAKIND === "orders") renderOrders(); else renderQueue();
     renderOrderAssign();
@@ -5769,8 +6551,7 @@
 
   function pmRestore(){
     if(!pmUndo) return;
-    if(pmUndo.multi) addOrderReviewer(pmUndo.key, pmUndo.who);
-    else oaStore()[pmUndo.key] = pmUndo.who;
+    oaRestore(pmUndo.key, pmUndo.who);
     // Undo has to take the tally back too, or a misclick permanently credits
     // someone for work they didn't do.
     if(pmUndo.cat) recordCompletion(pmUndo.who, pmUndo.cat, -1);
@@ -5799,9 +6580,317 @@
   // strict string compare silently yields no matches and a column of dashes.
   function orderKeyOf(v){ return String(v == null ? "" : v).replace(/\D+/g, ""); }
 
+  // How far through grading an order is, from its cards on the queue question.
+  //
+  // Summed from done/tasks across the order's cards rather than averaging the
+  // per-card percentages: a 1-task card and a 20-task card are not equal
+  // fractions of the order, and averaging would let a nearly-finished small
+  // card mask a barely-started large one.
+  //
+  // Returns null when the queue has no cards for the order -- "not loaded" and
+  // "0% done" are different facts.
+  // The cards in one order, sorted by AC number, with each grading step shown
+  // as a coloured state chip.
+  //
+  // Sorted numerically on the digits of the AC: these are numbers stored as
+  // text, so a plain string sort puts AC4060309 after AC406031.
+  // One combo instance per expanded order, created on demand and re-bound
+  // after each render (innerHTML replaces the input, so the factory's
+  // already-bound guard sits on a discarded element).
+  var ocCombos = {};
+  function ocComboFor(num){
+    var cid = "oc-as-" + String(num).replace(/\W+/g, "");
+    if(!ocCombos[num]){
+      ocCombos[num] = makeAssignCombo({
+        prefix: cid, unitPlural:"cards",
+        rows:function(){ return oCards; },
+        keyOf:cardRevKey,
+        selected:function(){
+          var sel = {};
+          cPickedIn(num).forEach(function(k){ sel[k] = true; });
+          return sel;
+        },
+        loadOf:cardRevSizeOf,
+        roster:function(){ return REVIEWERS; },
+        catsOf:function(c){ return [c.pre ? "review_pregraded" : "review_raw"]; },
+        multi:true
+      });
+    }
+    return ocCombos[num];
+  }
+
+  // Split a sorted list into CONTIGUOUS blocks, one per person, in order:
+  // 10 items across 2 gives 1-5 and 6-10, not alternating. An uneven split
+  // gives the earlier people the extra one each (10 across 3 -> 4/3/3), so the
+  // blocks stay as close to equal as they can while remaining contiguous.
+  //
+  // Contiguous matters because the numbers are worked in order: a person with
+  // 1-5 has a range to check off, where alternating leaves everyone holding a
+  // scattered set.
+  function splitBlocks(items, people){
+    var out = [];      // [{who, items:[...]}]
+    if(!items.length || !people.length) return out;
+    var base = Math.floor(items.length / people.length);
+    var rem  = items.length % people.length;
+    var i = 0;
+    people.forEach(function(who, n){
+      var take = base + (n < rem ? 1 : 0);
+      if(!take) return;
+      out.push({who:who, items:items.slice(i, i + take)});
+      i += take;
+    });
+    return out;
+  }
+
+  function commitCardAssign(num, mode){
+    var combo = ocComboFor(num);
+    var who = combo.picks;
+    var keys = cPickedIn(num);
+    if(!keys.length){ banner("Pick some cards first.", "err"); return; }
+    if(!who.length){
+      banner("Tick one or more names in <b>Assign to</b> first.", "err");
+      var inp = $("oc-as-" + String(num).replace(/\W+/g,"") + "-assignee");
+      if(inp && inp.focus) inp.focus();
+      return;
+    }
+    var cards = oCards.filter(function(c){ return keys.indexOf(cardRevKey(c)) >= 0; })
+      .sort(function(a, b){
+        return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
+             - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
+      });
+    var tally = {}, ranges = [];
+    if(mode === "split"){
+      splitBlocks(cards, who).forEach(function(b){
+        b.items.forEach(function(c){ addCardRev(cardRevKey(c), b.who); });
+        tally[b.who] = b.items.length;
+        // Report the actual AC range each person got, so the split can be
+        // checked against the table without counting rows.
+        ranges.push(esc(b.who) + " " + (b.items[0].ac || "?")
+                    + (b.items.length > 1 ? "\u2013" + (b.items[b.items.length-1].ac || "?") : ""));
+      });
+    } else {
+      cards.forEach(function(c){
+        who.forEach(function(n){
+          addCardRev(cardRevKey(c), n);
+          tally[n] = (tally[n] || 0) + 1;
+        });
+      });
+    }
+    saveCardRev();
+    // Clear the selection: leaving it ticked invites a second assign onto
+    // cards that just got one.
+    keys.forEach(function(k){ delete cSelected[k]; });
+    combo.clear();
+    renderOrders(); renderOrderAssign();
+    banner(mode === "split"
+      ? ranges.join(" \u00b7 ") + " \u2014 split in order"
+      : Object.keys(tally).map(function(n){
+          return "<b>"+esc(n)+"</b> "+tally[n];
+        }).join(" \u00b7 ") + " \u2014 all cards");
+  }
+
+  // Take reviewers OFF cards. Acts on the selection when there is one, and on
+  // every assigned card in the order when there isn't -- clearing after a bad
+  // split shouldn't require re-selecting the same cards first.
+  //
+  // Armed like every other destructive control: one click states what it will
+  // do, the second does it.
+  function clearCardAssign(btn, num){
+    var picked = cPickedIn(num);
+    var scope = picked.length ? picked
+      : oCards.filter(function(c){ return orderKeyOf(c.order) === orderKeyOf(num); })
+          .map(cardRevKey);
+    var hits = scope.filter(function(k){ return cardRevs(k).length; });
+    if(!hits.length){
+      disarmAction(btn);
+      banner("No reviewers to clear on these cards.");
+      return;
+    }
+    armAction(btn, "Clear " + hits.length + " card" + (hits.length===1?"":"s") + "? Click again",
+      function(){
+        hits.forEach(function(k){ setCardRevs(k, []); });
+        saveCardRev();
+        renderOrders(); renderOrderAssign();
+        banner("Cleared reviewers from <b>"+hits.length+"</b> card"
+               + (hits.length===1?"":"s") + (picked.length ? " (selected)" : " in this order") + ".");
+      });
+  }
+
+  function orderCardsHTML(o){
+    var cards = oCards.filter(function(r){
+      return orderKeyOf(r.order) === orderKeyOf(o.number);
+    }).sort(function(a, b){
+      var x = Number(String(a.ac||"").replace(/\D+/g,"")) || 0;
+      var y = Number(String(b.ac||"").replace(/\D+/g,"")) || 0;
+      return x - y || String(a.ac||"").localeCompare(String(b.ac||""));
+    });
+
+    if(!cards.length){
+      return '<div class="ocards"><div class="ocempty">'
+        + (oCards.length
+            ? 'No cards on the orders queue for this order.'
+            : 'Orders queue not loaded yet.')
+        + '</div></div>';
+    }
+
+    // Per-order toolbar. Selection and assignment happen inside the order you
+    // are looking at, so the controls live there rather than at table level.
+    var picked = cPickedIn(o.number);
+    // One combo per expanded order, so several can be open at once without
+    // sharing element ids.
+    var cid = "oc-as-" + String(o.number).replace(/\W+/g, "");
+    // How many cards in THIS order currently carry a reviewer.
+    var assignedIn = cards.filter(function(c){ return cardRevs(cardRevKey(c)).length; }).length;
+    var bar = '<div class="ocbar">'
+      + '<span class="ocbar-l">Select</span>'
+      + '<button class="btn ghost qn" data-cpick="5"  data-ord="'+esc(o.number)+'">5</button>'
+      + '<button class="btn ghost qn" data-cpick="10" data-ord="'+esc(o.number)+'">10</button>'
+      + '<button class="btn ghost qn" data-cpick="all" data-ord="'+esc(o.number)+'">All</button>'
+      + '<button class="btn ghost qn" data-cpick="0"  data-ord="'+esc(o.number)+'"'
+      +   (picked.length ? '' : ' disabled')+'>None</button>'
+      + (picked.length ? '<span class="ocbar-n">'+picked.length+' selected</span>' : '')
+      // The reviewer list lives IN the toolbar, not behind a dialog: picking
+      // who and picking how many are one decision, so they belong together.
+      + '<span class="ocbar-l" style="margin-left:6px">Assign to</span>'
+      + '<span class="qcombo ocbar-combo" id="'+cid+'-assignee-wrap">'
+      +   '<input id="'+cid+'-assignee" class="qcinput" type="text" role="combobox"'
+      +     ' autocomplete="off" aria-autocomplete="list" aria-expanded="false"'
+      +     ' aria-controls="'+cid+'-assignee-menu" placeholder="'
+      +     (picked.length ? 'Type a name\u2026' : 'Pick cards first')+'">'
+      +   '<div id="'+cid+'-assignee-menu" class="qcmenu" role="listbox" hidden></div>'
+      + '</span>'
+      + '<button class="btn ghost" data-csplit="'+esc(o.number)+'"'
+      +   (picked.length ? '' : ' disabled')+'>Split evenly</button>'
+      + '<button class="btn" data-call="'+esc(o.number)+'"'
+      +   (picked.length ? '' : ' disabled')+'>Assign all</button>'
+      // Clears reviewers OFF cards. Enabled whenever anything in this order has
+      // a reviewer, so it can undo an assignment without re-selecting first.
+      + '<button class="btn ghost" data-cclear="'+esc(o.number)+'"'
+      +   (assignedIn ? '' : ' disabled')+'>Clear assign</button>'
+      + '</div>';
+
+    var head = '<div class="ocrow ochead">'
+      + '<span><input type="checkbox" class="ocall" data-ord="'+esc(o.number)+'"'
+      +   (picked.length && picked.length === cards.length ? ' checked' : '')
+      +   ' aria-label="Select all cards in this order"></span>'
+      + '<span>Card</span><span>AC #</span><span>Card status</span><span>Pre-graded</span>'
+      + '<span style="text-align:right">Tasks complete</span>'
+      + '<span style="text-align:right">Pct complete</span>'
+      + TASK_STEPS.map(function(st){ return '<span>'+esc(st.label)+'</span>'; }).join("")
+      + '<span>Reviewer</span>'
+      + '</div>';
+
+    return '<div class="ocards">' + bar + '<div class="octable">' + head + cards.map(function(c){
+      // Prefer the question's own PCT_COMPLETE; fall back to the counts when
+      // it is absent, so the number always agrees with the pair beside it.
+      var pct = c.pct != null ? Math.round(c.pct)
+              : (c.done != null && c.tasks) ? Math.round(c.done / c.tasks * 100)
+              : null;
+      // Band on the COUNTS when we have them -- 4 of 7 is exactly orange, with
+      // no rounding at the boundary. Falls back to the percentage otherwise.
+      var band = (c.done != null && c.tasks) ? stepBand(c.done, c.tasks) : pctBand(pct);
+      var ck = cardRevKey(c), revs = cardRevs(ck);
+      return '<div class="ocrow'+(cSelected[ck]?' sel':'')+'">'
+        + '<span><input type="checkbox" class="ocsel" data-k="'+esc(ck)+'"'
+        +   (cSelected[ck]?' checked':'')+'></span>'
+        // Same "Click Me" convention as every other table in the app.
+        + '<span class="oc-url">'+(c.cardUrl
+            ? '<a href="'+esc(c.cardUrl)+'" target="_blank" rel="noopener">Click Me</a>'
+            : '<span class="oc-nourl">\u2014</span>')+'</span>'
+        + '<span class="oc-ac">'+esc(c.ac || "\u2014")+'</span>'
+        + '<span><span class="ostat" style="background:'+statusColor(c.cardStatus)+'22;color:'
+        +   statusColor(c.cardStatus)+'">'+esc(prettyStatus(c.cardStatus))+'</span></span>'
+        + '<span class="'+(c.pre ? "oc-pre" : "oc-raw")+'">'+(c.pre ? "yes" : "no")+'</span>'
+        + '<span class="oc-done"'+(band ? ' style="color:'+band.bg+'"' : '')+'>'+(c.done != null && c.tasks != null
+            ? c.done + " / " + c.tasks : "\u2014")+'</span>'
+        + (band
+            ? '<span class="oc-pct" style="background:'+band.bg+';color:'+band.fg+'">'
+              + pct + '%</span>'
+            : '<span class="oc-pct none">\u2014</span>')
+        + c.steps.map(function(st){
+            var col = taskColor(st.val);
+            return '<span><span class="ocstate" style="background:'+col.bg+';color:'+col.fg+'"'
+              + ' title="'+esc(st.label)+': '+esc(taskLabel(st.val))+'">'
+              + esc(taskLabel(st.val))+'</span></span>';
+          }).join("")
+        // A card inside an order can be reviewed by its own people, separately
+        // from whoever holds the order.
+        + '<span class="oc-rev">'
+        +   revs.map(function(n){
+              return '<i class="hwho2" title="'+esc(n)+'" style="background:'
+                + personColor(n)+'">'+esc(initials(n))+'</i>';
+            }).join("")
+        +   '<button class="qassignbtn'+(revs.length?' on':'')+'"'
+        +     ' data-cassign="'+esc(ck)+'">'
+        +     (revs.length === 0 ? 'Assign\u2026'
+             : revs.length === 1 ? esc(revs[0])
+             : esc(revs[0]) + ' +' + (revs.length - 1))
+        +   '</button>'
+        + '</span>'
+        + '</div>';
+    }).join("") + '</div></div>';
+  }
+
+  var _progCache = null, _progFor = null;
+  function orderProgress(num){
+    if(_progFor !== oCards){
+      _progCache = {};
+      _progFor = oCards;
+      oCards.forEach(function(r){
+        var k = orderKeyOf(r.order);
+        if(!k) return;
+        var e = _progCache[k] || (_progCache[k] = {done:0, tasks:0, cards:0});
+        e.cards++;
+        if(r.done  != null) e.done  += r.done;
+        if(r.tasks != null) e.tasks += r.tasks;
+      });
+      Object.keys(_progCache).forEach(function(k){
+        var e = _progCache[k];
+        e.pct = e.tasks ? Math.round(e.done / e.tasks * 1000) / 10 : null;
+      });
+    }
+    return _progCache[orderKeyOf(num)] || null;
+  }
+
   // Set when a join completes so the UI can say WHY the column is empty
   // instead of showing dashes that look like missing data.
   var oDaysNote = "";
+
+  // The Orders tab needs card-level rows for two things it didn't before: the
+  // % complete column and the expanded card list. It loads the ORDER question,
+  // so the queue has to be fetched separately -- once, and only if nothing has
+  // loaded it already.
+  // Rows from 37687. Kept SEPARATE from qRows: that question (35905) carries
+  // category and the card-type task URL, this one carries per-task grading
+  // state. Merging them would mean every consumer had to know which fields
+  // might be missing.
+  var oCards = [];
+  var qCardsAt = 0;
+  function ensureQueueCards(){
+    if(oCards.length || Date.now() - qCardsAt < 300000) return;
+    qCardsAt = Date.now();
+    var q = new URLSearchParams({tab:"orders", view:"cards"});
+    fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d || !d.rows || !d.rows.length) return;
+        if(!window.__ocCols){
+          window.__ocCols = Object.keys(d.rows[0]);
+          console.info("orders queue columns:", window.__ocCols);
+        }
+        oCards = normalizeOrderCards(d.rows);
+        // Fresh card state is exactly when a finished card should leave a
+        // reviewer's queue.
+        pruneReview();
+        if(TAB === "orders" && OSUB === "orders") renderOrders();
+        if(TAB === "orders" && OSUB === "assign") renderOrderAssign();
+      })
+      .catch(function(){
+        // A failed fetch must not blank the tab: the % column shows a dash and
+        // an expanded row says the queue isn't loaded.
+        qCardsAt = 0;
+      });
+  }
 
   function ensureOrderDays(){
     // 5 min is well inside how fast days-in-process moves (a day), and stops a
@@ -5885,7 +6974,11 @@
         .sort(function(a,b){ return b.n - a.n; });
       return '<div class="dnrow">'
         + '<span class="dnrank">'+(i+1)+'</span>'
-        + '<span class="dnname"><i class="hwho2" style="background:'+personColor(p.name)+'">'
+        // Clicking a name here opens what they are holding right now, with
+        // the links -- the tally alone tells you the count, not the work.
+        + '<span class="dnname clickable" data-dnperson="'+esc(p.name)+'"'
+        +   ' role="button" tabindex="0" title="Show what they are holding">'
+        +   '<i class="hwho2" style="background:'+personColor(p.name)+'">'
         +   esc(initials(p.name))+'</i>'+esc(p.name)+'</span>'
         + '<span class="dnchips">' + mine.map(function(m){
             return '<span class="dnchip" style="--sk:'+sportColor(m.c)+'">'
@@ -5900,34 +6993,32 @@
   function renderOrderAssign(){
     if(!$("oafeed")) return;
     var by = ($("oa-by")||{}).value || "person";
-    var rowsSrc = oaRows(), store = oaStore();
+    var rowsSrc = oaRows();
     var idx = {};
     rowsSrc.forEach(function(r){ idx[oaKeyOf(r)] = r; });
 
     var groups = {};
     if(by === "person"){
       rosterOf(OAKIND === "orders" ? "order" : "card").forEach(function(p){ groups[p] = []; });
-      for(var k in store){
-        var r = idx[k]; if(!r) continue;
-        // An order can carry several reviewers, so it appears under each of
-        // them. A card has exactly one holder.
-        var holders = OAKIND === "orders" ? orderReviewers(k) : [store[k]];
-        holders.forEach(function(h){
+      // Walk the ROWS, not the store: the review unit has two stores behind it
+      // and iterating either one alone would drop half the work.
+      rowsSrc.forEach(function(r){
+        oaHolders(r).forEach(function(h){
           if(!h) return;
           (groups[h] = groups[h] || []).push(r);
         });
-      }
+      });
     } else {
       rowsSrc.forEach(function(r){
-        var k = oaKeyOf(r);
-        var has = OAKIND === "orders" ? orderReviewers(k).length : !!store[k];
-        if(has) (groups[r.cat] = groups[r.cat]||[]).push(r);
+        if(oaHolders(r).length) (groups[r.cat] = groups[r.cat]||[]).push(r);
       });
     }
 
     var names = Object.keys(groups).sort(function(a,b){
       return (groups[b].length - groups[a].length) || a.localeCompare(b); });
-    var total = Object.keys(store).filter(function(k){ return idx[k]; }).length;
+    // Count the ROWS that are held, so an order and a card assigned separately
+    // are two pieces of work rather than one.
+    var total = rowsSrc.filter(function(r){ return oaHolders(r).length; }).length;
 
     // Search is always about a PERSON, whichever grouping is showing. Grouped by
     // person it matches the card's own name; grouped by category it keeps the
@@ -5944,7 +7035,7 @@
       names = names.filter(function(n){
         if(by === "person") return graderMatches(n, q);
         return groups[n].some(function(r){
-          var who = oaStore()[oaKeyOf(r)];
+          var who = oaHolders(r)[0] || "";
           return who && graderMatches(who, q);
         });
       });
@@ -6008,10 +7099,23 @@
                 var k2 = oaKeyOf(r);
                 // Orders carry their own number, url and days; cards borrow
                 // days from the order join. One row shape either way.
-                var isOrd = OAKIND === "orders";
-                var d   = isOrd ? r.days : oDays[orderKeyOf(r.order)];
-                var num = isOrd ? r.number : r.order;
-                var url = isOrd ? r.url : r.taskUrl;
+                // Three row shapes: a whole order, a single card inside an
+                // order, and a card-queue card. Each carries its own number,
+                // link and progress figure.
+                var unit = OAKIND === "orders" ? r._unit : "queue";
+                var d, num, url, sub = "";
+                if(unit === "order"){
+                  d = r.days; num = r.number; url = r.url;
+                  var pr2 = orderProgress(r.number);
+                  sub = pr2 && pr2.pct != null ? pr2.pct + "% done" : "order";
+                } else if(unit === "card"){
+                  d = oDays[orderKeyOf(r.order)];
+                  num = r.ac; url = r.cardUrl;
+                  sub = "card in " + r.order
+                      + (r.done != null && r.tasks ? " \u00b7 " + r.done + "/" + r.tasks : "");
+                } else {
+                  d = oDays[orderKeyOf(r.order)]; num = r.order; url = r.taskUrl;
+                }
                 return '<div class="arow">'
                   + '<span class="abar" style="background:'+sportColor(r.cat)+'"></span>'
                   // One row, five columns, sharing a grid with the header.
@@ -6023,9 +7127,9 @@
                   +   '<span class="ac-ord"><b>'+esc(num)+'</b></span>'
                   +   '<span class="ac-cat"><i class="hdot" style="background:'+sportColor(r.cat)+'"></i>'
                   +     esc(categoryLabel(r.cat, r.catRaw))
+                  +     (sub ? ' \u00b7 '+esc(sub) : '')
                   +     (by==="category"
-                          ? ' \u00b7 '+esc(isOrd ? orderReviewers(k2).join(", ")
-                                                 : (oaStore()[k2]||""))
+                          ? ' \u00b7 '+esc(oaHolders(r).join(", "))
                           : '')+'</span>'
                   +   '<span class="ac-due">'+(r.due ? esc(fmtDue(r.due)) : "\u2014")+'</span>'
                   // A dash means the order join hasn't landed, not zero days.
@@ -6034,7 +7138,8 @@
                   + '</span>'
                   + (focus ? '<button class="pmx arowx" data-drop="'+esc(k2)+'"'
                              + ' data-group="'+esc(n)+'"'
-                             + ' title="'+(isOrd ? "Remove this reviewer" : "Unassign this card")
+                             + ' title="'+(unit === "queue" ? "Unassign this card"
+                                                            : "Remove this reviewer")
                              + '">\u00d7</button>' : '')
                   + '</div>';
               }).join("") + (list.length > 8
@@ -6098,7 +7203,11 @@
       return '<div class="zcard" style="border-left:3px solid '+c+'">'
         + '<div class="zhead" style="padding-bottom:10px">'
         +   '<span class="aini" style="background:'+c+';color:#0B1016">'+esc(initials(p))+'</span>'
-        +   '<span class="zname" style="text-transform:none;letter-spacing:0">'+esc(p)+'</span>'
+        // The name opens the person's queue: what they hold, with the links
+        // to work it. Same modal the Assignments panel uses.
+        +   '<span class="zname clickable" data-tperson="'+esc(p)+'"'
+        +     ' role="button" tabindex="0" title="Show what they are holding"'
+        +     ' style="text-transform:none;letter-spacing:0">'+esc(p)+'</span>'
         // "idle" was inline opacity:.5, which is the same thin-grey problem the
         // stylesheet just fixed everywhere else. It stays secondary by SIZE and
         // by not being the accent colour, not by fading the glyphs.
@@ -7391,6 +8500,8 @@
           if(OSUB === "assign") renderOrderAssign();
           if(OSUB === "team")   renderTeam();
         } else if(TAB==="orders"){
+          // Orders loaded: the review queues can be pruned against them.
+          setTimeout(pruneReview, 0);
           if(OSUB === "assign") setTimeout(renderOrderAssign, 0);
           if(arr.length && !window.__oCols){
             window.__oCols = Object.keys(arr[0]);
@@ -8009,6 +9120,13 @@
     <input id="wm-search" class="wmsearch" type="search" autocomplete="off"
            placeholder="Type a name…" aria-label="Search team members">
     <div id="wm-list" class="wmlist" role="listbox"></div>
+    <!-- Only shown for a bulk card selection: ticking names there chooses WHO,
+         and these choose HOW the cards are divided among them. -->
+    <div id="wm-foot" class="wmfoot" hidden>
+      <span class="wmfoot-n" id="wm-foot-n"></span>
+      <button class="btn ghost" id="wm-split">Split evenly</button>
+      <button class="btn" id="wm-all">Assign all</button>
+    </div>
   </div>
 </div>
 

@@ -1868,6 +1868,253 @@ pack column. A demo that invents friendlier names hides precisely the mismatches
 that break the page — this one is fed through the app's own normalizer in the
 test to prove the weighted average comes out as a number rather than a dash.
 
+## Orders: % complete and expandable cards
+
+Backed by **question 37687 "Orders Queue"**
+(`METABASE_ORDERS_QUEUE_CARD_ID`) — card-level rows carrying per-task grading
+state (`CROP`, `CARD_TYPE`, `CORNER`, `EDGE`, `SURFACE`, `CENTERING`, `REVIEW`)
+plus `DONE` / `TASKS` / `REMAINING` / `PCT_COMPLETE`.
+
+**Its own key and its own store.** 37687 has no category and no card-type task
+URL; 35905 has both but no task state. They're normalised separately
+(`normalizeOrderCards` vs `normalizeQueue`) into `oCards` and `qRows`, because a
+shared normalizer would have to pretend the missing fields exist. The Orders tab
+fetches 37687 once, cached 5 minutes.
+
+### % done column
+
+Between Status and Customer. **Sums `done` / `tasks` across the order's cards**
+rather than averaging the per-card percentages: a 1-task card and a 20-task card
+are not equal fractions of an order, and averaging lets a nearly-finished small
+card mask a barely-started large one. Tooltip gives the raw counts. A dash means
+the queue hasn't loaded — not 0%.
+
+### Split evenly on Orders and Card Queue
+
+Both tables gained **Split evenly** beside their bulk button, using the same
+allocator. `Bulk assign` was renamed **Assign all**, since there are now two
+ways to hand out a selection.
+
+The Card Queue's Assign-to list is multi-select too, but only so a batch can be
+*divided*: a card still ends up with exactly one owner. Pressing **Assign all**
+there with several names ticked would have to pick a winner, so it refuses and
+points at Split evenly rather than resolving the ambiguity silently.
+
+### The Assign to list is multi-select on Orders
+
+Each name carries a **checkbox**. Tick several and Bulk assign puts all of them
+on every selected order — an order can be reviewed by more than one person, so
+naming one at a time was the wrong shape for the control.
+
+- The menu **stays open** while you tick; choosing several is the point.
+- The input shows the name when one is ticked and `N selected` beyond that, and
+  that label is excluded from the filter — typing "2 selected" back into a name
+  search would match nobody.
+- Mismatched skills are counted **per order-person pair**: two reviewers both
+  lacking the skill on one order is two mismatches, and reporting one would
+  understate it.
+
+The **Card Queue combo stays single-select**. A card is worked by one person;
+giving it a multi control would imply otherwise.
+
+### Splitting a selection between reviewers
+
+The reviewer list lives **in the order's toolbar**, not behind a dialog —
+picking who and picking how many are one decision, so they belong together.
+Each name carries a checkbox, and there are two commits:
+
+- **Split evenly** — contiguous blocks, ascending. 10 cards across 2 gives
+  `1-5` and `6-10`, not alternating. An uneven split gives the earlier people
+  one extra each (10 across 3 is 4/3/3) so the blocks stay as close to equal as
+  they can while staying contiguous.
+- **Assign all** — puts every ticked name on every selected card.
+
+Contiguous matters because the numbers get worked in order: a person holding
+`1-5` has a range to check off, where alternating leaves everyone with a
+scattered set.
+
+`splitBlocks()` is defined once and used by all three surfaces — cards inside an
+order, the Orders table, and the Card Queue. Each sorts **ascending by its own
+identifier** first (order number, or AC), whatever the table happens to be
+sorted by, so "1-5 and 6-10" means the same thing every time. The banner reports
+the actual ranges (`abe 3942662-3967148 · dom 3974918-3996958`) rather than just
+counts, so a split can be checked without counting rows.
+
+The ticks compose an action rather than showing current state, so nothing is
+written until you press one of the two buttons. After committing, both the card
+selection and the tick list clear — leaving them set invites a second assign
+onto cards that just got one. The banner reports the per-person tally.
+
+**One combo instance per expanded order**, keyed by order number, so two open
+orders can't collide on element ids. Each is re-bound after every paint:
+`innerHTML` replaces the input, which leaves the factory's already-bound flag
+sitting on a discarded node.
+
+### Clear assign
+
+Takes reviewers **off** cards. It acts on the selection when there is one and on
+every assigned card in the order when there isn't — clearing after a bad split
+shouldn't require re-selecting the same cards first.
+
+Enabled by whether anything in the order **is assigned**, not by whether
+anything is selected, for the same reason.
+
+Armed like every other destructive control: the first click states the count
+("Clear 6 cards? Click again"), the second does it. It only touches cards that
+actually carry a reviewer, and only `cardRev` — an order-level reviewer is
+cleared from the order row, not from here.
+
+### Selecting cards inside an order
+
+Each expanded order has its own toolbar: **Select 5 · 10 · All · None**, a
+select-all checkbox in the header, per-card checkboxes, and
+**Assign N cards…**.
+
+**Select 5 picks 5 cards in that order**, not five across every order you have
+open — `cPickedIn(order)` scopes the selection to the order whose button you
+clicked. Picks go in AC order, add rather than reshuffle, and **skip cards that
+already have a reviewer**, the same rule as the order and queue pickers: picking
+those would mean the next assign silently adds to someone else's work. The
+banner names what it skipped.
+
+**Assign N cards…** opens the same multi-select picker across the whole
+selection. Two details that matter there:
+
+- "Currently assigned" means on **every** selected card. Ticking someone who is
+  on only some of them would claim more than is true.
+- Clicking a name **adds** across the selection, unless they're already on all
+  of them, in which case it removes. Toggling per card would scatter people on
+  and off depending on where each card happened to start.
+
+The skills it ranks by come from the selection itself — pre-graded, raw, or both
+if it's mixed.
+
+### Assigning a card inside an order
+
+Every expanded card row carries its own **Reviewer** control, so work can be
+handed out at either grain: a whole order to one or several reviewers, or
+individual cards within it to different people. Both use the same multi-select
+picker.
+
+`cardRev` is keyed on the **AC number alone**, not `order|ac|status`. The AC
+identifies the slab; its status is merely where the slab has got to. Keying on
+the composite would orphan an assignment the moment the card advanced a
+step — the same trap that already bit `cardKey` on the queue.
+
+A single card needs exactly one skill — `review_pregraded` or `review_raw`,
+from its own `IS_PRE_GRADED` — where a whole order needs whichever skills its
+cards collectively imply. The picker's load figure counts cards for a card and
+orders for an order; ranking a reviewer by the wrong queue would be a
+plausible-looking lie.
+
+Three units of work now share one picker (queue card, order, card-in-order),
+routed by a `kind` argument. The 22:00 Manila rollover clears all three.
+
+### Expand an order
+
+The order number is the toggle. Cards sort by AC number **numerically**, on the
+digits: they're numbers stored as text, so a string sort puts `AC4060309` after
+`AC406031`.
+
+### Completion bands
+
+Keyed to how many of the seven grading steps are **verified**:
+
+| complete | colour |
+|---|---|
+| 0 of 7 | red `#DC2626` |
+| 1-2 | light red `#FCA5A5` |
+| 3-4 | orange `#F59E0B` |
+| 5 | light green `#86EFAC` |
+| 6 | green `#22C55E` |
+| 7 of 7 | dark green `#14532D` |
+
+`Tasks complete` and `Pct complete` share the band — they're two readings of one
+number, so a white count beside a coloured percentage read as two signals.
+
+Expressed as **sevenths**, not raw counts, so the same function bands a card
+with a different step count and bands the order-level aggregate, which only ever
+has a percentage. Cut points are the midpoints between adjacent sevenths.
+
+**0 and 100 are exact.** "Nothing started" and "fully complete" are states, not
+ranges: 0.1% is light red, not red, and 99.9% is green, not dark green. Rounding
+into either would be a lie.
+
+Banded on the counts when they're known, so 4 of 7 is exactly orange with no
+boundary rounding; on the percentage otherwise.
+
+#### ⚠ reviewer_override moved off amber
+
+Its amber `#F5A524` was a near-match for the new 3-4 band orange `#F59E0B`,
+two columns away in the same row — close enough to look like a mistake rather
+than a relationship. It's violet `#A78BFA` now.
+
+The **greens overlapping is fine and deliberate**: `done` sits on the same light
+green as the 5-of-7 band, and both palettes use green to mean progress. A test
+allows exact reuse but fails on near-matches, which is the case that reads as a
+bug.
+
+### The question dropped its DONE column
+### The question dropped its DONE column
+
+37687 now returns `TASKS` / `REMAINING` plus `APPROVED` and
+`AWAITING_APPROVAL`, with no `DONE`. Tasks-complete is derived as
+`tasks - remaining`, preferring an explicit `DONE` if it ever returns. The
+percentage prefers the question's own `PCT_COMPLETE` and falls back to the
+counts, so the number always agrees with the pair beside it.
+
+Step order is crop, card type, corner, edge, surface, centering, review — card
+type sits after crop rather than up against the percentage column.
+
+### "Done" is not complete until it is verified
+
+A step counts toward **Tasks complete** only once it has been *verified*.
+`done` means the work is finished but still awaiting approval, so it does not
+count.
+
+This is what the question itself does, and the arithmetic in the screenshot
+proves it: a card showing `crop=done`, `card_type=approved`, `corner=done`
+reports `TASKS 7 / REMAINING 6 / 14.3%` — **1 of 7, not 3**. Only the approved
+step counted.
+
+`approved`, `done_skip_verify` and `reviewer_override` all count: each is a
+terminal decision. The client prefers the question's own `TASKS`/`REMAINING`
+and only falls back to counting steps itself, using the same rule, so a fallback
+cannot disagree with the question about what "complete" means.
+
+The demo had been counting every non-queued step, which made every card look
+further along than it was — 282 of its 616 cards carry at least one unverified
+`done`, so the difference is not marginal.
+
+### Task-state colours
+
+| state | colour |
+|---|---|
+| `queued` | grey `#6B7280` |
+| `done` | light green `#86EFAC` |
+| `done_skip_verify` | dark green `#14532D` |
+| `approved` | **the same** dark green |
+| `reviewer_override` | amber `#F5A524` |
+
+`approved` and `done_skip_verify` share a colour deliberately — both mean
+"finished, no further check needed".
+
+**Queued is grey**, not pink: it's the absence of progress rather than a state
+worth drawing the eye. It also frees pink to mean exactly one thing — the 50-69%
+completion band. A test asserts no task state reuses a band colour.
+
+**Tasks complete takes the same band colour as Pct complete.** They're two
+readings of one number, so they shouldn't disagree; a white count beside a red
+percentage read as two separate signals.
+
+**`reviewer_override` wasn't in the original four** but 37687 returns it on a
+large share of rows, so it needed one. Amber: finished, but by a human
+overriding the grade, which is worth picking out from the greens. Unspecified —
+easy to change.
+
+Any state the palette doesn't know renders neutral grey rather than silently
+borrowing another state's colour.
+
 ## Dates don't apply to Orders
 
 Grain, Start date and End date measure work **completed** in a window. Orders
@@ -2044,6 +2291,14 @@ stay a plain string compare.
 
 Click any header to sort; click it again to flip. Arrow keys work too
 (`role="button"`, Enter/Space).
+
+### Right-aligned headers put the arrow first
+
+`justify-content:flex-end` pushed a trailing arrow flush against the cell edge,
+where it was clipped — so `% done`, `In process`, `Raw` and `Pre-graded` looked
+unsortable when they always were. Those four render the arrow *before* the
+label. `.sortcol` gets `min-width:0` and `.sortar` gets `flex:0 0 auto`, so a
+long label shrinks and the arrow never does.
 
 **One metadata list drives both the header and the comparator** (`OCOLS`,
 `QCOLS`), so a header can't end up sorting by a different field than it names.

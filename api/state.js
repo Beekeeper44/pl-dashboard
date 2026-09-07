@@ -68,7 +68,7 @@ async function pgReadAll() {
   await ensureTable();
   const rows = await sql`select key, value from pl_state`;
   const out = { daily: {}, assign: {}, snooze: {}, hedone: {},
-                skills: {}, cardassign: {}, orderassign: {}, assignday: {}, completed: {}, rev: 0 };
+                skills: {}, cardassign: {}, orderassign: {}, cardrev: {}, assignday: {}, completed: {}, rev: 0 };
   for (const r of rows) {
     if (r.key === REV_KEY) out.rev = Number(r.value) || 0;
     else if (r.key === PREFIX + 'assign') out.assign = r.value || {};
@@ -82,6 +82,8 @@ async function pgReadAll() {
     else if (r.key === PREFIX + 'completed') out.completed = r.value || {};
     // Order-level reviewer assignments, keyed by order number.
     else if (r.key === PREFIX + 'orderassign') out.orderassign = r.value || {};
+    // Reviewers on an individual card inside an order, keyed by AC number.
+    else if (r.key === PREFIX + 'cardrev') out.cardrev = r.value || {};
     else if (r.key.startsWith(DAILY_P)) out.daily[r.key.slice(DAILY_P.length)] = r.value || {};
   }
   return out;
@@ -126,7 +128,7 @@ function parse(raw, fallback) {
 }
 
 async function kvReadAll() {
-  const [a, s, hd, sk, ca, ad, cp, oa, rev, days] = await Promise.all([
+  const [a, s, hd, sk, ca, ad, cp, oa, cr, rev, days] = await Promise.all([
     kv(['GET', PREFIX + 'assign']),
     kv(['GET', PREFIX + 'snooze']),
     kv(['GET', PREFIX + 'hedone']),
@@ -135,6 +137,7 @@ async function kvReadAll() {
     kv(['GET', PREFIX + 'assignday']),
     kv(['GET', PREFIX + 'completed']),
     kv(['GET', PREFIX + 'orderassign']),
+    kv(['GET', PREFIX + 'cardrev']),
     kv(['GET', REV_KEY]),
     kv(['SMEMBERS', IDX_KEY]),
   ]);
@@ -145,7 +148,8 @@ async function kvReadAll() {
   }));
   return { daily, assign: parse(a, {}), snooze: parse(s, {}), hedone: parse(hd, {}),
            skills: parse(sk, {}), cardassign: parse(ca, {}), assignday: parse(ad, {}),
-           completed: parse(cp, {}), orderassign: parse(oa, {}), rev: Number(rev || 0) };
+           completed: parse(cp, {}), orderassign: parse(oa, {}),
+           cardrev: parse(cr, {}), rev: Number(rev || 0) };
 }
 
 async function kvWrite(key, value, isDaily, dayKey) {
@@ -170,6 +174,7 @@ function memReadAll() {
     assignday: mem.get(PREFIX + 'assignday') || {},
     completed: mem.get(PREFIX + 'completed') || {},
     orderassign: mem.get(PREFIX + 'orderassign') || {},
+    cardrev: mem.get(PREFIX + 'cardrev') || {},
     rev: mem.get(REV_KEY) || 0,
   };
 }
@@ -199,7 +204,7 @@ export default async function handler(req, res) {
       } else if (section === 'assign' || section === 'snooze' || section === 'hedone'
                  || section === 'skills' || section === 'cardassign'
                  || section === 'assignday' || section === 'completed'
-                 || section === 'orderassign') {
+                 || section === 'orderassign' || section === 'cardrev') {
         storeKey = PREFIX + section;
       } else {
         res.status(400).json({ error: 'unknown section' });

@@ -24,6 +24,12 @@ const CARDS = {
   'orders:all':       { env: 'METABASE_ORDERS_CARD_ID',            fallback: '35872' },
   // Card Queue — card-level rows behind the orders.
   'orders:queue':     { env: 'METABASE_CARD_QUEUE_CARD_ID',         fallback: '35905' },
+  // Orders Queue -- card-level rows WITH per-task grading state (crop, card
+  // type, corner, edge, surface, centering, review) plus done/tasks/remaining.
+  // Feeds the Orders tab's % complete column and its expanded card list.
+  // Separate from orders:queue because that question has category and the
+  // card-type task URL, which this one does not.
+  'orders:cards':     { env: 'METABASE_ORDERS_QUEUE_CARD_ID',        fallback: '37687' },
   // Value Tracker — high-end comps. Tier + date are filtered client-side.
   'recomp:highend':   { env: 'METABASE_VALUE_TRACKER_CARD_ID',     fallback: '3213' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
@@ -41,6 +47,7 @@ const TEXT_VARS = {
   'recomp:highend':   [],   // no grain; see SINGLE_DATE
   'orders:all':       [],   // see NO_PARAMS
   'orders:queue':     [],
+  'orders:cards':     [],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -143,7 +150,7 @@ const SINGLE_DATE = new Set(['recomp:highend']);
 
 // Cards whose filters are all optional — we pull the set and filter in the
 // browser, so sending nothing is both valid and cheaper than guessing.
-const NO_PARAMS = new Set(['orders:all', 'orders:queue']);
+const NO_PARAMS = new Set(['orders:all', 'orders:queue', 'orders:cards']);
 
 // Numeric template tags, sent only when the client provides a value.
 const NUM_VARS = {
