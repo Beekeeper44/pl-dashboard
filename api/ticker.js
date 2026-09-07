@@ -53,7 +53,7 @@ const TEXT_VARS = {
   'orders:all':       [],   // see NO_PARAMS
   'orders:queue':     [],
   'orders:cards':     [],
-  'orders:cardlist':  [],
+  'orders:cardlist':  ['order_number'],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -156,15 +156,34 @@ const SINGLE_DATE = new Set(['recomp:highend']);
 
 // Cards whose filters are all optional — we pull the set and filter in the
 // browser, so sending nothing is both valid and cheaper than guessing.
-const NO_PARAMS = new Set(['orders:all', 'orders:queue', 'orders:cards', 'orders:cardlist']);
+const NO_PARAMS = new Set(['orders:all', 'orders:queue', 'orders:cards']);
 
 // Numeric template tags, sent only when the client provides a value.
 const NUM_VARS = {
   'recomp:highend': ['min_estimated_value_usd', 'max_estimated_value_usd'],
 };
 
+// Questions whose only parameter is the order number. 37819 is one: run bare it
+// returns nothing, which is why the expanded card list came back empty.
+const ORDER_PARAM = new Set(['orders:cardlist']);
+
 function buildParameters(query, key, tagIds, noParams) {
   const parameters = [];
+
+  if (ORDER_PARAM.has(key)) {
+    const value = String(query.order_number || '').replace(/\D+/g, '');
+    if (!value) throw new Error('Missing required filter: order_number');
+    parameters.push({
+      id: tagIds['order_number']?.id || 'order_number',
+      // The tag is typed in the question; fall back to a bare text match rather
+      // than guessing a number type, which Metabase rejects on a text tag.
+      type: tagIds['order_number']?.type || 'category',
+      value,
+      target: ['variable', ['template-tag', 'order_number']],
+    });
+    return parameters;
+  }
+
   if (noParams || NO_PARAMS.has(key)) return parameters;
 
   if (SINGLE_DATE.has(key)) {

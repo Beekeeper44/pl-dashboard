@@ -1889,6 +1889,18 @@ above the table so a wall of dashes never reads as broken:
 | 2 | **37819** (`METABASE_ORDER_CARDS_CARD_ID`) | the cards, with identity and card-type status |
 | 3 | **35905** | the cards, and little else |
 
+#### 37819 is fetched PER ORDER
+
+It takes an **Order Number** parameter — run bare it returns nothing, which is
+why the expanded list was empty. The proxy now sends `order_number` for
+`orders:cardlist` (digits only, and it refuses the request without one), and
+the client fetches it when a row is **expanded**, caching by order.
+
+That means opening the same order twice costs one request, and opening twenty
+orders never pulls every card in the warehouse. A failed fetch clears its state
+after 5s so expanding again retries rather than sticking on an error. The empty
+state names the case: loading, could-not-load, or no cards returned.
+
 **37819 is the useful fallback.** It carries player, year, brand, set name, set
 number and sport, so a row is recognisable without opening the link — those show
 under the AC number. It also carries `CARD_TYPE_STATUS`, which *is* one of the
