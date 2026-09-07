@@ -649,11 +649,22 @@
   .ocards{grid-column:1 / -1;padding:4px 0 14px 34px}
   .octable{display:block;border-left:2px solid var(--line2);padding-left:14px}
   .ocrow{display:grid;gap:10px;align-items:center;padding:8px 0;
-         grid-template-columns:26px 64px 94px 128px 64px 98px 74px repeat(7, minmax(66px,1fr))
-                               minmax(142px,0.9fr)}
+         grid-template-columns:26px 58px 84px minmax(96px,1fr) minmax(120px,1.2fr) 74px
+                               126px 62px 92px 92px 70px repeat(7, minmax(62px,1fr))
+                               minmax(130px,0.8fr)}
   .ocrow.ochead{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
                 opacity:.8;padding-bottom:8px;border-bottom:1px solid var(--line)}
-  .oc-ac{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .oc-ac{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;
+         min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .oc-who{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .oc-set{font-size:12px;color:var(--tx);opacity:.75;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .oc-sport{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* "needs card type" is actionable; "complete" is not, so only one of them
+     draws the eye. */
+  .oc-flag{font-family:var(--mono);font-size:11px;opacity:.45;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .oc-flag.need{opacity:1;color:var(--unatt);font-weight:600}
   .oc-url a{color:#38BDF8;text-decoration:none;font-size:13px;font-weight:500}
   .oc-url a:hover{text-decoration:underline}
   .oc-nourl{opacity:.3}
@@ -665,6 +676,13 @@
   .ocbar-l{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;
            margin-right:2px}
   .ocbar-n{font-family:var(--mono);font-size:12.5px;color:var(--neon)}
+  /* Says WHY the step columns are empty, rather than leaving a wall of
+     dashes that reads as broken. */
+  .ocwarn{margin:0 0 10px 14px;padding:7px 11px;border-radius:6px;
+          background:color-mix(in srgb,var(--unatt) 12%,transparent);
+          border:1px solid color-mix(in srgb,var(--unatt) 34%,transparent);
+          color:var(--unatt);font-family:var(--mono);font-size:12.5px;
+          display:inline-block}
   .ocbar-combo{min-width:230px}
   .ocbar-combo .qcinput{padding:7px 11px;font-size:13px}
   .oc-rev .qassignbtn{font-size:12px;padding:5px 8px}
@@ -2286,7 +2304,8 @@
     for(var i = 0; i < 220; i++){
       var o = src[i % src.length];
       var sport = pickOne(Object.keys(PLAYERS));
-      var prog = ri(0, 7);
+      // NOTE: 35905 carries no grading-step columns. The demo used to
+      // fabricate them here, which hid the expanded view's dependency on 37687.
       rows.push({
         card_url: "https://example.invalid/card/" + ri(100000, 999999),
         card_type_task_url: "https://example.invalid/task/" + ri(1000, 99999),
@@ -2298,25 +2317,8 @@
         card_status: pickOne(["pending_data","pending_verify","pending_scan","pending_grading"]),
         is_pre_graded: rnd() > 0.6 ? "true" : "false",
         player_name: pickOne(PLAYERS[sport]),
-        category: o.category,
-        _prog: prog
+        category: o.category
       });
-      // Per-card grading progress, exactly as the real queue question reports
-      // it: seven step columns plus done / tasks / remaining / pct.
-      var row = rows[rows.length - 1];
-      var steps = ["crop","card_type","corner","edge","surface","centering","review"];
-      var doneN = 0;
-      steps.forEach(function(st, si){
-        // Cards progress in order, so earlier steps finish first -- a random
-        // state per column would make the expanded view look like noise.
-        var v = si < row._prog ? pickOne(["approved","done","done_skip_verify"]) : "queued";
-        row[st] = v;
-        if(v !== "queued") doneN++;
-      });
-      row.done = doneN;
-      row.tasks = steps.length;
-      row.remaining = steps.length - doneN;
-      row.pct_complete = Math.round(doneN / steps.length * 1000) / 10;
     }
     SEED_QUEUE = rows;
     return rows;
@@ -2344,7 +2346,17 @@
           AC_NUMBER: String(3900000 + ri(0, 99999)),
           IS_PRE_GRADED: rnd() > 0.7 ? "true" : "false",
           CARD_STATUS: pickOne(["pending_grading","pending_release","pending_shipping",
-                                "pending_customer_support"])
+                                "pending_customer_support"]),
+          // Identity, so the same columns are populated on the primary path as
+          // on the 37819 fallback.
+          PLAYER_NAME: pickOne(PLAYERS[pickOne(Object.keys(PLAYERS))]),
+          YEAR: String(ri(1996, 2025)),
+          BRAND: pickOne(["topps","panini","upper_deck","skybox"]),
+          SET_NAME: pickOne(["2025-26 Topps Chrome Update","2023-24 Panini Prizm",
+                             "1996-97 Skybox Premium","2024-25 Topps Finest"]),
+          SET_NUMBER: String(ri(1, 300)),
+          SPORT: pickOne(Object.keys(PLAYERS)),
+          CARD_TYPE_FLAG: "complete"
         };
         // "done" means finished but NOT yet verified, so it does not count
         // toward completion -- the real question behaves this way and the demo
@@ -2376,6 +2388,49 @@
     return rows;
   }
 
+  // 37819 "order cards" -- the cards in an order WITH identity (player, year,
+  // brand, set, sport) and card-type status, but no per-step grading state.
+  // Reproduced exactly: the six other step columns simply are not there.
+  var SEED_CLIST = null;
+  function orderCardListRows(){
+    if(SEED_CLIST) return SEED_CLIST;
+    var BRANDS = ["topps","panini","upper_deck","skybox"];
+    var SETS = ["2025-26 Topps Chrome Update","2023-24 Panini Prizm",
+                "1996-97 Skybox Premium","2003-04 Upper Deck LeBron James",
+                "2024-25 Topps Finest","2023 Donruss Optic"];
+    var rows = [];
+    ordersRows().forEach(function(o){
+      var sport = pickOne(Object.keys(PLAYERS));
+      var n = ri(1, 8);
+      for(var i = 0; i < n; i++){
+        var needsType = rnd() > 0.85;
+        rows.push({
+          ORDER_NUMBER: o.number,
+          ORDER_STATUS: o.order_status,
+          DUE_DATE: o.due_date,
+          CARD_URL: "https://example.invalid/card/" + ri(100000, 999999),
+          CARD_TYPE_STATUS: needsType ? "queued"
+            : pickOne(["approved","approved","reviewer_override","queued","no task"]),
+          AC_NUMBER: String(3900000 + ri(0, 99999)),
+          CARD_STATUS: pickOne(["pending_shipping","pending_release","pending_grading",
+                                "pending_customer_support"]),
+          IS_PRE_GRADED: rnd() > 0.75 ? "true" : "false",
+          // A card that still needs a card type has no identity yet -- exactly
+          // as the real question shows those rows blank.
+          PLAYER_NAME: needsType ? "" : pickOne(PLAYERS[sport]),
+          YEAR: needsType ? "" : String(ri(1996, 2025)),
+          BRAND: needsType ? "" : pickOne(BRANDS),
+          SET_NAME: needsType ? "" : pickOne(SETS),
+          SET_NUMBER: needsType ? "" : String(ri(1, 300)),
+          SPORT: needsType ? "" : sport,
+          CARD_TYPE_FLAG: needsType ? "needs card type" : "complete"
+        });
+      }
+    });
+    SEED_CLIST = rows;
+    return rows;
+  }
+
   // -------------------------------------------------------------- routing ---
 
   function ticker(q){
@@ -2388,7 +2443,13 @@
     if(tab === "cardtype") return graderRows(view === "verify" ? "verify" : "data");
     if(tab === "review")   return graderRows("review");
     if(tab === "orders")   return view === "queue" ? queueRows()
-                          : view === "cards" ? orderCardRows() : ordersRows();
+                          // window.DEMO_NO_37687 = true reproduces the
+                          // parameterised-question failure, so the
+                          // card-queue fallback can be seen.
+                          : view === "cards"
+                            ? (window.DEMO_NO_37687 ? [] : orderCardRows())
+                          : view === "cardlist" ? orderCardListRows()
+                          : ordersRows();
     if(tab === "recomp"){
       if(view === "age")     return ageRows(start, end, false);
       if(view === "agewh")   return ageRows(start, end, true);
@@ -6091,6 +6152,66 @@
   // 37687: card-level rows with per-task grading state. Its own normalizer
   // because its column set differs from 35905 -- no category, no card-type task
   // URL -- and a shared one would have to pretend those fields exist.
+  // The Card Queue (35905) in the shape the expanded view expects. It knows
+  // which cards are in an order, their status, kind and links -- but nothing
+  // about the seven grading steps, so those come back null rather than being
+  // guessed at. A dash in those columns means "this question doesn't say", not
+  // "not started".
+  // 37819: cards in an order, with card identity. No seven-step grading state,
+  // but it DOES carry card-type status, which is one of the seven -- so that
+  // column is filled and the other six left blank rather than all seven being
+  // guessed at.
+  function orderCardListRows(raw){
+    return (raw||[]).map(function(r){
+      var typeStat = String(pick(r,["card_type_status","CARD_TYPE_STATUS"]) || "").toLowerCase();
+      var bits = [
+        pick(r,["year","YEAR"]),
+        pick(r,["brand","BRAND"]),
+        pick(r,["set_name","SET_NAME"])
+      ].filter(Boolean).join(" ");
+      var num = pick(r,["set_number","SET_NUMBER"]);
+      return {
+        cardUrl:  pick(r,["card_url","CARD_URL"]) || "",
+        order:    String(pick(r,["order_number","ORDER_NUMBER"]) || ""),
+        ordStat:  String(pick(r,["order_status","ORDER_STATUS"]) || ""),
+        due:      String(pick(r,["due_date","DUE_DATE"]) || ""),
+        ac:       String(pick(r,["ac_number","AC_NUMBER"]) || ""),
+        cardStatus: String(pick(r,["card_status","CARD_STATUS"]) || ""),
+        pre:      String(pick(r,["is_pre_graded","IS_PRE_GRADED"]) || "").toLowerCase()==="true",
+        player:   String(pick(r,["player_name","PLAYER_NAME"]) || ""),
+        sport:    String(pick(r,["sport","SPORT"]) || ""),
+        setLabel: bits + (num ? " #" + num : ""),
+        typeFlag: String(pick(r,["card_type_flag","CARD_TYPE_FLAG"]) || ""),
+        // Progress is unknown from this question. null, not zero.
+        done: null, tasks: null, remaining: null, pct: null,
+        approved: null, awaiting: null,
+        steps: TASK_STEPS.map(function(st){
+          return {key:st.key, label:st.label,
+                  val: st.key === "card_type" ? typeStat : ""};
+        }),
+        _fromList: true
+      };
+    });
+  }
+
+  function queueRowsAsCards(raw){
+    return normalizeQueue(raw).map(function(r){
+      return {
+        cardUrl: r.cardUrl || r.taskUrl || "",
+        order: r.order, ordStat: r.ordStat, due: r.due, ac: r.ac,
+        cardStatus: r.cardStatus, pre: r.pre,
+        // 35905 has a player name and a category, but no set or type flag.
+        player: r.player || "", sport: r.cat || "", setLabel: "", typeFlag: "",
+        done: null, tasks: null, remaining: null, pct: null,
+        approved: null, awaiting: null,
+        steps: TASK_STEPS.map(function(st){
+          return {key:st.key, label:st.label, val:""};
+        }),
+        _fromQueue: true
+      };
+    });
+  }
+
   function normalizeOrderCards(raw){
     return (raw||[]).map(function(r){
       return {
@@ -6101,6 +6222,15 @@
         ac:       String(pick(r,["ac_number","AC_NUMBER"]) || ""),
         cardStatus: String(pick(r,["card_status","CARD_STATUS"]) || ""),
         pre:      String(pick(r,["is_pre_graded","IS_PRE_GRADED"]) || "").toLowerCase()==="true",
+        // 37687 may or may not carry identity; read it when present so the
+        // columns don't blank out on the primary path.
+        player:   String(pick(r,["player_name","PLAYER_NAME"]) || ""),
+        sport:    String(pick(r,["sport","SPORT"]) || ""),
+        setLabel: [pick(r,["year","YEAR"]), pick(r,["brand","BRAND"]),
+                   pick(r,["set_name","SET_NAME"])].filter(Boolean).join(" ")
+                  + (pick(r,["set_number","SET_NUMBER"])
+                      ? " #" + pick(r,["set_number","SET_NUMBER"]) : ""),
+        typeFlag: String(pick(r,["card_type_flag","CARD_TYPE_FLAG"]) || ""),
         doneCol:  numOrNull(pick(r,["done","DONE"])),
         tasks:    numOrNull(pick(r,["tasks","TASKS"])),
         remaining:numOrNull(pick(r,["remaining","REMAINING"])),
@@ -7474,9 +7604,9 @@
 
     if(!cards.length){
       return '<div class="ocards"><div class="ocempty">'
-        + (oCards.length
+        + esc(ocNote || (oCards.length
             ? 'No cards on the orders queue for this order.'
-            : 'Orders queue not loaded yet.')
+            : 'Loading cards\u2026'))
         + '</div></div>';
     }
 
@@ -7488,7 +7618,8 @@
     var cid = "oc-as-" + String(o.number).replace(/\W+/g, "");
     // How many cards in THIS order currently carry a reviewer.
     var assignedIn = cards.filter(function(c){ return cardRevs(cardRevKey(c)).length; }).length;
-    var bar = '<div class="ocbar">'
+    var bar = (ocNote ? '<div class="ocwarn">'+esc(ocNote)+'</div>' : '')
+      + '<div class="ocbar">'
       + '<span class="ocbar-l">Select</span>'
       + '<button class="btn ghost qn" data-cpick="5"  data-ord="'+esc(o.number)+'">5</button>'
       + '<button class="btn ghost qn" data-cpick="10" data-ord="'+esc(o.number)+'">10</button>'
@@ -7520,7 +7651,9 @@
       + '<span><input type="checkbox" class="ocall" data-ord="'+esc(o.number)+'"'
       +   (picked.length && picked.length === cards.length ? ' checked' : '')
       +   ' aria-label="Select all cards in this order"></span>'
-      + '<span>Card</span><span>AC #</span><span>Card status</span><span>Pre-graded</span>'
+      + '<span>Card</span><span>AC #</span><span>Player</span><span>Set</span>'
+      + '<span>Sport</span><span>Card status</span><span>Pre-graded</span>'
+      + '<span>Type</span>'
       + '<span style="text-align:right">Tasks complete</span>'
       + '<span style="text-align:right">Pct complete</span>'
       + TASK_STEPS.map(function(st){ return '<span>'+esc(st.label)+'</span>'; }).join("")
@@ -7544,10 +7677,21 @@
         + '<span class="oc-url">'+(c.cardUrl
             ? '<a href="'+esc(c.cardUrl)+'" target="_blank" rel="noopener">Click Me</a>'
             : '<span class="oc-nourl">\u2014</span>')+'</span>'
+        // 37819 gives card identity; show it under the AC so a row is
+        // recognisable without opening the link.
         + '<span class="oc-ac">'+esc(c.ac || "\u2014")+'</span>'
+        // Card identity, as its own columns rather than stacked under the AC.
+        + '<span class="oc-who">'+esc(c.player || "\u2014")+'</span>'
+        + '<span class="oc-set" title="'+esc(c.setLabel || "")+'">'
+        +   esc(c.setLabel || "\u2014")+'</span>'
+        + '<span class="oc-sport">'+esc(c.sport ? sportLabel(c.sport) : "\u2014")+'</span>'
         + '<span><span class="ostat" style="background:'+statusColor(c.cardStatus)+'22;color:'
         +   statusColor(c.cardStatus)+'">'+esc(prettyStatus(c.cardStatus))+'</span></span>'
         + '<span class="'+(c.pre ? "oc-pre" : "oc-raw")+'">'+(c.pre ? "yes" : "no")+'</span>'
+        // "needs card type" is the one flag that changes what you do with a
+        // card, so it gets a column rather than living in a tooltip.
+        + '<span class="oc-flag'+(/needs/i.test(c.typeFlag || "") ? " need" : "")+'">'
+        +   esc(c.typeFlag || "\u2014")+'</span>'
         + '<span class="oc-done"'+(band ? ' style="color:'+band.bg+'"' : '')+'>'+(c.done != null && c.tasks != null
             ? c.done + " / " + c.tasks : "\u2014")+'</span>'
         + (band
@@ -7613,30 +7757,97 @@
   // might be missing.
   var oCards = [];
   var qCardsAt = 0;
+  // 37687 is the preferred source: it carries the per-task grading state. It is
+  // a parameterised SQL question though, so it can come back empty or error
+  // when run without its Order Number filter -- in which case the Card Queue
+  // (35905) still knows WHICH cards are in an order, just not how far along
+  // each step is. Falling back to it means the expanded view lists the cards
+  // and their links instead of showing nothing at all.
+  var ocNote = "";
   function ensureQueueCards(){
     if(oCards.length || Date.now() - qCardsAt < 300000) return;
     qCardsAt = Date.now();
+    ocNote = "";
     var q = new URLSearchParams({tab:"orders", view:"cards"});
     fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d || !d.rows || !d.rows.length) return;
-        if(!window.__ocCols){
-          window.__ocCols = Object.keys(d.rows[0]);
-          console.info("orders queue columns:", window.__ocCols);
+        if(d && d.rows && d.rows.length){
+          if(!window.__ocCols){
+            window.__ocCols = Object.keys(d.rows[0]);
+            console.info("orders queue columns:", window.__ocCols);
+          }
+          oCards = normalizeOrderCards(d.rows);
+          ocNote = "";
+          afterCards();
+          return;
         }
-        oCards = normalizeOrderCards(d.rows);
-        // Fresh card state is exactly when a finished card should leave a
-        // reviewer's queue.
-        pruneReview();
-        if(TAB === "orders" && OSUB === "orders") renderOrders();
-        if(TAB === "orders" && OSUB === "assign") renderOrderAssign();
+        console.warn("orders queue (37687) returned no rows", d && d.error);
+        fallbackToQueue();
       })
-      .catch(function(){
-        // A failed fetch must not blank the tab: the % column shows a dash and
-        // an expanded row says the queue isn't loaded.
-        qCardsAt = 0;
+      .catch(function(e){
+        console.warn("orders queue (37687) failed", e);
+        fallbackToQueue();
       });
+
+    // Second choice: 37819. Same cards, with identity and card-type status,
+    // but no per-step grading state. Third choice: the card queue, which knows
+    // even less. Each step down is stated in the note rather than left to look
+    // like a rendering fault.
+    function fallbackToQueue(){
+      var q2 = new URLSearchParams({tab:"orders", view:"cardlist"});
+      fetch(API+"?"+q2.toString(), {headers:{"Accept":"application/json"}})
+        .then(function(r){ return r.json(); })
+        .then(function(d2){
+          if(d2 && d2.rows && d2.rows.length){
+            if(!window.__clCols){
+              window.__clCols = Object.keys(d2.rows[0]);
+              console.info("order cards (37819) columns:", window.__clCols);
+            }
+            oCards = orderCardListRows(d2.rows);
+            ocNote = "Grading-step detail unavailable \u2014 showing cards from the "
+                   + "order-cards question. Card type is live; the other steps are blank.";
+            afterCards();
+            return;
+          }
+          console.warn("order cards (37819) returned no rows", d2 && d2.error);
+          fallbackToCardQueue();
+        })
+        .catch(function(e){
+          console.warn("order cards (37819) failed", e);
+          fallbackToCardQueue();
+        });
+    }
+
+    function fallbackToCardQueue(){
+      var q3 = new URLSearchParams({tab:"orders", view:"queue"});
+      fetch(API+"?"+q3.toString(), {headers:{"Accept":"application/json"}})
+        .then(function(r){ return r.json(); })
+        .then(function(d3){
+          if(!d3 || !d3.rows || !d3.rows.length){
+            ocNote = "No question returned cards for this order.";
+            qCardsAt = 0;
+            afterCards();
+            return;
+          }
+          oCards = queueRowsAsCards(d3.rows);
+          ocNote = "Grading-step detail unavailable \u2014 showing cards from the card queue.";
+          afterCards();
+        })
+        .catch(function(){
+          ocNote = "Could not load cards from any question.";
+          qCardsAt = 0;
+          afterCards();
+        });
+    }
+
+    function afterCards(){
+      // Fresh card state is exactly when a finished card should leave a
+      // reviewer's queue.
+      pruneReview();
+      if(TAB === "orders" && OSUB === "orders") renderOrders();
+      if(TAB === "orders" && OSUB === "assign") renderOrderAssign();
+    }
   }
 
   function ensureOrderDays(){

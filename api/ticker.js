@@ -30,6 +30,11 @@ const CARDS = {
   // Separate from orders:queue because that question has category and the
   // card-type task URL, which this one does not.
   'orders:cards':     { env: 'METABASE_ORDERS_QUEUE_CARD_ID',        fallback: '37687' },
+  // Cards in an order WITH card identity (player, year, brand, set, sport) and
+  // card-type status. No per-step grading state, but unlike 37687 it is not
+  // gated behind a required Order Number parameter, so it is the reliable
+  // source for "which cards are in this order".
+  'orders:cardlist':  { env: 'METABASE_ORDER_CARDS_CARD_ID',         fallback: '37819' },
   // Value Tracker — high-end comps. Tier + date are filtered client-side.
   'recomp:highend':   { env: 'METABASE_VALUE_TRACKER_CARD_ID',     fallback: '3213' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
@@ -48,6 +53,7 @@ const TEXT_VARS = {
   'orders:all':       [],   // see NO_PARAMS
   'orders:queue':     [],
   'orders:cards':     [],
+  'orders:cardlist':  [],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -150,7 +156,7 @@ const SINGLE_DATE = new Set(['recomp:highend']);
 
 // Cards whose filters are all optional — we pull the set and filter in the
 // browser, so sending nothing is both valid and cheaper than guessing.
-const NO_PARAMS = new Set(['orders:all', 'orders:queue', 'orders:cards']);
+const NO_PARAMS = new Set(['orders:all', 'orders:queue', 'orders:cards', 'orders:cardlist']);
 
 // Numeric template tags, sent only when the client provides a value.
 const NUM_VARS = {

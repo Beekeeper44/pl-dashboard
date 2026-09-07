@@ -1875,6 +1875,37 @@ Backed by **question 37687 "Orders Queue"**
 state (`CROP`, `CARD_TYPE`, `CORNER`, `EDGE`, `SURFACE`, `CENTERING`, `REVIEW`)
 plus `DONE` / `TASKS` / `REMAINING` / `PCT_COMPLETE`.
 
+### ⚠ 37687 is a parameterised question
+
+It has an **Order Number** filter widget, so run without parameters it can come
+back empty or error — which is what "Orders queue not loaded yet" was.
+
+`ensureQueueCards` walks a **three-question chain**, each step stated in a note
+above the table so a wall of dashes never reads as broken:
+
+| | question | gives |
+|---|---|---|
+| 1 | **37687** | per-step grading state, `DONE`/`TASKS` — but parameterised |
+| 2 | **37819** (`METABASE_ORDER_CARDS_CARD_ID`) | the cards, with identity and card-type status |
+| 3 | **35905** | the cards, and little else |
+
+**37819 is the useful fallback.** It carries player, year, brand, set name, set
+number and sport, so a row is recognisable without opening the link — those show
+under the AC number. It also carries `CARD_TYPE_STATUS`, which *is* one of the
+seven steps, so that column is filled live and only the other six are blank.
+Progress comes back `null`, never guessed: a dash means **"this question doesn't
+say"**, not "not started".
+
+Cards flagged `needs card type` have no identity yet — the real question returns
+those columns empty, and the demo reproduces that rather than inventing names
+for them.
+
+**The demo was hiding this.** Its 35905 rows carried fabricated `crop`,
+`card_type`, `done`, `tasks` columns that the real question does not have, so
+the expanded view looked fine locally while depending entirely on 37687. Those
+columns are gone. `window.DEMO_NO_37687 = true` reproduces the failure so the
+fallback can be exercised.
+
 **Its own key and its own store.** 37687 has no category and no card-type task
 URL; 35905 has both but no task state. They're normalised separately
 (`normalizeOrderCards` vs `normalizeQueue`) into `oCards` and `qRows`, because a
