@@ -2426,6 +2426,33 @@ would collide the moment an order number matched a card key.
 
 The 22:00 Manila rollover clears **both**.
 
+### An order takes several reviewers
+
+`orderAssign[number]` is an **array**, not a name — an order can be split across
+people, unlike a card which one person works. Reads go through
+`orderReviewers()`, which tolerates the old single-string shape, because another
+surface or an older browser can push that at any point in the session.
+
+An empty list deletes the key rather than leaving `[]` behind, so "has
+reviewers" stays a simple truthiness check.
+
+What this changes:
+
+- **The picker is multi-select** for orders and **stays open** — picking several
+  people is the point, and reopening for each would make the common case the
+  slow one. A tick marks who is already on. `Clear all` sits at the top.
+- **Bulk assign ADDS.** It never toggles and never replaces, so assigning
+  someone already on an order doesn't remove them and doesn't drop a colleague.
+- **The order appears under every reviewer** on the Assignments panel. The
+  total still counts orders, not assignments: one order with three reviewers is
+  one order assigned.
+- **The row `×` and Click Me remove only that reviewer**, not the whole order —
+  the row is shown under one person, so that is the one it acts on. The card
+  carries `data-group` so the handler knows which. Undo restores membership
+  rather than the whole assignment.
+- The Reviewer column shows an avatar per person and reads `Abe Dato +2` rather
+  than truncating a list.
+
 ### Assigning an order
 
 The Orders tab gained a **Reviewer** column using the same picker as the Card

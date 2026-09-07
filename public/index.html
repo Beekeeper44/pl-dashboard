@@ -314,6 +314,8 @@
   .wmopt.cur{background:color-mix(in srgb,#39FF14 10%,transparent)}
   .wmname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
           font-size:15px}
+  /* Multi-select tick. Fixed width so names stay aligned whether ticked or not. */
+  .wmtick{flex:0 0 auto;width:14px;color:var(--neon);font-size:14px;line-height:1}
   .wmclear{color:var(--warn)}
   .wmnone{padding:14px 10px;font-size:13px;opacity:.7;font-family:var(--mono)}
   .qsel,#q-all{width:16px;height:16px;accent-color:#39FF14;cursor:pointer}
@@ -3976,13 +3978,21 @@
         + '<span class="o-pre'+(r.pre ? "" : " z")+'">'+(r.pre!=null ? fmt(r.pre) : "")+'</span>'
         // Same control as the Card Queue's assignee, pointed at orders.
         + '<span class="o-rev">'
-        +   (orderAssign[r.number]
-              ? '<i class="hwho2" style="background:'+personColor(orderAssign[r.number])+'">'
-                + esc(initials(orderAssign[r.number]))+'</i>' : '')
-        +   '<button class="qassignbtn'+(orderAssign[r.number]?' on':'')+'"'
-        +     ' data-oassign="'+esc(r.number)+'">'
-        +     (orderAssign[r.number] ? esc(orderAssign[r.number]) : 'Assign\u2026')
-        +   '</button>'
+        +   (function(){
+              var revs = orderReviewers(r.number);
+              return revs.map(function(n){
+                return '<i class="hwho2" title="'+esc(n)+'" style="background:'
+                  + personColor(n)+'">'+esc(initials(n))+'</i>';
+              }).join('')
+              + '<button class="qassignbtn'+(revs.length?' on':'')+'"'
+              +   ' data-oassign="'+esc(r.number)+'">'
+              // Names get long and several of them will not fit, so the button
+              // shows one plus a count rather than truncating a list.
+              +   (revs.length === 0 ? 'Assign\u2026'
+                   : revs.length === 1 ? esc(revs[0])
+                   : esc(revs[0]) + ' +' + (revs.length - 1))
+              + '</button>';
+            })()
         + '</span>'
         + '</div>';
     }).join("") + '</div>';
@@ -4054,7 +4064,9 @@
   function sortValue(r, col){
     if(col.key === "__who") return cardAssign[cardKey(r)] || "";
     if(col.key === "__ipd") return oDays[orderKeyOf(r.order)];
-    if(col.key === "__rev") return orderAssign[r.number] || "";
+    // Sort on the joined list so an order with several reviewers still has a
+    // stable, meaningful sort key.
+    if(col.key === "__rev") return orderReviewers(r.number).join(", ");
     return r[col.key];
   }
 
@@ -4325,17 +4337,28 @@
       var t = e.target.closest(".ac-task[data-done]");
       if(t){
         var k = t.getAttribute("data-done");
+        var tgroup = t.closest(".zcard") ? t.closest(".zcard").getAttribute("data-group") : "";
         var store = oaStore();
-        var who = store[k];
-        if(!who) return;
+        var who;
+        if(OAKIND === "orders"){
+          // Opening the order means THIS reviewer has picked it up, so it comes
+          // off their queue and stays on everyone else's.
+          who = tgroup && orderReviewers(k).indexOf(tgroup) >= 0
+              ? tgroup : orderReviewers(k)[0];
+          if(!who) return;
+          removeOrderReviewer(k, who);
+        } else {
+          who = store[k];
+          if(!who) return;
+          delete store[k];
+        }
         var trow = oaRows().filter(function(r){ return oaKeyOf(r) === k; })[0];
         var tcat = trow ? trow.cat : "";
         recordCompletion(who, tcat, 1);
-        delete store[k];
         oaSave();
         if(OAKIND === "orders") renderOrders(); else renderQueue();
         renderOrderAssign();
-        pmUndo = {key:k, who:who, viaLink:true, cat:tcat};
+        pmUndo = {key:k, who:who, viaLink:true, cat:tcat, multi:OAKIND === "orders"};
         banner("Card-type task opened \u2014 removed from <b>"+esc(who)+"</b>'s queue. "
                + '<button class="bannerundo" id="oa-undo">Undo</button>');
         var u = $("oa-undo");
@@ -4347,15 +4370,26 @@
       var rx = e.target.closest(".arowx[data-drop]");
       if(rx){
         var rk = rx.getAttribute("data-drop");
+        var rgroup = rx.getAttribute("data-group") || "";
         var rstore = oaStore();
-        var rw = rstore[rk];
-        if(!rw) return;
-        delete rstore[rk];
+        var rw;
+        if(OAKIND === "orders"){
+          // The row is shown under ONE reviewer, so the x removes that
+          // reviewer -- not every reviewer on the order.
+          rw = rgroup && orderReviewers(rk).indexOf(rgroup) >= 0
+             ? rgroup : orderReviewers(rk)[0];
+          if(!rw) return;
+          removeOrderReviewer(rk, rw);
+        } else {
+          rw = rstore[rk];
+          if(!rw) return;
+          delete rstore[rk];
+        }
         oaSave();
         if(OAKIND === "orders") renderOrders(); else renderQueue();
         renderOrderAssign();
         // An unassign, NOT a completion -- no tally change.
-        pmUndo = {key:rk, who:rw, viaLink:false, cat:""};
+        pmUndo = {key:rk, who:rw, viaLink:false, cat:"", multi:OAKIND === "orders"};
         banner("Unassigned from <b>"+esc(rw)+"</b>. "
                + '<button class="bannerundo" id="oa-undo2">Undo</button>');
         var u2 = $("oa-undo2");
@@ -4662,7 +4696,7 @@
       for(var i = 0; i < rows.length && added < n; i++){
         var k = rows[i].number;
         if(oSelected[k]) continue;
-        if(orderAssign[k]){ skipped++; continue; }
+        if(orderReviewers(k).length){ skipped++; continue; }
         oSelected[k] = true; added++;
       }
       renderOrders();
@@ -4695,7 +4729,9 @@
         if(sel && sel.focus) sel.focus();
         return;
       }
-      picked.forEach(function(k){ orderAssign[k] = who; });
+      // ADD, not toggle: bulk-assigning someone already on an order must not
+      // remove them, and must not drop whoever else is on it either.
+      picked.forEach(function(k){ addOrderReviewer(k, who); });
       oSelected = {};
       oCombo.clear();
       saveOrderAssign();
@@ -4799,7 +4835,39 @@
   // Order number -> reviewer.  (shared)
   // Separate from cardAssign: an order and a card are different units of work,
   // and one order holds many cards, so a single map keyed on "id" would collide.
+  // Order number -> ARRAY of reviewers. An order can be split across several
+  // people, unlike a card which one person works.
+  //
+  // Reads go through orderReviewers(), which tolerates the old single-string
+  // shape: other surfaces and older browsers can still push that at any point
+  // in the session, so this normalises on read rather than migrating once.
   var orderAssign = loadLocal("pl_orderassign_v1");
+
+  function orderReviewers(num){
+    var v = orderAssign[num];
+    if(!v) return [];
+    return Array.isArray(v) ? v : [v];
+  }
+  function setOrderReviewers(num, list){
+    // Drop the key entirely when empty, so "has reviewers" is a simple
+    // truthiness check and stale empty arrays never accumulate.
+    var out = (list || []).filter(function(x, i, a){ return x && a.indexOf(x) === i; });
+    if(out.length) orderAssign[num] = out; else delete orderAssign[num];
+  }
+  function addOrderReviewer(num, who){
+    var list = orderReviewers(num);
+    if(list.indexOf(who) < 0) list.push(who);
+    setOrderReviewers(num, list);
+  }
+  function removeOrderReviewer(num, who){
+    setOrderReviewers(num, orderReviewers(num).filter(function(n){ return n !== who; }));
+  }
+  function toggleOrderReviewer(num, who){
+    var list = orderReviewers(num);
+    var i = list.indexOf(who);
+    if(i >= 0) list.splice(i, 1); else list.push(who);
+    setOrderReviewers(num, list);
+  }
   // Tick state for the Orders table. Session-only, like qSelected -- a
   // selection is a thing you are doing right now, not shared state.
   var oSelected = {};
@@ -4931,7 +4999,7 @@
   }
   function orderSizeOf(person){
     var n = 0;
-    for(var k in orderAssign){ if(orderAssign[k] === person) n++; }
+    for(var k in orderAssign){ if(orderReviewers(k).indexOf(person) >= 0) n++; }
     return n;
   }
   function saveAssignDay(){
@@ -5387,9 +5455,12 @@
 
   function cardsFor(name, by){
     var store = oaStore();
+    var isOrd = OAKIND === "orders";
     return oaRows().filter(function(r){
-      var who = store[oaKeyOf(r)];
-      return by === "person" ? who === name : (who && r.cat === name);
+      var k = oaKeyOf(r);
+      // Orders hold a LIST of reviewers; membership, not equality.
+      var holders = isOrd ? orderReviewers(k) : (store[k] ? [store[k]] : []);
+      return by === "person" ? holders.indexOf(name) >= 0 : holders.length && r.cat === name;
     }).sort(byDue);
   }
 
@@ -5531,15 +5602,27 @@
   function renderWm(){
     var box = $("wm-list"); if(!box) return;
     var list = wmRows();
-    var cur = wmStore()[wmKey] || "";
+    // Orders take SEVERAL reviewers; a card takes one. `cur` is a list either
+    // way so the rest of the render doesn't branch.
+    var cur = wmKind === "order"
+      ? orderReviewers(wmKey)
+      : (wmStore()[wmKey] ? [wmStore()[wmKey]] : []);
     if(wmActive >= list.length) wmActive = list.length - 1;
-    var head = cur
+    var head = cur.length
       ? '<button type="button" class="wmopt wmclear" data-who="__none__">'
-        + '<span class="wmname">Unassign \u2014 currently ' + esc(cur) + '</span></button>'
+        + '<span class="wmname">'
+        + (wmKind === "order"
+            ? "Clear all \u2014 " + cur.length + " assigned"
+            : "Unassign \u2014 currently " + esc(cur[0]))
+        + '</span></button>'
       : "";
     box.innerHTML = head + (list.length ? list.map(function(a, i){
+      var on = cur.indexOf(a.name) >= 0;
       return '<button type="button" class="wmopt'+(i===wmActive?" active":"")
-        + (a.name===cur?" cur":"")+'" role="option" data-who="'+esc(a.name)+'">'
+        + (on?" cur":"")+'" role="option" aria-pressed="'+on+'" data-who="'+esc(a.name)+'">'
+        // A tick, because on a multi-select list "which of these am I already
+        // using" has to be readable at a glance, not inferred from a tint.
+        + '<span class="wmtick">'+(on ? "\u2713" : "")+'</span>'
         + '<i class="hwho2" style="background:'+personColor(a.name)+'">'+esc(initials(a.name))+'</i>'
         + '<span class="wmname">'+esc(a.name)+'</span>'
         + '<span class="qctag '+a.cls+'">'+esc(a.tag)+'</span>'
@@ -5576,13 +5659,22 @@
 
   function applyWmPick(who){
     if(!wmKey) return;
+    if(wmKind === "order"){
+      if(who === "__none__") setOrderReviewers(wmKey, []);
+      else toggleOrderReviewer(wmKey, who);
+      saveOrderAssign();
+      renderOrders(); renderOrderAssign();
+      // Stay OPEN: picking several reviewers is the point, and reopening the
+      // dialog for each one would make the common case the slow one.
+      if(who === "__none__") closeAssignPicker(); else renderWm();
+      return;
+    }
     var store = wmStore();
     if(who === "__none__") delete store[wmKey];
     else store[wmKey] = who;
     wmSave();
     closeAssignPicker();
-    if(wmKind === "order") renderOrders(); else renderQueue();
-    renderOrderAssign();
+    renderQueue(); renderOrderAssign();
   }
 
   var pmOpen = null;    // {name, by} while the modal is up
@@ -5677,7 +5769,8 @@
 
   function pmRestore(){
     if(!pmUndo) return;
-    oaStore()[pmUndo.key] = pmUndo.who;
+    if(pmUndo.multi) addOrderReviewer(pmUndo.key, pmUndo.who);
+    else oaStore()[pmUndo.key] = pmUndo.who;
     // Undo has to take the tally back too, or a misclick permanently credits
     // someone for work they didn't do.
     if(pmUndo.cat) recordCompletion(pmUndo.who, pmUndo.cat, -1);
@@ -5814,10 +5907,22 @@
     var groups = {};
     if(by === "person"){
       rosterOf(OAKIND === "orders" ? "order" : "card").forEach(function(p){ groups[p] = []; });
-      for(var k in store){ var r = idx[k]; if(!r) continue;
-        (groups[store[k]] = groups[store[k]] || []).push(r); }
+      for(var k in store){
+        var r = idx[k]; if(!r) continue;
+        // An order can carry several reviewers, so it appears under each of
+        // them. A card has exactly one holder.
+        var holders = OAKIND === "orders" ? orderReviewers(k) : [store[k]];
+        holders.forEach(function(h){
+          if(!h) return;
+          (groups[h] = groups[h] || []).push(r);
+        });
+      }
     } else {
-      rowsSrc.forEach(function(r){ if(store[oaKeyOf(r)]) (groups[r.cat] = groups[r.cat]||[]).push(r); });
+      rowsSrc.forEach(function(r){
+        var k = oaKeyOf(r);
+        var has = OAKIND === "orders" ? orderReviewers(k).length : !!store[k];
+        if(has) (groups[r.cat] = groups[r.cat]||[]).push(r);
+      });
     }
 
     var names = Object.keys(groups).sort(function(a,b){
@@ -5873,7 +5978,7 @@
       var list = groups[n].slice().sort(byDue);
       var c = by === "person" ? personColor(n) : sportColor(n);
       var label = by === "person" ? n : categoryLabel(n);
-      return '<div class="zcard" style="border-left:3px solid '+c+'">'
+      return '<div class="zcard" data-group="'+esc(n)+'" style="border-left:3px solid '+c+'">'
         + '<div class="zhead" style="padding-bottom:10px">'
         +   '<span class="aini clickable" data-open="'+esc(n)+'" data-by="'+esc(by)+'"'
         +     ' role="button" tabindex="0" title="Open this queue in a window"'
@@ -5918,14 +6023,19 @@
                   +   '<span class="ac-ord"><b>'+esc(num)+'</b></span>'
                   +   '<span class="ac-cat"><i class="hdot" style="background:'+sportColor(r.cat)+'"></i>'
                   +     esc(categoryLabel(r.cat, r.catRaw))
-                  +     (by==="category" ? ' \u00b7 '+esc(oaStore()[k2]||"") : '')+'</span>'
+                  +     (by==="category"
+                          ? ' \u00b7 '+esc(isOrd ? orderReviewers(k2).join(", ")
+                                                 : (oaStore()[k2]||""))
+                          : '')+'</span>'
                   +   '<span class="ac-due">'+(r.due ? esc(fmtDue(r.due)) : "\u2014")+'</span>'
                   // A dash means the order join hasn't landed, not zero days.
                   +   '<span class="ac-ipd '+daysClass(d)+'">'
                   +     (d != null ? fmt(d)+'<i>d</i>' : '\u2014') + '</span>'
                   + '</span>'
                   + (focus ? '<button class="pmx arowx" data-drop="'+esc(k2)+'"'
-                             + ' title="Unassign this card">\u00d7</button>' : '')
+                             + ' data-group="'+esc(n)+'"'
+                             + ' title="'+(isOrd ? "Remove this reviewer" : "Unassign this card")
+                             + '">\u00d7</button>' : '')
                   + '</div>';
               }).join("") + (list.length > 8
                 ? '<div class="arow"><span class="abar" style="background:transparent"></span>'
