@@ -282,7 +282,7 @@
      checkbox. Select 5 skips already-assigned cards, so the picks are often
      non-contiguous and can sit below the fold -- a checkbox alone makes that
      look like the button half-worked. */
-  .qrow.sel{background:color-mix(in srgb,var(--panel2) 78%, #39FF14 9%);
+  .qrow.sel,.orow.sel{background:color-mix(in srgb,var(--panel2) 78%, #39FF14 9%);
             box-shadow:inset 0 0 0 1px color-mix(in srgb,#39FF14 34%,transparent)}
   .q-who{display:flex;align-items:center;gap:8px}
   .qassignbtn{
@@ -566,8 +566,8 @@
   /* TEN tracks for TEN columns. This had eleven, so every cell from "in
      process" rightward sat in the wrong track and Pre-graded got squeezed into
      the 74px meant for Raw -- which is why its header wrapped onto two lines. */
-  .otable{--ocols:74px 104px 168px minmax(150px,1.1fr) minmax(160px,1.1fr) 118px
-          minmax(120px,0.9fr) 104px 78px 110px}
+  .otable{--ocols:34px 66px 96px 150px minmax(120px,1fr) minmax(130px,1fr) 110px
+          minmax(104px,0.8fr) 92px 68px 96px minmax(172px,1fr)}
   .ohead,.orow{display:grid;grid-template-columns:var(--ocols);gap:12px;align-items:center}
   .ohead{padding:0 14px 13px;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;
          opacity:.9;border-bottom:1px solid var(--line)}
@@ -598,14 +598,15 @@
   .o-days.d-bad{color:var(--warn)}
   .o-days.d-crit{color:var(--warn);font-weight:600}
   .o-raw,.o-pre{font-variant-numeric:tabular-nums;text-align:right}
+  .o-rev{display:flex;align-items:center;gap:8px;min-width:0}
   .o-raw{color:var(--raw)}
   .o-pre{color:var(--pre)}
   /* A zero is an absence, not a quantity -- colouring it as loudly as a real
      count makes empty columns compete with full ones. */
   .o-raw.z,.o-pre.z{color:var(--tx);opacity:.35}
   @media (max-width:1500px){
-    .otable{--ocols:64px 92px 150px minmax(120px,1fr) minmax(130px,1fr) 100px
-            minmax(100px,0.8fr) 90px 66px 96px}
+    .otable{--ocols:30px 58px 84px 132px minmax(104px,1fr) minmax(112px,1fr) 92px
+            minmax(90px,0.8fr) 80px 58px 84px minmax(140px,1fr)}
     .ohead,.orow{gap:9px;font-size:13px}
     .o-days{font-size:17px}
   }
@@ -1644,7 +1645,24 @@
       </div>
       <div class="fld">
         <label>&nbsp;</label>
-        <button class="btn ghost" id="o-clear">Clear filters</button>
+        <button class="btn ghost" id="o-clear">Clear filters</button></div>
+      <div class="fld"><label>Select</label>
+        <div class="qpick">
+          <button class="btn ghost qn" id="o-pick5">5</button>
+          <button class="btn ghost qn" id="o-pick10">10</button>
+          <button class="btn ghost qn" id="o-pick0" disabled>None</button>
+          <span class="qpickn" id="o-pickn"></span>
+        </div>
+      </div>
+      <div class="fld"><label for="o-assignee">Assign to</label>
+        <div class="qcombo" id="o-assignee-wrap">
+          <input id="o-assignee" class="qcinput" type="text" role="combobox"
+                 autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="o-assignee-menu" placeholder="Pick orders first">
+          <div id="o-assignee-menu" class="qcmenu" role="listbox" hidden></div>
+        </div></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="o-bulk" disabled>Bulk assign</button>
       </div>
     </div>
     <div class="kpis" id="okpis"></div>
@@ -1690,6 +1708,12 @@
 
 <div id="oapanel" hidden>
   <section class="panel">
+    <!-- Two units of work, same panel. Cards = the card queue; Orders = the
+         order-level reviewer assignments. -->
+    <div class="subtabs agesrc" id="oa-kind">
+      <button class="subtab" id="oakind-orders" aria-selected="true">Orders</button>
+      <button class="subtab" id="oakind-cards"  aria-selected="false">Cards</button>
+    </div>
     <h2>Card assignments <span class="hint" id="oahint"></span></h2>
     <div class="filters ofilters">
       <div class="fld">
@@ -1727,6 +1751,13 @@
 <div id="tpanel" hidden>
   <section class="panel">
     <h2>Team <span class="hint" id="thint"></span></h2>
+    <!-- Two floors, one skill grid. Data does card work, Review does order
+         review; they are different people doing different jobs, so they get
+         separate rosters. -->
+    <div class="subtabs agesrc" id="team-kind">
+      <button class="subtab" id="tkind-review" aria-selected="true">Review</button>
+      <button class="subtab" id="tkind-data"   aria-selected="false">Data</button>
+    </div>
     <div class="tsearchbar">
       <input id="t-search" class="tsearch" type="search" autocomplete="off"
              placeholder="Search a person…" aria-label="Search team members">
@@ -1971,7 +2002,11 @@
     "multi sports":"#64748B",// darker slate, so it isn't one_piece grey
     "yu-gi-oh!":"#E879F9",  // magenta -- a lighter violet measured only 18
                             //   from disney purple
-    "grail":"#FACC15"       // gold
+    "grail":"#FACC15",      // gold
+    // Reviewer skills reuse the established raw/pre-graded pair, so the colour
+    // means the same thing here as it does in every table column.
+    "review_pregraded":"#A855F7",
+    "review_raw":"#1E88E5"
   };
   var SPORT_FALLBACK = ["#38BDF8","#F5822A","#8B5CF6","#2ECC71","#E0245E",
                         "#FFD84D","#FF4FD8","#7DD3FC","#C4A5F5","#8FA3B8"];
@@ -1988,6 +2023,10 @@
   // one_piece -> One Piece, star_wars -> Star Wars, dc -> DC
   function sportLabel(s){
     var k = String(s||"");
+    // The two reviewer skills carry their own wording; the generic
+    // underscores-to-spaces rule would render them "Review Pregraded".
+    if(k === "review_pregraded") return "Review (Pre-Graded)";
+    if(k === "review_raw")       return "Review Premium (Raw)";
     if(k.toLowerCase()==="dc") return "DC";
     if(k.toLowerCase()==="ufc") return "UFC";
     return k.replace(/_/g," ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
@@ -2240,6 +2279,7 @@
     if(d.skills){ teamSkills = d.skills; migrateSkills(); }
     if(d.assignday) assignDay = d.assignday;
     if(d.completed) completed = d.completed;
+    if(d.orderassign) orderAssign = d.orderassign;
     if(d.cardassign) cardAssign = d.cardassign;
     if(d.daily){
       dailyStore = d.daily;
@@ -3594,6 +3634,28 @@
     "baseball","basketball","football","pokemon","one_piece","combat",
     "dc","disney","hockey","marvel","soccer","star_wars"
   ];
+
+  // Reviewers do not work by sport. Their two skills are the two kinds of card
+  // an order can contain, so an order's required skills are derived from its
+  // raw / pre-graded counts rather than from its category.
+  var REVIEW_SKILLS = ["review_pregraded","review_raw"];
+
+  // Skills shown on the Team grid for a roster.
+  function skillsForKind(kind){
+    return kind === "review" ? REVIEW_SKILLS : ORDER_CATEGORIES;
+  }
+
+  // Which review skills an order actually needs. An order with no card counts
+  // at all needs both, because we cannot tell which it is -- better to offer
+  // the whole roster than to silently match nobody.
+  function reviewSkillsFor(r){
+    if(!r) return [];
+    var out = [];
+    if(r.pre > 0) out.push("review_pregraded");
+    if(r.raw > 0) out.push("review_raw");
+    if(!out.length) out = REVIEW_SKILLS.slice();
+    return out;
+  }
   // "baseball - p3" -> baseball, "special - goat p1" -> special_goat,
   // "one piece" -> one_piece. Strips a trailing tier token (pN) and whatever
   // separator it left behind, then folds the rest to a canonical key. The tier
@@ -3831,6 +3893,15 @@
     var avgDays = rows.length
       ? Math.round(rows.reduce(function(a,r){ return a + (r.days||0); },0) / rows.length) : 0;
 
+    var oPicked = Object.keys(oSelected).filter(function(k){ return oSelected[k]; }).length;
+    if($("o-bulk")){
+      $("o-bulk").disabled = !oPicked;
+      $("o-bulk").textContent = oPicked ? "Bulk assign " + oPicked : "Bulk assign";
+    }
+    if($("o-pick0")) $("o-pick0").disabled = !oPicked;
+    if($("o-pickn")) $("o-pickn").textContent = oPicked ? oPicked + " selected" : "";
+    oCombo.fill(oPicked);
+
     $("okpis").innerHTML = kpiHTML([
       {c:"", k:"Orders",        v:fmt(rows.length), n:oRows.length===rows.length ? "all" : "filtered"},
       {c:"", k:"7+ days",        v:fmt(overdue),      n:"in process"},
@@ -3887,7 +3958,9 @@
 
     $("ofeed").innerHTML = head + rows.map(function(r){
       var c = statusColor(r.status);
-      return '<div class="orow" style="--ostat:'+c+'">'
+      var ok2 = r.number;
+      return '<div class="orow'+(oSelected[ok2]?' sel':'')+'" style="--ostat:'+c+'">'
+        + '<span><input type="checkbox" class="osel" data-k="'+esc(ok2)+'"'+(oSelected[ok2]?' checked':'')+'></span>'
         + '<span class="o-url">'+(r.url ? '<a href="'+esc(r.url)+'" target="_blank" rel="noopener">Click Me</a>' : "")+'</span>'
         + '<span class="o-num">'+esc(r.number)+'</span>'
         + '<span><span class="ostat" style="background:'+c+'22;color:'+c+'">'+esc(prettyStatus(r.status))+'</span></span>'
@@ -3901,6 +3974,16 @@
         +   (r.days!=null ? fmt(r.days)+'<i>d</i>' : "")+'</span>'
         + '<span class="o-raw'+(r.raw ? "" : " z")+'">'+(r.raw!=null ? fmt(r.raw) : "")+'</span>'
         + '<span class="o-pre'+(r.pre ? "" : " z")+'">'+(r.pre!=null ? fmt(r.pre) : "")+'</span>'
+        // Same control as the Card Queue's assignee, pointed at orders.
+        + '<span class="o-rev">'
+        +   (orderAssign[r.number]
+              ? '<i class="hwho2" style="background:'+personColor(orderAssign[r.number])+'">'
+                + esc(initials(orderAssign[r.number]))+'</i>' : '')
+        +   '<button class="qassignbtn'+(orderAssign[r.number]?' on':'')+'"'
+        +     ' data-oassign="'+esc(r.number)+'">'
+        +     (orderAssign[r.number] ? esc(orderAssign[r.number]) : 'Assign\u2026')
+        +   '</button>'
+        + '</span>'
         + '</div>';
     }).join("") + '</div>';
   }
@@ -3925,6 +4008,9 @@
   // ISO strings (which sort correctly as text, and are what `due` still holds
   // — fmtDue only changes what's displayed), "text" for everything else.
   var OCOLS = [
+    // First cell carries the select-all checkbox rather than a label, same as
+    // the Card Queue.
+    {label:"",           key:null, raw:'<input type="checkbox" id="o-all" aria-label="Select all">'},
     {label:"URL",        key:null},
     {label:"Number",     key:"number", type:"numstr"},
     {label:"Status",     key:"status", type:"text"},
@@ -3934,7 +4020,8 @@
     {label:"Category",   key:"cat",    type:"text"},
     {label:"In process", key:"days",   type:"num", right:true},
     {label:"Raw",        key:"raw",    type:"num", right:true, color:"var(--raw)"},
-    {label:"Pre-graded", key:"pre",    type:"num", right:true, color:"var(--pre)"}
+    {label:"Pre-graded", key:"pre",    type:"num", right:true, color:"var(--pre)"},
+    {label:"Reviewer",   key:"__rev",   type:"text"}
   ];
 
   var QCOLS = [
@@ -3967,6 +4054,7 @@
   function sortValue(r, col){
     if(col.key === "__who") return cardAssign[cardKey(r)] || "";
     if(col.key === "__ipd") return oDays[orderKeyOf(r.order)];
+    if(col.key === "__rev") return orderAssign[r.number] || "";
     return r[col.key];
   }
 
@@ -4088,7 +4176,14 @@
     return "d-ok";
   }
 
-  function ordersWantsQueue(){ return TAB === "orders" && OSUB !== "orders"; }
+  function ordersWantsQueue(){
+    if(TAB !== "orders") return false;
+    if(OSUB === "orders") return false;
+    // Assignments -> Orders renders order rows, so it needs the ORDER question,
+    // not the queue. Every other Orders subtab is card-based.
+    if(OSUB === "assign" && OAKIND === "orders") return false;
+    return true;
+  }
   var ORDER_PANELS = {orders:"opanel", queue:"qpanel", assign:"oapanel",
                       team:"tpanel", done:"dnpanel"};
 
@@ -4102,7 +4197,14 @@
     // Both render from qRows. Going Orders -> Assignments without ever opening
     // Card Queue left them empty, because nothing had fetched the queue: the
     // Orders subtab loads the order-level question, not this one.
-    if(OSUB === "assign"){ renderOrderAssign(); ensureOrderDays(); if(!qRows.length) load(); }
+    if(OSUB === "assign"){
+      renderOrderAssign();
+      ensureOrderDays();
+      // Check the rows the ACTIVE unit renders from, not always the queue --
+      // otherwise opening on Orders with a warm card queue skips the fetch it
+      // actually needs.
+      if(!(OAKIND === "orders" ? oRows.length : qRows.length)) load();
+    }
     if(OSUB === "team"){   renderTeam();        if(!qRows.length) load(); }
     if(OSUB === "done")   renderBreakdown();
   }
@@ -4120,63 +4222,8 @@
     });
     bindNumFilter("q-num", renderQueue);
 
-    // Combobox wiring. The input is a real text field, so typing, selection and
-    // mobile keyboards all behave normally; the menu is just a filtered list.
-    var qa = $("q-assignee");
-    if(qa){
-      qa.onfocus = openAssignMenu;
-      qa.onclick  = openAssignMenu;
-      qa.oninput  = function(){ assignActive = 0; openAssignMenu(); renderAssignMenu(); };
-      qa.onkeydown = function(e){
-        var list = assignMatches();
-        if(e.key === "ArrowDown" || e.key === "ArrowUp"){
-          e.preventDefault();
-          if($("q-assignee-menu").hidden) openAssignMenu();
-          if(!list.length) return;
-          assignActive = e.key === "ArrowDown"
-            ? (assignActive + 1) % list.length
-            : (assignActive <= 0 ? list.length : assignActive) - 1;
-          renderAssignMenu();
-          var el = $("q-assignee-menu").querySelector(".qcopt.active");
-          if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
-          return;
-        }
-        if(e.key === "Enter"){
-          e.preventDefault();
-          // No cursor moved yet: Enter takes the top match, which is the
-          // best-ranked person for the selection.
-          var hit = list[assignActive >= 0 ? assignActive : 0];
-          if(hit) pickAssignee(hit.name);
-          return;
-        }
-        if(e.key === "Escape"){
-          e.preventDefault();
-          if(!$("q-assignee-menu").hidden){ closeAssignMenu(); return; }
-          assignPick = ""; this.value = "";
-          $("q-assignee-wrap").classList.remove("chosen");
-        }
-      };
-      // Leaving with half-typed text would strand the box showing something
-      // that isn't a person, so it snaps back to the confirmed pick.
-      qa.onblur = function(){
-        var self = this;
-        setTimeout(function(){
-          closeAssignMenu();
-          self.value = assignPick;
-          $("q-assignee-wrap").classList.toggle("chosen", !!assignPick);
-        }, 140);
-      };
-    }
-    if($("q-assignee-menu")){
-      // mousedown, not click: blur fires first on click and would close the
-      // menu before the button ever received the event.
-      $("q-assignee-menu").addEventListener("mousedown", function(e){
-        var b = e.target.closest(".qcopt");
-        if(!b) return;
-        e.preventDefault();
-        pickAssignee(b.getAttribute("data-pick"));
-      });
-    }
+    // Both comboboxes are wired by the same factory; see makeAssignCombo.
+    qCombo.bind();
     $("q-clear").onclick = function(){
       mselClear("ms-q-status");
       ["q-num","q-cat","q-who"].forEach(function(id){
@@ -4199,6 +4246,22 @@
       });
     };
 
+    // Cards / Orders pills. Switching unit re-renders through the same code
+    // path -- grouping, search, focus mode, clearing and the modal all read
+    // through oaRows()/oaStore(), so the two views cannot drift apart.
+    function setOaKind(v){
+      if(OAKIND === v) return;
+      OAKIND = v;
+      $("oakind-cards").setAttribute("aria-selected", v === "cards");
+      $("oakind-orders").setAttribute("aria-selected", v === "orders");
+      // Orders need oRows loaded; the Assignments subtab normally fetches the
+      // queue, so pull the order list if we have not got it.
+      if(v === "orders" && !oRows.length) load();
+      renderOrderAssign();
+    }
+    $("oakind-cards").onclick  = function(){ setOaKind("cards"); };
+    $("oakind-orders").onclick = function(){ setOaKind("orders"); };
+
     $("oa-idle").onclick = function(){
       oaShowIdle = !oaShowIdle;
       this.setAttribute("aria-pressed", oaShowIdle);
@@ -4215,18 +4278,20 @@
     $("oa-clear").onclick = function(){
       var btn = this;
       var idx = {};
-      qRows.forEach(function(r){ idx[cardKey(r)] = r; });
-      // Only count assignments whose card is still in the loaded queue; stale
+      oaRows().forEach(function(r){ idx[oaKeyOf(r)] = r; });
+      // Only count assignments whose row is still loaded; stale
       // keys for cards that have since left shouldn't inflate the count.
-      var live = Object.keys(cardAssign).filter(function(k){ return idx[k]; });
+      var live = Object.keys(oaStore()).filter(function(k){ return idx[k]; });
       if(!live.length){ disarmAction(btn); banner("Nothing assigned to clear."); return; }
       armAction(btn, "Clear " + live.length + "? Click again", function(){
         // Drop only the live keys. Wiping the whole object would also discard
         // assignments for cards outside the current filter window, which are
         // someone else's work and not visible from here.
-        live.forEach(function(k){ delete cardAssign[k]; });
-        saveCardAssign();
-        renderQueue(); renderOrderAssign();
+        var st = oaStore();
+        live.forEach(function(k){ delete st[k]; });
+        oaSave();
+        if(OAKIND === "orders") renderOrders(); else renderQueue();
+        renderOrderAssign();
         banner("Cleared <b>"+live.length+"</b> assignment"+(live.length===1?"":"s")+".");
       });
     };
@@ -4260,14 +4325,16 @@
       var t = e.target.closest(".ac-task[data-done]");
       if(t){
         var k = t.getAttribute("data-done");
-        var who = cardAssign[k];
+        var store = oaStore();
+        var who = store[k];
         if(!who) return;
-        var trow = qRows.filter(function(r){ return cardKey(r) === k; })[0];
+        var trow = oaRows().filter(function(r){ return oaKeyOf(r) === k; })[0];
         var tcat = trow ? trow.cat : "";
         recordCompletion(who, tcat, 1);
-        delete cardAssign[k];
-        saveCardAssign();
-        renderQueue(); renderOrderAssign();
+        delete store[k];
+        oaSave();
+        if(OAKIND === "orders") renderOrders(); else renderQueue();
+        renderOrderAssign();
         pmUndo = {key:k, who:who, viaLink:true, cat:tcat};
         banner("Card-type task opened \u2014 removed from <b>"+esc(who)+"</b>'s queue. "
                + '<button class="bannerundo" id="oa-undo">Undo</button>');
@@ -4280,11 +4347,13 @@
       var rx = e.target.closest(".arowx[data-drop]");
       if(rx){
         var rk = rx.getAttribute("data-drop");
-        var rw = cardAssign[rk];
+        var rstore = oaStore();
+        var rw = rstore[rk];
         if(!rw) return;
-        delete cardAssign[rk];
-        saveCardAssign();
-        renderQueue(); renderOrderAssign();
+        delete rstore[rk];
+        oaSave();
+        if(OAKIND === "orders") renderOrders(); else renderQueue();
+        renderOrderAssign();
         // An unassign, NOT a completion -- no tally change.
         pmUndo = {key:rk, who:rw, viaLink:false, cat:""};
         banner("Unassigned from <b>"+esc(rw)+"</b>. "
@@ -4329,16 +4398,18 @@
       if(!b) return;
       var name = b.getAttribute("data-clear"), by = b.getAttribute("data-by");
       var idx = {};
-      qRows.forEach(function(r){ idx[cardKey(r)] = r; });
-      var hit = Object.keys(cardAssign).filter(function(k){
+      oaRows().forEach(function(r){ idx[oaKeyOf(r)] = r; });
+      var gstore = oaStore();
+      var hit = Object.keys(gstore).filter(function(k){
         var r = idx[k]; if(!r) return false;
-        return by === "person" ? cardAssign[k] === name : r.cat === name;
+        return by === "person" ? gstore[k] === name : r.cat === name;
       });
       if(!hit.length) return;
       armAction(b, "\u00d7 " + hit.length + "?", function(){
-        hit.forEach(function(k){ delete cardAssign[k]; });
-        saveCardAssign();
-        renderQueue(); renderOrderAssign();
+        hit.forEach(function(k){ delete gstore[k]; });
+        oaSave();
+        if(OAKIND === "orders") renderOrders(); else renderQueue();
+        renderOrderAssign();
         banner("Unassigned <b>"+hit.length+"</b> card"+(hit.length===1?"":"s")+" from "+esc(name)+".");
       });
     });
@@ -4346,9 +4417,7 @@
     function assignPicked(picked, who){
       picked.forEach(function(k){ cardAssign[k] = who; });
       qSelected = {};
-      assignPick = "";
-      var sel = $("q-assignee"); if(sel) sel.value = "";
-      if($("q-assignee-wrap")) $("q-assignee-wrap").classList.remove("chosen");
+      qCombo.clear();
       saveCardAssign(); renderQueue(); renderOrderAssign();
       // Name the ones they aren't skilled for rather than blocking: the queue
       // still has to clear on a short-staffed day, and a silent mismatch is
@@ -4401,7 +4470,7 @@
     $("q-bulk").onclick = function(){
       var picked = Object.keys(qSelected).filter(function(k){ return qSelected[k]; });
       if(!picked.length) return;
-      var chosen = assignPick;
+      var chosen = qCombo.pick;
       if(chosen){
         assignPicked(picked, chosen);
         return;
@@ -4420,7 +4489,11 @@
     // The row's assignee control is now a button that opens the picker.
     $("qfeed").addEventListener("click", function(e){
       var b = e.target.closest(".qassignbtn");
-      if(b) openAssignPicker(b.getAttribute("data-assign"));
+      if(b) openAssignPicker(b.getAttribute("data-assign"), "card");
+    });
+    $("ofeed").addEventListener("click", function(e){
+      var b = e.target.closest(".qassignbtn[data-oassign]");
+      if(b) openAssignPicker(b.getAttribute("data-oassign"), "order");
     });
 
     $("wm-close").onclick = closeAssignPicker;
@@ -4510,7 +4583,7 @@
     // so it names the totals it's about to destroy rather than just "all".
     $("t-wipe").onclick = function(){
       var btn = this;
-      var people = ORDERS_ROSTER.filter(function(p){ return skillsOf(p).length; });
+      var people = teamRoster().filter(function(p){ return skillsOf(p).length; });
       var cats = people.reduce(function(a,p){ return a + skillsOf(p).length; }, 0);
       if(!people.length){ disarmAction(btn); banner("No skills are set."); return; }
       armAction(btn, "Wipe " + people.length + " people? Click again", function(){
@@ -4522,6 +4595,19 @@
                +"until skills are set again.", "err");
       });
     };
+
+    function setTeamKind(v){
+      if(TEAMKIND === v) return;
+      TEAMKIND = v;
+      $("tkind-data").setAttribute("aria-selected", v === "data");
+      $("tkind-review").setAttribute("aria-selected", v === "review");
+      // A search typed against one roster is meaningless on the other.
+      teamQuery = "";
+      if($("t-search")) $("t-search").value = "";
+      renderTeam();
+    }
+    $("tkind-data").onclick   = function(){ setTeamKind("data"); };
+    $("tkind-review").onclick = function(){ setTeamKind("review"); };
 
     var ts = $("t-search");
     if(ts){
@@ -4554,8 +4640,85 @@
     });
     // Text inputs filter as you type; the selects only fire on change.
     bindNumFilter("o-num", renderOrders);
+    oCombo.bind();
+
+    // Selection + bulk assign, mirroring the Card Queue.
+    $("ofeed").addEventListener("change", function(e){
+      var box = e.target.closest(".osel");
+      if(box){ oSelected[box.getAttribute("data-k")] = box.checked; renderOrders(); return; }
+      if(e.target.id === "o-all"){
+        var on = e.target.checked;
+        oFiltered().forEach(function(r){ oSelected[r.number] = on; });
+        renderOrders();
+      }
+    });
+
+    // First N UNASSIGNED orders in the current filter, in display order.
+    // Unassigned, because picking ones that already carry a reviewer means the
+    // next assign quietly overwrites someone else's work.
+    function oPickN(n){
+      var rows = sortRows(oFiltered(), oSort, OCOLS);
+      var added = 0, skipped = 0;
+      for(var i = 0; i < rows.length && added < n; i++){
+        var k = rows[i].number;
+        if(oSelected[k]) continue;
+        if(orderAssign[k]){ skipped++; continue; }
+        oSelected[k] = true; added++;
+      }
+      renderOrders();
+      var first = $("ofeed") && $("ofeed").querySelector(".orow.sel");
+      if(first && first.scrollIntoView) first.scrollIntoView({block:"nearest"});
+      if(!added){
+        banner(skipped
+          ? "Nothing left to pick \u2014 every remaining order in this filter already has a reviewer."
+          : "Nothing left to pick in this filter.", "err");
+      } else if(added < n){
+        banner("Picked <b>"+added+"</b> \u2014 that's every unassigned order in this filter.");
+      } else if(skipped){
+        banner("Picked <b>"+added+"</b> \u2014 skipped <b>"+skipped
+               +"</b> already-assigned order"+(skipped===1?"":"s")+" along the way.");
+      }
+    }
+    $("o-pick5").onclick  = function(){ oPickN(5); };
+    $("o-pick10").onclick = function(){ oPickN(10); };
+    $("o-pick0").onclick  = function(){ oSelected = {}; renderOrders(); };
+
+    $("o-bulk").onclick = function(){
+      var picked = Object.keys(oSelected).filter(function(k){ return oSelected[k]; });
+      if(!picked.length) return;
+      var who = oCombo.pick;
+      if(!who){
+        banner("Pick someone in <b>Assign to</b> first \u2014 it lists who's "
+               + "skilled for the "+picked.length+" selected order"
+               + (picked.length===1?"":"s")+".", "err");
+        var sel = $("o-assignee");
+        if(sel && sel.focus) sel.focus();
+        return;
+      }
+      picked.forEach(function(k){ orderAssign[k] = who; });
+      oSelected = {};
+      oCombo.clear();
+      saveOrderAssign();
+      renderOrders(); renderOrderAssign();
+      // Same rule as cards: assigning outside someone's skills is allowed but
+      // named, because the queue still has to clear on a short-staffed day.
+      var idx = {}; oRows.forEach(function(r){ idx[r.number] = r; });
+      // "Outside their skills" for an order means they hold neither review
+      // skill the order needs -- not that they lack its sport.
+      var unskilled = picked.filter(function(k){
+        if(!idx[k]) return false;
+        var need = reviewSkillsFor(idx[k]), have = skillsOf(who);
+        return !need.some(function(c){ return have.indexOf(c) >= 0; });
+      }).length;
+      banner("Assigned <b>"+picked.length+"</b> order"+(picked.length===1?"":"s")
+             +" to <b>"+esc(who)+"</b>."
+             + (unskilled ? " <b>"+unskilled+"</b> outside their skills." : ""),
+             unskilled ? "err" : "");
+    };
     $("o-clear").onclick = function(){
       mselClear("ms-o-status");
+      oSelected = {};
+      oCombo.clear();
       ["o-num","o-cat","o-kind"].forEach(function(id){
         var el = $(id); if(!el) return;
         el.value = "";
@@ -4570,6 +4733,20 @@
   // from RECOMP_ROSTER (17), which is the smaller recomp group and still drives
   // the Recomp grader filter, the Hot/Cold Zone assign modal and Daily lines.
   // They overlap on four names only.
+  // The review floor. Separate list from the data floor above: different people
+  // doing a different job, so they get their own roster and their own skills.
+  //
+  // Jan Raymond appears on BOTH rosters -- same person, both jobs. He is stored
+  // once, so his skills follow him rather than existing twice under one name.
+  var REVIEWERS = [
+    "Abe Dato","dominic bediones","Ehm Crucillo","Erys De","Jan Raymond",
+    "Jasmin Banaban","Mark Salvador","Patrick Emerson","rence tang",
+    "Rose Ann","Xerxia Buena"
+  ];
+
+  // Which roster a unit of work draws from.
+  function rosterOf(kind){ return kind === "order" ? REVIEWERS : ORDERS_ROSTER; }
+
   var ORDERS_ROSTER = [
     "Abagael Calasin","Abraham Salisi","Adrian Carlo","Aljen Magat","Anjello Bumanglag",
     "Benedict Bueno","Calvin Caceres","Camille Meneses","Carmen Cortez","Charles Pellas",
@@ -4619,6 +4796,13 @@
     Object.keys(teamSkills).forEach(function(p){ teamSkills[p] = normSkills(teamSkills[p]); });
   }
   var cardAssign = loadLocal("pl_cardassign_v1");   // cardKey -> person   (shared)
+  // Order number -> reviewer.  (shared)
+  // Separate from cardAssign: an order and a card are different units of work,
+  // and one order holds many cards, so a single map keyed on "id" would collide.
+  var orderAssign = loadLocal("pl_orderassign_v1");
+  // Tick state for the Orders table. Session-only, like qSelected -- a
+  // selection is a thing you are doing right now, not shared state.
+  var oSelected = {};
   var assignDay  = loadLocal("pl_assignday_v1");    // {day:"YYYY-MM-DD"}  (shared)
   // person -> category -> count of card-type tasks opened.  (shared)
   // Nested rather than flat so both breakdowns fall out of one structure: sum a
@@ -4741,6 +4925,15 @@
     try { window.localStorage.setItem("pl_cardassign_v1", JSON.stringify(cardAssign)); } catch(e){}
     pushState("cardassign", null, cardAssign);
   }
+  function saveOrderAssign(){
+    try { window.localStorage.setItem("pl_orderassign_v1", JSON.stringify(orderAssign)); } catch(e){}
+    pushState("orderassign", null, orderAssign);
+  }
+  function orderSizeOf(person){
+    var n = 0;
+    for(var k in orderAssign){ if(orderAssign[k] === person) n++; }
+    return n;
+  }
   function saveAssignDay(){
     try { window.localStorage.setItem("pl_assignday_v1", JSON.stringify(assignDay)); } catch(e){}
     pushState("assignday", null, assignDay);
@@ -4811,20 +5004,16 @@
   // and false — most of them can take most of the cards. Coverage is a count,
   // so it degrades sensibly: "covers 2/3" is real information, "no skill" was
   // not.
-  var assignPick = "";      // the confirmed person, "" if none
-  var assignRank = [];      // [{name, tag, cls, load}], best first
-  var assignActive = -1;    // keyboard cursor into the currently shown list
 
-  function selectedCats(){
-    var idx = {}; qRows.forEach(function(r){ idx[cardKey(r)] = r; });
-    var cats = {};
-    Object.keys(qSelected).forEach(function(k){
-      if(qSelected[k] && idx[k]) cats[idx[k].cat] = 1; });
-    return Object.keys(cats);
-  }
+  // Load shown in the picker: cards for a card, orders for an order. Ranking a
+  // reviewer by their card queue while assigning them orders would be a
+  // plausible-looking lie.
+  function loadOf(p){ return wmKind === "order" ? orderSizeOf(p) : queueSizeOf(p); }
 
-  function rankAssignees(catList){
-    return ORDERS_ROSTER.map(function(p){
+  function rankAssignees(catList, loadFn, roster){
+    loadFn = loadFn || loadOf;
+    roster = roster || rosterOf(wmKind);
+    return roster.map(function(p){
       var pri = 0, sec = 0;
       catList.forEach(function(c){
         if(primaryOf(p).indexOf(c) >= 0) pri++;
@@ -4853,7 +5042,7 @@
         tag = "no skill";
         cls = "t-none";
       }
-      return {name:p, tag:tag, cls:cls, pri:pri, covered:covered, load:queueSizeOf(p)};
+      return {name:p, tag:tag, cls:cls, pri:pri, covered:covered, load:loadFn(p)};
     }).sort(function(a,b){
       // Most coverage first, primaries ahead of second options at equal
       // coverage, then least-loaded, then alphabetical.
@@ -4862,75 +5051,179 @@
     });
   }
 
-  function fillAssignee(pickedCount){
-    var input = $("q-assignee"), wrap = $("q-assignee-wrap");
-    if(!input || !wrap) return;
-    wrap.classList.toggle("armed", !!pickedCount);
-    if(!pickedCount){
-      assignRank = [];
-      assignPick = "";
-      input.value = "";
-      input.placeholder = "Pick cards first";
-      wrap.classList.remove("chosen");
-      closeAssignMenu();
-      return;
+  // ---- bulk-assign combobox, as a factory ----
+  //
+  // The Card Queue and the Orders tab need the identical control: a typeable,
+  // skill-ranked picker over the current selection. Written once and
+  // instantiated twice, so the ranking, the search, the keyboard handling and
+  // the "keep the pick across rebuilds" behaviour cannot drift between them.
+  //
+  // cfg: { prefix, unitPlural, rows(), keyOf(r), selected(), loadOf(p) }
+  function makeAssignCombo(cfg){
+    var pick = "", rank = [], active = -1;
+    var inId   = cfg.prefix + "-assignee";
+    var wrapId = inId + "-wrap";
+    var menuId = inId + "-menu";
+
+    // What the SELECTION requires. Cards need their sport category; orders need
+    // the review skills implied by their raw / pre-graded counts. cfg.catsOf
+    // decides, so the two comboboxes ask different questions of the same code.
+    function cats(){
+      var idx = {}; cfg.rows().forEach(function(r){ idx[cfg.keyOf(r)] = r; });
+      var sel = cfg.selected(), out = {};
+      Object.keys(sel).forEach(function(k){
+        if(!sel[k] || !idx[k]) return;
+        cfg.catsOf(idx[k]).forEach(function(c){ out[c] = 1; });
+      });
+      return Object.keys(out);
     }
-    var cats = selectedCats();
-    assignRank = rankAssignees(cats);
-    input.placeholder = cats.length === 1
-      ? "Type a name \u2014 " + categoryLabel(cats[0])
-      : "Type a name \u2014 " + cats.length + " categories";
-    // Keep the pick across rebuilds; the list refreshes on every checkbox
-    // change and losing it mid-flow would be maddening.
-    if(assignPick && ORDERS_ROSTER.indexOf(assignPick) < 0) assignPick = "";
-    if(assignPick) input.value = assignPick;
-    wrap.classList.toggle("chosen", !!assignPick);
-    if(!$("q-assignee-menu").hidden) renderAssignMenu();
+    function matches(){
+      var input = $(inId);
+      var q = (input ? input.value : "").trim();
+      // Once someone is picked the box holds their name; typing it back
+      // shouldn't narrow the list to just them.
+      if(!q || q === pick) return rank;
+      return rank.filter(function(a){ return graderMatches(a.name, q); });
+    }
+    function draw(){
+      var menu = $(menuId); if(!menu) return;
+      var list = matches();
+      if(active >= list.length) active = list.length - 1;
+      menu.innerHTML = list.length ? list.map(function(a, i){
+        return '<button type="button" class="qcopt'+(i===active?" active":"")+'"'
+          + ' role="option" aria-selected="'+(a.name===pick)+'" data-pick="'+esc(a.name)+'">'
+          + '<span class="qcname">'+esc(a.name)+'</span>'
+          + '<span class="qctag '+a.cls+'">'+esc(a.tag)+'</span>'
+          + '<span class="qcload">'+(a.load ? a.load+" on queue" : "idle")+'</span>'
+          + '</button>';
+      }).join("") : '<div class="qcnone">Nobody on the roster matches that.</div>';
+    }
+    function open(){
+      var menu = $(menuId), input = $(inId);
+      if(!menu || !rank.length) return;
+      draw(); menu.hidden = false;
+      if(input) input.setAttribute("aria-expanded","true");
+    }
+    function close(){
+      var menu = $(menuId), input = $(inId);
+      if(menu) menu.hidden = true;
+      if(input) input.setAttribute("aria-expanded","false");
+      active = -1;
+    }
+    function choose(name){
+      pick = name;
+      var input = $(inId), wrap = $(wrapId);
+      if(input) input.value = name;
+      if(wrap) wrap.classList.add("chosen");
+      close();
+    }
+
+    function fill(count){
+      var input = $(inId), wrap = $(wrapId);
+      if(!input || !wrap) return;
+      wrap.classList.toggle("armed", !!count);
+      if(!count){
+        rank = []; pick = "";
+        input.value = "";
+        input.placeholder = "Pick " + cfg.unitPlural + " first";
+        wrap.classList.remove("chosen");
+        close();
+        return;
+      }
+      var cl = cats();
+      // loadOf decides whether "3 on queue" counts cards or orders.
+      rank = rankAssignees(cl, cfg.loadOf, cfg.roster());
+      input.placeholder = cl.length === 1
+        ? "Type a name \u2014 " + categoryLabel(cl[0])
+        : "Type a name \u2014 " + cl.length + " categories";
+      if(pick && cfg.roster().indexOf(pick) < 0) pick = "";
+      if(pick) input.value = pick;
+      wrap.classList.toggle("chosen", !!pick);
+      if(!$(menuId).hidden) draw();
+    }
+
+    function bind(){
+      var input = $(inId);
+      if(!input || input._combo) return;
+      input._combo = true;
+      input.onfocus = open;
+      input.onclick = open;
+      input.oninput = function(){ active = 0; open(); draw(); };
+      input.onkeydown = function(e){
+        var list = matches();
+        if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+          e.preventDefault();
+          if($(menuId).hidden) open();
+          if(!list.length) return;
+          active = e.key === "ArrowDown"
+            ? (active + 1) % list.length
+            : (active <= 0 ? list.length : active) - 1;
+          draw();
+          var el = $(menuId).querySelector(".qcopt.active");
+          if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+          return;
+        }
+        if(e.key === "Enter"){
+          e.preventDefault();
+          var hit = list[active >= 0 ? active : 0];
+          if(hit) choose(hit.name);
+          return;
+        }
+        if(e.key === "Escape"){
+          e.preventDefault();
+          if(!$(menuId).hidden){ close(); return; }
+          pick = ""; this.value = "";
+          $(wrapId).classList.remove("chosen");
+        }
+      };
+      input.onblur = function(){
+        var self = this;
+        setTimeout(function(){
+          close();
+          self.value = pick;
+          $(wrapId).classList.toggle("chosen", !!pick);
+        }, 140);
+      };
+      // mousedown, not click: blur fires first and would close the menu before
+      // the option ever received the event.
+      $(menuId).addEventListener("mousedown", function(e){
+        var b = e.target.closest(".qcopt");
+        if(!b) return;
+        e.preventDefault();
+        choose(b.getAttribute("data-pick"));
+      });
+    }
+
+    return {
+      fill: fill, bind: bind,
+      get pick(){ return pick; },
+      clear: function(){
+        pick = "";
+        var input = $(inId), wrap = $(wrapId);
+        if(input) input.value = "";
+        if(wrap) wrap.classList.remove("chosen");
+      }
+    };
   }
 
-  function assignMatches(){
-    var input = $("q-assignee");
-    var q = (input ? input.value : "").trim();
-    // Once someone is picked the box holds their name; typing it back shouldn't
-    // narrow the list to just them, so an exact match on the pick shows all.
-    if(!q || q === assignPick) return assignRank;
-    return assignRank.filter(function(a){ return graderMatches(a.name, q); });
-  }
-
-  function renderAssignMenu(){
-    var menu = $("q-assignee-menu"); if(!menu) return;
-    var list = assignMatches();
-    if(assignActive >= list.length) assignActive = list.length - 1;
-    menu.innerHTML = list.length ? list.map(function(a, i){
-      return '<button type="button" class="qcopt'+(i===assignActive?" active":"")+'"'
-        + ' role="option" aria-selected="'+(a.name===assignPick)+'" data-pick="'+esc(a.name)+'">'
-        + '<span class="qcname">'+esc(a.name)+'</span>'
-        + '<span class="qctag '+a.cls+'">'+esc(a.tag)+'</span>'
-        + '<span class="qcload">'+(a.load ? a.load+" on queue" : "idle")+'</span>'
-        + '</button>';
-    }).join("") : '<div class="qcnone">Nobody on the roster matches that.</div>';
-  }
-
-  function openAssignMenu(){
-    var menu = $("q-assignee-menu"), input = $("q-assignee");
-    if(!menu || !assignRank.length) return;
-    renderAssignMenu();
-    menu.hidden = false;
-    if(input) input.setAttribute("aria-expanded","true");
-  }
-  function closeAssignMenu(){
-    var menu = $("q-assignee-menu"), input = $("q-assignee");
-    if(menu) menu.hidden = true;
-    if(input) input.setAttribute("aria-expanded","false");
-    assignActive = -1;
-  }
-  function pickAssignee(name){
-    assignPick = name;
-    var input = $("q-assignee"), wrap = $("q-assignee-wrap");
-    if(input) input.value = name;
-    if(wrap) wrap.classList.add("chosen");
-    closeAssignMenu();
-  }
+  var qCombo = makeAssignCombo({
+    prefix:"q", unitPlural:"cards",
+    rows:function(){ return qRows; },
+    keyOf:cardKey,
+    selected:function(){ return qSelected; },
+    loadOf:queueSizeOf,
+    roster:function(){ return ORDERS_ROSTER; },
+    catsOf:function(r){ return [r.cat]; }
+  });
+  var oCombo = makeAssignCombo({
+    prefix:"o", unitPlural:"orders",
+    rows:function(){ return oRows; },
+    keyOf:function(r){ return r.number; },
+    selected:function(){ return oSelected; },
+    loadOf:orderSizeOf,
+    roster:function(){ return REVIEWERS; },
+    catsOf:reviewSkillsFor
+  });
 
   function refreshQueueFilters(){
     var pres = {};
@@ -4971,7 +5264,7 @@
     // A column of dashes with no explanation reads as broken. Say which of the
     // three causes it is, in the panel, not just the console.
     if($("q-note")) $("q-note").textContent = oDaysNote || "";
-    fillAssignee(picked);
+    qCombo.fill(picked);
 
     $("qkpis").innerHTML = kpiHTML([
       {c:"", k:"Cards",      v:fmt(rows.length), n:rows.length===qRows.length?"all":"filtered"},
@@ -5079,9 +5372,23 @@
     return x < y ? -1 : x > y ? 1 : 0;
   }
 
+  // Which unit of work the Assignments panel is showing.
+  // Orders is the first pill, so it is also the default. A first-position pill
+  // that isn't the one selected on open reads as a bug.
+  var OAKIND = "orders";   // "orders" | "cards"
+
+  // One source-of-truth accessor per unit, so every consumer below -- grouping,
+  // counting, the modal, clearing -- reads the same way for both.
+  function oaRows(){   return OAKIND === "orders" ? oRows : qRows; }
+  function oaStore(){  return OAKIND === "orders" ? orderAssign : cardAssign; }
+  function oaKeyOf(r){ return OAKIND === "orders" ? r.number : cardKey(r); }
+  function oaSave(){   if(OAKIND === "orders") saveOrderAssign(); else saveCardAssign(); }
+  function oaNoun(n){  return (OAKIND === "orders" ? "order" : "card") + (n===1 ? "" : "s"); }
+
   function cardsFor(name, by){
-    return qRows.filter(function(r){
-      var who = cardAssign[cardKey(r)];
+    var store = oaStore();
+    return oaRows().filter(function(r){
+      var who = store[oaKeyOf(r)];
       return by === "person" ? who === name : (who && r.cat === name);
     }).sort(byDue);
   }
@@ -5145,11 +5452,13 @@
     }
     if(seen === today) return 0;
     if(seen > today) return 0;          // clock skew or a stale read; ignore
-    var n = Object.keys(cardAssign).length;
+    var n = Object.keys(cardAssign).length + Object.keys(orderAssign).length;
     cardAssign = {};
+    orderAssign = {};
     qSelected = {};
     assignDay = {day: today};
     saveCardAssign();
+    saveOrderAssign();
     saveAssignDay();
     if(TAB === "orders"){ renderQueue(); renderOrderAssign(); }
     if(n) banner("New work day in Manila \u2014 cleared <b>"+n+"</b> card assignment"
@@ -5191,15 +5500,29 @@
   }
 
   // ---- per-card assignee picker ----
-  var wmKey = null;     // cardKey of the card being assigned, null when closed
+  var wmKey = null;     // cardKey / order number being assigned, null when closed
+  var wmKind = "card";  // "card" | "order"
   var wmActive = -1;
 
+  // One picker, two units of work. Keeping a single implementation means the
+  // ranking, the search and the keyboard behaviour cannot drift apart between
+  // assigning a card and assigning an order.
+  function wmTarget(){
+    if(wmKind === "order") return oRows.filter(function(r){ return r.number === wmKey; })[0] || null;
+    return qRows.filter(function(r){ return cardKey(r) === wmKey; })[0] || null;
+  }
+  function wmStore(){ return wmKind === "order" ? orderAssign : cardAssign; }
+  function wmSave(){ if(wmKind === "order") saveOrderAssign(); else saveCardAssign(); }
+
   function wmRows(){
-    var r = (qRows.filter(function(x){ return cardKey(x) === wmKey; })[0]) || null;
+    var r = wmTarget();
     if(!r) return [];
     // rankAssignees over the single category gives plain "primary" / "2nd
     // option" / "no skill" wording, and orders least-loaded first inside each.
-    var list = rankAssignees([r.cat]);
+    // An order is reviewed by card kind, not by sport.
+    var list = rankAssignees(
+      wmKind === "order" ? reviewSkillsFor(r) : [r.cat],
+      loadOf, rosterOf(wmKind));
     var q = ($("wm-search") || {}).value || "";
     q = q.trim();
     return q ? list.filter(function(a){ return graderMatches(a.name, q); }) : list;
@@ -5208,7 +5531,7 @@
   function renderWm(){
     var box = $("wm-list"); if(!box) return;
     var list = wmRows();
-    var cur = cardAssign[wmKey] || "";
+    var cur = wmStore()[wmKey] || "";
     if(wmActive >= list.length) wmActive = list.length - 1;
     var head = cur
       ? '<button type="button" class="wmopt wmclear" data-who="__none__">'
@@ -5225,14 +5548,24 @@
     }).join("") : '<div class="wmnone">Nobody on the roster matches that.</div>');
   }
 
-  function openAssignPicker(k){
-    var r = (qRows.filter(function(x){ return cardKey(x) === k; })[0]) || null;
-    if(!r) return;
+  function openAssignPicker(k, kind){
+    wmKind = kind === "order" ? "order" : "card";
     wmKey = k; wmActive = -1;
-    $("wm-title").textContent = r.ac || ("Order " + r.order);
+    var r = wmTarget();
+    if(!r){ wmKey = null; return; }
+    $("wm-title").textContent = wmKind === "order"
+      ? ("Order " + r.number)
+      : (r.ac || ("Order " + r.order));
     $("wm-sub").innerHTML = '<i class="hdot" style="background:'+sportColor(r.cat)+'"></i>'
-      + esc(categoryLabel(r.cat, r.catRaw)) + ' \u00b7 ' + esc(prettyStatus(r.cardStatus))
-      + (r.player ? ' \u00b7 ' + esc(r.player) : "");
+      + esc(categoryLabel(r.cat, r.catRaw))
+      + ' \u00b7 ' + esc(prettyStatus(wmKind === "order" ? r.status : r.cardStatus))
+      + (wmKind === "order"
+          ? (r.days != null ? ' \u00b7 ' + fmt(r.days) + 'd in process' : "")
+          : (r.player ? ' \u00b7 ' + esc(r.player) : ""));
+    // The picker serves both units; saying "card" while assigning an order is
+    // a small lie that makes the dialog look like the wrong one.
+    if($("wm-label")) $("wm-label").textContent =
+      wmKind === "order" ? "Who should review this order?" : "Who should work this card?";
     var inp = $("wm-search"); if(inp) inp.value = "";
     renderWm();
     $("wmodal").hidden = false;
@@ -5243,11 +5576,13 @@
 
   function applyWmPick(who){
     if(!wmKey) return;
-    if(who === "__none__") delete cardAssign[wmKey];
-    else cardAssign[wmKey] = who;
-    saveCardAssign();
+    var store = wmStore();
+    if(who === "__none__") delete store[wmKey];
+    else store[wmKey] = who;
+    wmSave();
     closeAssignPicker();
-    renderQueue(); renderOrderAssign();
+    if(wmKind === "order") renderOrders(); else renderQueue();
+    renderOrderAssign();
   }
 
   var pmOpen = null;    // {name, by} while the modal is up
@@ -5278,12 +5613,14 @@
     $("pm-list").innerHTML = undoBar + (list.length ? list.map(function(r){
       var k = cardKey(r);
       return '<div class="pmrow" style="--pc:'+sportColor(r.cat)+'">'
-        + '<span class="pmac">'+esc(r.ac || "\u2014")+'</span>'
+        + '<span class="pmac">'+esc(OAKIND === "orders" ? r.number : (r.ac || "\u2014"))+'</span>'
         + '<span class="pmmid">'
         // Player name is not guaranteed to come back from the queue question,
         // so this leads with the order number when it's absent rather than
         // rendering a bare dash where a name used to be.
-        +   '<span class="pmplayer">'+esc(r.player || ("Order " + r.order))+'</span>'
+        +   '<span class="pmplayer">'
+        +     esc(OAKIND === "orders" ? (r.name || ("Order " + r.number))
+                                      : (r.player || ("Order " + r.order)))+'</span>'
         +   '<span class="pmmeta">'
         +     (r.player ? 'order '+esc(r.order)+' \u00b7 ' : '')
         +     esc(categoryLabel(r.cat, r.catRaw))
@@ -5291,13 +5628,15 @@
         // The Card type link goes to the card-type task, so its status belongs
         // beside it -- otherwise you open the link just to find out.
         +     (r.taskStat ? ' \u00b7 type: '+esc(prettyStatus(r.taskStat)) : "")
-        +     (by === "category" && cardAssign[k] ? ' \u00b7 '+esc(cardAssign[k]) : "")
+        +     (by === "category" && oaStore()[k] ? ' \u00b7 '+esc(oaStore()[k]) : "")
         +     (r.due ? ' \u00b7 due '+esc(fmtDue(r.due)) : "")+'</span>'
         + '</span>'
         // Queue rows carry cardUrl / taskUrl -- NOT `url`, which is the Orders
         // shape. This checked r.url, so the link never rendered at all.
         + '<span class="pmlinks">'
-        +   (r.cardUrl ? '<a class="pmlink" href="'+esc(r.cardUrl)+'" target="_blank" rel="noopener">Card</a>' : '')
+        +   (OAKIND === "orders"
+              ? (r.url ? '<a class="pmlink" href="'+esc(r.url)+'" target="_blank" rel="noopener">Order</a>' : '')
+              : (r.cardUrl ? '<a class="pmlink" href="'+esc(r.cardUrl)+'" target="_blank" rel="noopener">Card</a>' : ''))
         // data-done marks it: opening the card-type task means the person is
         // working it, so it comes off their queue. The full URL is the title so
         // it's visible on hover and copyable via right-click, without a 60-char
@@ -5320,29 +5659,32 @@
   var pmUndo = null;    // {key, who} or null
 
   function pmDrop(k, viaLink){
-    if(!k || !cardAssign[k]) return;
-    var who = cardAssign[k];
-    var row = qRows.filter(function(r){ return cardKey(r) === k; })[0];
+    var store = oaStore();
+    if(!k || !store[k]) return;
+    var who = store[k];
+    var row = oaRows().filter(function(r){ return oaKeyOf(r) === k; })[0];
     var cat = row ? row.cat : "";
     // Only a card-type click counts as work done. The manual x is an
     // unassignment, not a completion, so it must not inflate anyone's tally.
     if(viaLink) recordCompletion(who, cat, 1);
     pmUndo = {key:k, who:who, viaLink:!!viaLink, cat:(viaLink ? cat : "")};
-    delete cardAssign[k];
-    saveCardAssign();
-    renderQueue(); renderOrderAssign();
+    delete store[k];
+    oaSave();
+    if(OAKIND === "orders") renderOrders(); else renderQueue();
+    renderOrderAssign();
     if(pmOpen) openPersonModal(pmOpen.name, pmOpen.by);
   }
 
   function pmRestore(){
     if(!pmUndo) return;
-    cardAssign[pmUndo.key] = pmUndo.who;
+    oaStore()[pmUndo.key] = pmUndo.who;
     // Undo has to take the tally back too, or a misclick permanently credits
     // someone for work they didn't do.
     if(pmUndo.cat) recordCompletion(pmUndo.who, pmUndo.cat, -1);
     pmUndo = null;
-    saveCardAssign();
-    renderQueue(); renderOrderAssign();
+    oaSave();
+    if(OAKIND === "orders") renderOrders(); else renderQueue();
+    renderOrderAssign();
     if(pmOpen) openPersonModal(pmOpen.name, pmOpen.by);
   }
 
@@ -5465,21 +5807,22 @@
   function renderOrderAssign(){
     if(!$("oafeed")) return;
     var by = ($("oa-by")||{}).value || "person";
+    var rowsSrc = oaRows(), store = oaStore();
     var idx = {};
-    qRows.forEach(function(r){ idx[cardKey(r)] = r; });
+    rowsSrc.forEach(function(r){ idx[oaKeyOf(r)] = r; });
 
     var groups = {};
     if(by === "person"){
-      ORDERS_ROSTER.forEach(function(p){ groups[p] = []; });
-      for(var k in cardAssign){ var r = idx[k]; if(!r) continue;
-        (groups[cardAssign[k]] = groups[cardAssign[k]] || []).push(r); }
+      rosterOf(OAKIND === "orders" ? "order" : "card").forEach(function(p){ groups[p] = []; });
+      for(var k in store){ var r = idx[k]; if(!r) continue;
+        (groups[store[k]] = groups[store[k]] || []).push(r); }
     } else {
-      qRows.forEach(function(r){ if(cardAssign[cardKey(r)]) (groups[r.cat] = groups[r.cat]||[]).push(r); });
+      rowsSrc.forEach(function(r){ if(store[oaKeyOf(r)]) (groups[r.cat] = groups[r.cat]||[]).push(r); });
     }
 
     var names = Object.keys(groups).sort(function(a,b){
       return (groups[b].length - groups[a].length) || a.localeCompare(b); });
-    var total = Object.keys(cardAssign).filter(function(k){ return idx[k]; }).length;
+    var total = Object.keys(store).filter(function(k){ return idx[k]; }).length;
 
     // Search is always about a PERSON, whichever grouping is showing. Grouped by
     // person it matches the card's own name; grouped by category it keeps the
@@ -5496,7 +5839,7 @@
       names = names.filter(function(n){
         if(by === "person") return graderMatches(n, q);
         return groups[n].some(function(r){
-          var who = cardAssign[cardKey(r)];
+          var who = oaStore()[oaKeyOf(r)];
           return who && graderMatches(who, q);
         });
       });
@@ -5507,9 +5850,11 @@
           ? names.length + " of " + all + (by==="person" ? " people" : " categories") + " match \u201c" + q + "\u201d"
           : "nobody matches \u201c" + q + "\u201d")
       : total
-        ? fmt(total) + " card" + (total===1?"":"s") + " assigned \u00b7 grouped by " + by
+        ? fmt(total) + " " + oaNoun(total) + " assigned \u00b7 grouped by " + by
           + (oaShowIdle ? "" : " \u00b7 idle hidden")
-        : "nothing assigned yet \u2014 use Auto-assign on the Card Queue";
+        : (OAKIND === "orders"
+            ? "nothing assigned yet \u2014 use the Reviewer column on the Orders tab"
+            : "nothing assigned yet \u2014 use Auto-assign on the Card Queue");
 
     if(!names.length){
       // Without this the grid just empties and reads as a broken panel.
@@ -5555,20 +5900,25 @@
               + (focus ? '<span class="pmx arowx" style="visibility:hidden">\u00d7</span>' : '')
               + '</div>'
               + (focus ? list : list.slice(0,8)).map(function(r){
-                var k2 = cardKey(r);
-                var d = oDays[orderKeyOf(r.order)];
+                var k2 = oaKeyOf(r);
+                // Orders carry their own number, url and days; cards borrow
+                // days from the order join. One row shape either way.
+                var isOrd = OAKIND === "orders";
+                var d   = isOrd ? r.days : oDays[orderKeyOf(r.order)];
+                var num = isOrd ? r.number : r.order;
+                var url = isOrd ? r.url : r.taskUrl;
                 return '<div class="arow">'
                   + '<span class="abar" style="background:'+sportColor(r.cat)+'"></span>'
                   // One row, five columns, sharing a grid with the header.
                   + '<span class="acell">'
-                  +   (r.taskUrl
-                        ? '<a class="ac-task" href="'+esc(r.taskUrl)+'" target="_blank"'
-                          + ' rel="noopener" data-done="'+esc(k2)+'" title="'+esc(r.taskUrl)+'">Click Me</a>'
-                        : '<span class="ac-task none">no task</span>')
-                  +   '<span class="ac-ord"><b>'+esc(r.order)+'</b></span>'
+                  +   (url
+                        ? '<a class="ac-task" href="'+esc(url)+'" target="_blank"'
+                          + ' rel="noopener" data-done="'+esc(k2)+'" title="'+esc(url)+'">Click Me</a>'
+                        : '<span class="ac-task none">no link</span>')
+                  +   '<span class="ac-ord"><b>'+esc(num)+'</b></span>'
                   +   '<span class="ac-cat"><i class="hdot" style="background:'+sportColor(r.cat)+'"></i>'
                   +     esc(categoryLabel(r.cat, r.catRaw))
-                  +     (by==="category" ? ' \u00b7 '+esc(cardAssign[k2]||"") : '')+'</span>'
+                  +     (by==="category" ? ' \u00b7 '+esc(oaStore()[k2]||"") : '')+'</span>'
                   +   '<span class="ac-due">'+(r.due ? esc(fmtDue(r.due)) : "\u2014")+'</span>'
                   // A dash means the order join hasn't landed, not zero days.
                   +   '<span class="ac-ipd '+daysClass(d)+'">'
@@ -5588,6 +5938,10 @@
   }
 
   var teamQuery = "";
+  // Review is the first pill, so it is also the default -- a first-position
+  // pill that isn't the one selected on open reads as a bug.
+  var TEAMKIND = "review";   // "review" | "data"
+  function teamRoster(){ return TEAMKIND === "review" ? REVIEWERS : ORDERS_ROSTER; }
   // Which tier the next chip click writes to, per person. Purely a UI mode, so
   // it stays local — pushing it to /api/state would make one person's cursor
   // position jump on someone else's screen.
@@ -5596,22 +5950,23 @@
 
   function teamPeople(){
     var q = teamQuery.trim();
-    if(!q) return ORDERS_ROSTER;
+    if(!q) return teamRoster();
     // Same matcher as the grader filter: bidirectional substring plus token
     // prefixes, so "rod" finds Rodel and "jay sal" finds Jay-R Salili.
-    return ORDERS_ROSTER.filter(function(p){ return graderMatches(p, q); });
+    return teamRoster().filter(function(p){ return graderMatches(p, q); });
   }
 
   function renderTeam(){
     if(!$("tfeed")) return;
-    var withSkills = ORDERS_ROSTER.filter(function(p){ return skillsOf(p).length; }).length;
-    $("thint").textContent = withSkills + " of " + ORDERS_ROSTER.length
+    var roster = teamRoster();
+    var withSkills = roster.filter(function(p){ return skillsOf(p).length; }).length;
+    $("thint").textContent = withSkills + " of " + roster.length
       + " have skills set \u00b7 pick Primary or 2nd Option, then click categories";
 
     var people = teamPeople();
     // Nothing to wipe -> the button says so by being unavailable, rather than
     // arming and then reporting "no skills are set".
-    var anySkills = ORDERS_ROSTER.some(function(p){ return skillsOf(p).length; });
+    var anySkills = roster.some(function(p){ return skillsOf(p).length; });
     if($("t-wipe")) $("t-wipe").disabled = !anySkills;
 
     var cnt = $("t-count");
@@ -5625,7 +5980,10 @@
     }
 
     $("tfeed").innerHTML = people.map(function(p){
-      var c = personColor(p), q = queueSizeOf(p);
+      // Reviewers hold ORDERS, not cards -- a card count on the review
+      // roster would read as authoritative and be wrong.
+      var isRev = TEAMKIND === "review";
+      var c = personColor(p), q = isRev ? orderSizeOf(p) : queueSizeOf(p);
       var rec = skillRec(p), mode = modeOf(p);
       return '<div class="zcard" style="border-left:3px solid '+c+'">'
         + '<div class="zhead" style="padding-bottom:10px">'
@@ -5636,7 +5994,7 @@
         // by not being the accent colour, not by fading the glyphs.
         +   '<span class="zcount" style="font-size:13.5px;font-weight:500;'
         +     (q ? 'color:'+c : 'color:var(--tx);opacity:.75')+'">'
-        +     (q ? q + " card" + (q===1?"":"s") : "idle") + '</span>'
+        +     (q ? q + " " + (isRev ? "order" : "card") + (q===1?"":"s") : "idle") + '</span>'
         // Only offered when there's something to clear -- an always-present
         // button on 58 idle cards is just noise.
         +   ((rec.primary.length + rec.secondary.length)
@@ -5654,7 +6012,7 @@
         +     ' aria-pressed="'+(mode==="secondary")+'">2nd Option'
         +     '<span class="tmn">'+rec.secondary.length+'</span></button>'
         + '</div>'
-        + '<div class="skillwrap'+(mode==="secondary"?" sec":"")+'">' + ORDER_CATEGORIES.map(function(cat){
+        + '<div class="skillwrap'+(mode==="secondary"?" sec":"")+'">' + skillsForKind(TEAMKIND).map(function(cat){
             var tier = tierOf(p, cat);
             // The row shows the ACTIVE tier's selections only: in 2nd Option
             // mode the lit chips are that person's 2nd options, not their
@@ -6923,6 +7281,7 @@
           if(OSUB === "assign") renderOrderAssign();
           if(OSUB === "team")   renderTeam();
         } else if(TAB==="orders"){
+          if(OSUB === "assign") setTimeout(renderOrderAssign, 0);
           if(arr.length && !window.__oCols){
             window.__oCols = Object.keys(arr[0]);
             console.info("orders columns:", window.__oCols);
@@ -7099,6 +7458,7 @@
       $("oapanel").hidden = true; $("tpanel").hidden = true;
     }
     $("recomp-subtabs").hidden = (name!=="recomp");
+    syncAgeSrc();
     if(name==="orders"){
       $("panel-body").hidden = true;
       $("groups").hidden = true;
@@ -7133,6 +7493,7 @@
     var graderPanel = usesGraderPanel(name);
     $("panel-recomp").hidden     = !graderPanel;
     $("recomp-subtabs").hidden   = (name!=="recomp");
+    syncAgeSrc();
     $("cardtype-subtabs").hidden = (name!=="cardtype");
     $("review-subtabs").hidden   = (name!=="review");
     if(name==="cardtype" || name==="review"){
@@ -7176,7 +7537,7 @@
     $("rpanel-highend").hidden = (name!=="highend");
     $("sub-total").setAttribute("aria-selected", name==="total");
     $("sub-age").setAttribute("aria-selected", name==="age");
-    $("age-src").hidden = (name !== "age");
+    syncAgeSrc();
     syncFilterVisibility();
 
     // Daily and Assignments are entirely local — there is no Metabase question
@@ -7211,6 +7572,15 @@
   // Source pills. Switching population re-runs the query; everything else --
   // KPIs, the bar chart, the aging table -- is the same code path, so the two
   // views cannot drift apart in how they present.
+  // These pills belong to ONE view: Recomp -> Avg EV Age. Visibility was set
+  // only in setSub(), which never runs when you leave the Recomp tab -- so
+  // switching to Cards or Orders while on Avg EV Age left them stranded on a
+  // page they have nothing to do with.
+  function syncAgeSrc(){
+    var el = $("age-src");
+    if(el) el.hidden = !(TAB === "recomp" && SUB === "age");
+  }
+
   function setAgeSrc(v){
     if(AGESRC === v) return;
     AGESRC = v;
@@ -7525,7 +7895,7 @@
       </span>
       <button id="wm-close" class="amodal-x" aria-label="Close">&#10005;</button>
     </div>
-    <div class="amodal-label">Who should work this card?</div>
+    <div class="amodal-label" id="wm-label">Who should work this card?</div>
     <input id="wm-search" class="wmsearch" type="search" autocomplete="off"
            placeholder="Type a name…" aria-label="Search team members">
     <div id="wm-list" class="wmlist" role="listbox"></div>

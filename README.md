@@ -1546,6 +1546,80 @@ column immediately after pre-graded.
 - **Auto-assign by skill** places every unassigned card in the current filter.
 - Filters: category, card status, assignee (including **Unassigned**).
 
+## Two rosters: Data and Review
+
+`ORDERS_ROSTER` (58) does card work. `REVIEWERS` (11) reviews orders. Different
+people, different jobs, so separate lists and separate skills.
+
+Read off the Review-tab charts:
+
+> Abe Dato · dominic bediones · Ehm Crucillo · Erys De · Jan Raymond ·
+> Jasmin Banaban · Mark Salvador · Patrick Emerson · rence tang · Rose Ann ·
+> Xerxia Buena
+
+**Jan Raymond is on both rosters** — one person, both jobs. Stored once in each
+list, and because `teamSkills` is keyed by name his skills follow him rather
+than existing twice under the same name. A test asserts he appears exactly once
+per list.
+
+Names are recorded exactly as the charts print them, lowercase included
+(`dominic bediones`, `rence tang`). Some look truncated (`Erys De`, `Rose Ann`)
+— worth confirming against the source.
+
+The roster is threaded through rather than hardcoded:
+
+| consumer | roster |
+|---|---|
+| `rankAssignees(cats, loadFn, roster)` | passed in |
+| card combobox / order combobox | `ORDERS_ROSTER` / `REVIEWERS` |
+| Assignments grouping | `rosterOf(OAKIND)` |
+| Team grid | `teamRoster()` |
+
+### Reviewers have two skills, not twelve
+
+Reviewers don't work by sport. Their whole skill set is:
+
+- **Review (Pre-Graded)** — purple `#A855F7`
+- **Review Premium (Raw)** — blue `#1E88E5`
+
+Same pair as every raw / pre-graded column elsewhere, so the colour means the
+same thing wherever it appears.
+
+The Team grid shows `skillsForKind(TEAMKIND)` — twelve sports for Data, these
+two for Review.
+
+#### An order's required skills are derived, not stored
+
+`reviewSkillsFor(order)` reads the order's own card counts:
+
+| order | needs |
+|---|---|
+| `pre > 0` | Review (Pre-Graded) |
+| `raw > 0` | Review Premium (Raw) |
+| both | both |
+| **neither counted** | **both** |
+
+That last row matters: an order with no counts would otherwise require *nothing*
+and match nobody at all. Offering the whole roster is the safer failure.
+
+This feeds the per-order picker, the bulk Assign to list and the
+"outside their skills" warning — which for an order now means the reviewer holds
+*neither* skill the order needs, rather than lacking its sport.
+
+### Team — Data / Review pills
+
+Two pills over the same skill grid: **Review** first, **Data** second. Review is
+also the default, because a first-position pill that isn't the one selected on
+open reads as a bug.
+
+The hint counts the active roster, Clear all skills targets only the active
+roster, and switching clears the search — a query typed against one roster is
+meaningless on the other.
+
+The per-person count follows the unit of work: reviewers show **orders**, data
+staff show **cards**. Showing a card count on the review roster would read as
+authoritative and be wrong.
+
 ### Team — the skills model
 
 Each roster member holds categories at **two tiers**: **primary** (their main
@@ -2315,6 +2389,83 @@ Details worth keeping:
   inside `bindQueue()` which is already `.done`-guarded.
 - Team search's own Escape handler now checks `defaultPrevented`, so Escape
   closes the menu first and only clears the box on a second press.
+
+## Assignments: Cards / Orders
+
+Two pills at the top of the Assignments panel: **Orders** first, **Cards**
+second. Orders assigns a reviewer to a whole order; Cards is the card-queue
+assignments as before.
+
+**Orders is also the default**, because a first-position pill that isn't the one
+selected on open reads as a bug. Opening the panel loads the question the active
+unit renders from — checking `oRows` when the unit is orders rather than always
+checking `qRows`, which would skip the fetch it actually needs whenever the card
+queue happened to be warm.
+
+**One implementation, two units of work.** Everything below the pills —
+grouping, the person/category toggle, search, focus mode, the person modal,
+per-row unassign, per-group clear, clear-all, click-to-complete with undo —
+reads through four accessors:
+
+```js
+oaRows()    // qRows or oRows
+oaStore()   // cardAssign or orderAssign
+oaKeyOf(r)  // cardKey(r) or r.number
+oaSave()    // saveCardAssign or saveOrderAssign
+```
+
+so the two views cannot drift apart in behaviour. A test asserts each accessor
+switches cleanly and that **the stores never bleed**: a person holding orders
+shows zero cards and vice versa.
+
+### Separate stores, deliberately
+
+`orderAssign` is its own shared-state section keyed on order number, not merged
+into `cardAssign`. One order holds many cards, so a single map keyed on "id"
+would collide the moment an order number matched a card key.
+
+The 22:00 Manila rollover clears **both**.
+
+### Assigning an order
+
+The Orders tab gained a **Reviewer** column using the same picker as the Card
+Queue — same ranking, search and keyboard behaviour, because it's the same
+function with a `kind` argument. The picker's load figure follows the unit:
+ranking a reviewer by their *card* queue while assigning them *orders* would be
+a plausible-looking lie, so it counts orders there.
+
+### Select 5 / 10 -> Assign to -> Bulk assign, on Orders
+
+The Orders tab now carries the same batch controls as the Card Queue: a
+checkbox column, **Select 5 · 10 · None**, a typeable **Assign to** picker and
+**Bulk assign**, with identical semantics — picks skip orders that already have
+a reviewer, add rather than replace, scroll the first pick into view, name what
+they skipped, and flag (without blocking) an assignment outside someone's
+skills.
+
+**The combobox is now a factory.** It was written inline against fixed `q-*`
+ids; rather than copy ~120 lines for orders, `makeAssignCombo(cfg)` takes a
+prefix and four accessors and is instantiated twice. The ranking, search,
+keyboard handling and "keep the pick across rebuilds" behaviour therefore cannot
+drift between the two.
+
+The load figure follows the unit — `loadOf: queueSizeOf` for cards,
+`orderSizeOf` for orders. Ranking a reviewer by their card queue while assigning
+them orders would be a plausible-looking lie.
+
+`oSelected` is session-only, like `qSelected`: a selection is something you are
+doing right now, not shared state. `orderAssign` is shared.
+
+Still card-queue only: **Auto-assign by skill**. Orders have no per-card skill
+signal beyond category, so the same algorithm would work — say the word.
+
+## ⚠ The Avg EV Age pills leaked onto other tabs
+
+`age-src` visibility was set only inside `setSub()`, which never runs when you
+leave the Recomp tab — so switching to Cards or Orders while on Avg EV Age left
+the Cards Kept / In Warehouse pills stranded on a page they have nothing to do
+with. `syncAgeSrc()` now gates on `TAB === "recomp" && SUB === "age"` and is
+called from the tab switch as well as the subtab switch.
 
 ## Focus mode — clicking a name
 
