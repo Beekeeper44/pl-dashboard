@@ -3212,3 +3212,47 @@ Read off a bar chart where the labels were cramped: **Ian F**, **Kean Sta.**,
 source. Correct them in `ORDERS_ROSTER` when you have the real spellings —
 skills and assignments key on the exact string, so a rename after people have
 been assigned will orphan their queues.
+
+## An empty expanded order now says why
+
+`orderCardsHTML` printed one sentence — *"the console logs the tag and value
+that were sent"* — which is useless on a wall display and awkward even at a
+desk, since it means reproducing the expand with devtools already open.
+
+Three different failures produce an identical empty row:
+
+1. The per-order run of 37819 matched nothing because the order-number
+   parameter never bound.
+2. 37819 cannot run bare, so the unfiltered fallback returned nothing either.
+3. The question itself errored.
+
+`readDiagHeaders()` captures the five headers `api/ticker.js` already sets
+(`X-Metabase-Card-Id`, `-Transport`, `-Params`, `-Tags`, `-Rows`) on **both**
+requests, and `ocDiagHTML()` prints them under the empty state — the filtered
+attempt and the unfiltered one, each with its row count, the parameter payload
+that went out, where the template-tag ids were read from, and any error.
+
+The headers were always there; only the client was throwing them away. Nothing
+new is fetched for this.
+
+`.ocdiag` is `user-select:text` with `overflow-wrap:anywhere`, because the whole
+point of the block is that someone copies the line into a message rather than
+retyping it off a screen.
+
+## `/api/debug?order_number=NNN`
+
+Runs **37819 both ways in one request** — filtered on that order, then bare —
+and reports each with its transport, row count, columns, `parametersSent` and
+`templateTags`, plus a `verdict` naming which of the three cases above it is:
+
+| what came back | what it means |
+|---|---|
+| filtered has rows | the proxy is fine; the bug is client-side in `ocState` / `spreadAllCards` |
+| bare has rows, filtered doesn't | the order-number parameter isn't binding — compare `parametersSent` against `templateTags` |
+| neither has rows | 37819 needs its filter and can't run bare, so the unfiltered fallback can never work; the fallback has to filter 35905 client-side instead |
+
+The two runs are **sequential, not parallel**. They hit the same question and
+`getTagIds` caches per card id, so running them in order means the second reuses
+the first's lookup instead of both racing for the same fetch.
+
+`?id=NNN` is unchanged — it still runs any question bare to identify it.

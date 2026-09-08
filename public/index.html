@@ -706,6 +706,12 @@
            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .ocempty{padding:12px 0 12px 14px;opacity:.6;font-size:13.5px;
            border-left:2px solid var(--line2)}
+  /* Diagnostics for an empty expanded order. Selectable and wrapping, because
+     the point of it is that someone copies the line into a message. */
+  .ocdiag{margin:0 0 12px 14px;padding:10px 12px;border-left:2px solid var(--line2);
+          font-family:var(--mono);font-size:11.5px;line-height:1.55;
+          color:var(--tx);opacity:.85;background:rgba(255,255,255,.03);
+          white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
   .o-raw{color:var(--raw)}
   .o-pre{color:var(--pre)}
   /* A zero is an absence, not a quantity -- colouring it as loudly as a real
@@ -6826,6 +6832,41 @@
       });
   }
 
+  // The four headers api/ticker.js sets on every response. Read once, in one
+  // place, so the filtered and unfiltered paths report the same fields.
+  function readDiagHeaders(r){
+    var out = {};
+    try {
+      ["X-Metabase-Card-Id","X-Metabase-Transport","X-Metabase-Params",
+       "X-Metabase-Tags","X-Metabase-Rows"].forEach(function(h){
+        var v = r.headers.get(h); if(v) out[h] = v;
+      });
+    } catch(e){}
+    return out;
+  }
+
+  // Print what the proxy actually did. An empty expanded row has three causes
+  // that look identical -- the question ran bare and returned nothing, the
+  // order-number parameter never bound, or the question itself errored -- and
+  // the only thing that tells them apart is the payload that went out.
+  function ocDiagHTML(k){
+    var parts = [];
+    [ocDiag[k], allDiag].forEach(function(d){
+      if(!d) return;
+      var h = d.headers || {};
+      var line = d.stage
+        + ": rows=" + (d.rows === null ? "n/a" : d.rows)
+        + (h["X-Metabase-Card-Id"]   ? " \u00b7 card " + h["X-Metabase-Card-Id"] : "")
+        + (h["X-Metabase-Transport"] ? " \u00b7 via " + h["X-Metabase-Transport"] : "")
+        + (h["X-Metabase-Params"]    ? "\nparams: " + h["X-Metabase-Params"] : "\nparams: (none sent)")
+        + (h["X-Metabase-Tags"]      ? "\ntags:   " + h["X-Metabase-Tags"] : "")
+        + (d.error                   ? "\nerror:  " + d.error : "");
+      parts.push(line);
+    });
+    if(!parts.length) return "";
+    return '<pre class="ocdiag">' + esc(parts.join("\n\n")) + '</pre>';
+  }
+
   function orderCardsHTML(o){
     // Prefer the per-order fetch (37819, which needs the order number); fall
     // back to whatever the bulk sources gave us.
@@ -6842,11 +6883,13 @@
             // Zero rows from a parameterised question usually means the filter
             // didn't match, not that the order is empty -- say so, and say
             // where to look.
-            : st === "done"    ? "No cards returned for this order. If it has cards in "
-                               + "Metabase, the order-number filter didn't match \u2014 "
-                               + "the console logs the tag and value that were sent."
+            : st === "done"    ? "No cards returned for this order \u2014 neither the "
+                               + "per-order run nor the unfiltered fallback came back "
+                               + "with rows. What the proxy sent and got:"
             : (ocNote || "Loading cards\u2026"))
-        + '</div></div>';
+        + '</div>'
+        + (st === "done" || st === "error" ? ocDiagHTML(orderKeyOf(o.number)) : "")
+        + '</div>';
     }
 
     // Per-order toolbar. Selection and assignment happen inside the order you
@@ -7010,6 +7053,11 @@
   // every card in the warehouse.
   var ocByOrder = {};     // order -> [cards]
   var ocState   = {};     // order -> "loading" | "done" | "error"
+  // What the proxy reported for each attempt. Kept so an empty expanded row can
+  // SAY why it is empty instead of leaving the answer in a console nobody has
+  // open on a wall display.
+  var ocDiag    = {};     // order -> {stage, headers, error, rows}
+  var allDiag   = null;   // same, for the one unfiltered pull
   function cardsForOrder(num){ return ocByOrder[orderKeyOf(num)] || null; }
 
   // One unfiltered pull of 37819, used when a per-order run comes back empty.
@@ -7022,12 +7070,17 @@
     }
     allCardsState = "loading";
     var q = new URLSearchParams({tab:"orders", view:"cardlist"});
+    var ahdrs = {};
     fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
-      .then(function(r){ return r.json(); })
+      .then(function(r){
+        ahdrs = readDiagHeaders(r);
+        return r.json();
+      })
       .then(function(d){
         if(!d || !d.rows || !d.rows.length){
           allCardsState = "empty";
-          console.warn("order cards (37819) unfiltered returned nothing", d && d.error);
+          allDiag = {stage:"unfiltered", headers:ahdrs, error:(d && d.error) || "", rows:0};
+          console.warn("order cards (37819) unfiltered returned nothing", d && d.error, ahdrs);
           Object.keys(ocState).forEach(function(k){
             if(ocState[k] === "loading"){ ocState[k] = "done"; ocByOrder[k] = []; }
           });
@@ -7040,10 +7093,12 @@
         }
         oCards = orderCardListRows(d.rows);
         allCardsState = "done";
+        allDiag = {stage:"unfiltered", headers:ahdrs, error:"", rows:d.rows.length};
         spreadAllCards();
       })
       .catch(function(e){
         allCardsState = "";
+        allDiag = {stage:"unfiltered", headers:ahdrs, error:String(e && e.message || e), rows:null};
         console.warn("order cards (37819) unfiltered failed", e);
         Object.keys(ocState).forEach(function(k){
           if(ocState[k] === "loading") ocState[k] = "error";
@@ -7081,8 +7136,7 @@
       .then(function(r){
         // Carry the proxy's diagnostics through so an empty result can be told
         // apart from a parameter that never matched.
-        ["X-Metabase-Card-Id","X-Metabase-Params","X-Metabase-Tags","X-Metabase-Rows"]
-          .forEach(function(h){ var v = r.headers.get(h); if(v) hdrs[h] = v; });
+        hdrs = readDiagHeaders(r);
         return r.json();
       })
       .then(function(d){
@@ -7093,10 +7147,12 @@
           }
           ocByOrder[k] = orderCardListRows(d.rows);
           ocState[k] = "done";
+          ocDiag[k] = {stage:"filtered", headers:hdrs, error:"", rows:d.rows.length};
         } else {
           // Zero rows from the per-order run. The question also runs unfiltered,
           // so pull the whole set once and filter locally rather than leaving
           // the row empty because a template tag didn't match.
+          ocDiag[k] = {stage:"filtered", headers:hdrs, error:(d && d.error) || "", rows:0};
           console.warn("order cards (37819) empty for", k, d && d.error, hdrs);
           ocState[k] = "loading";
           ensureAllOrderCards();
@@ -7107,6 +7163,7 @@
       .catch(function(e){
         // A failed per-order run is still worth falling back from: the
         // unfiltered set answers the same question.
+        ocDiag[k] = {stage:"filtered", headers:hdrs, error:String(e && e.message || e), rows:null};
         console.warn("order cards (37819) failed for", k, e);
         ocState[k] = "loading";
         ensureAllOrderCards();

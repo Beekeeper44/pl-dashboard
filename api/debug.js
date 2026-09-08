@@ -37,6 +37,69 @@ export default async function handler(req, res) {
     },
   };
 
+  // ?order_number=NNN — runs 37819 BOTH ways in one request: filtered on the
+  // order, and bare. An expanded order that shows no cards has three possible
+  // causes and they look identical from the browser; running both here says
+  // which it is without a second round trip.
+  const orderNum = req.query?.order_number;
+  if (orderNum !== undefined && orderNum !== '') {
+    const digits = String(orderNum).replace(/\D+/g, '');
+    if (!digits) {
+      res.status(400).json({ error: 'order_number must contain digits' });
+      return;
+    }
+
+    const run = async (label, params) => {
+      try {
+        const r = await runQuery('orders:cardlist', params);
+        return {
+          label,
+          result: 'OK',
+          transport: r.via,
+          cardId: r.cardId,
+          rowCount: r.rows.length,
+          columns: r.rows.length ? Object.keys(r.rows[0]) : [],
+          parametersSent: r.parameters,
+          templateTags: r.tagInfo,
+          firstRow: r.rows[0] || null,
+          rejected: r.attempts?.length ? r.attempts : ['none — first transport worked'],
+        };
+      } catch (err) {
+        return {
+          label,
+          result: 'FAILED',
+          error: String(err.message || err),
+          detail: err.detail || null,
+          parametersSent: err.parameters || null,
+          templateTags: err.tagInfo || null,
+        };
+      }
+    };
+
+    // Filtered first, then bare. Sequential rather than parallel: they hit the
+    // same question and the tag-id lookup is cached after the first call, so
+    // the second reuses it instead of racing for the same fetch.
+    const filtered = await run(`filtered on order_number=${digits}`, { order_number: digits });
+    const bare     = await run('unfiltered (the client fallback)', {});
+
+    const verdict =
+      filtered.rowCount > 0
+        ? 'The proxy returns rows for this order — the bug is client-side, in ocState / spreadAllCards.'
+      : bare.rowCount > 0
+        ? 'Bare run works, filtered does not — the order-number parameter is not binding. Compare parametersSent against templateTags.'
+      : 'Neither run returned rows. If Metabase shows this order in the UI, 37819 needs its filter and cannot run bare, so the unfiltered fallback can never work.';
+
+    res.status(200).json({
+      checkedAt: out.checkedAt,
+      questionKey: 'orders:cardlist',
+      orderNumber: digits,
+      verdict,
+      filtered,
+      bare,
+    });
+    return;
+  }
+
   if (rawId) {
     if (!/^\d+$/.test(String(rawId))) {
       res.status(400).json({ error: 'id must be a number' });

@@ -706,6 +706,12 @@
            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .ocempty{padding:12px 0 12px 14px;opacity:.6;font-size:13.5px;
            border-left:2px solid var(--line2)}
+  /* Diagnostics for an empty expanded order. Selectable and wrapping, because
+     the point of it is that someone copies the line into a message. */
+  .ocdiag{margin:0 0 12px 14px;padding:10px 12px;border-left:2px solid var(--line2);
+          font-family:var(--mono);font-size:11.5px;line-height:1.55;
+          color:var(--tx);opacity:.85;background:rgba(255,255,255,.03);
+          white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
   .o-raw{color:var(--raw)}
   .o-pre{color:var(--pre)}
   /* A zero is an absence, not a quantity -- colouring it as loudly as a real
@@ -1377,526 +1383,6 @@
 <div style="background:#F5A524;color:#1A1206;font:600 13px/1.5 ui-monospace,Menlo,monospace;padding:9px 22px;letter-spacing:.03em">
   DEMO BUILD — all data on this page is fabricated. No Metabase, no shared state.
 </div>
-
-
-<header>
-  <img class="logo" src="data:image/png;base64,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" alt="Precision Labeling">
-  <div class="brandwrap">
-    <h1><span class="g">D</span>ash<span class="g">b</span>oard</h1>
-    <div class="sub">
-      <span class="livedot on" id="dot"></span>
-      <span id="statusline"><b>Precision Labeling</b> · cards entering pending_release · 2 PM–3 AM PT · Mon–Fri</span>
-    </div>
-  </div>
-  <button class="tzbtn" id="tzbtn" data-tz="pacific" aria-pressed="false" aria-label="Toggle timezone between Pacific and Manila">
-    <span class="tzflag" id="tzflag"></span>
-    <span id="tzlabel">PACIFIC</span>
-  </button>
-</header>
-
-<nav class="tabs" role="tablist" aria-label="Dashboard sections">
-  <button class="tab" id="tab-cards"  role="tab" aria-selected="true"  aria-controls="panel-body">Cards</button>
-  <button class="tab" id="tab-review" role="tab" aria-selected="false" aria-controls="panel-body">Review</button>
-  <button class="tab" id="tab-cardtype" role="tab" aria-selected="false" aria-controls="panel-body">Card Type</button>
-  <button class="tab" id="tab-recomp" role="tab" aria-selected="false" aria-controls="panel-body">Recomp</button>
-  <button class="tab" id="tab-orders" role="tab" aria-selected="false" aria-controls="panel-body">Orders</button>
-</nav>
-
-<div class="filters">
-  <!-- Grain and the date range measure work COMPLETED in a window. The Orders
-       tab shows what is currently open, which has no window - params() already
-       strips these for it, so showing them there implies a filter that does
-       nothing. data-not-orders hides them on that tab. -->
-  <div class="fld" data-not-orders>
-    <label for="grain">Grain</label>
-    <select id="grain">
-      <option value="day" selected>Day</option>
-      <option value="week">Week</option>
-      <option value="month">Month</option>
-    </select>
-  </div>
-  <div class="fld" data-not-orders>
-    <label for="start_date">Start date</label>
-    <input type="date" id="start_date">
-  </div>
-  <div class="fld" data-not-orders>
-    <label for="end_date">End date</label>
-    <input type="date" id="end_date">
-  </div>
-  <div class="fld" data-cards-only>
-    <label for="source">Source</label>
-    <select id="source">
-      <option value="">All</option>
-      <option value="customer">Customer</option>
-      <option value="slab_pack">Slab pack</option>
-      <option value="unattributed">Unattributed</option>
-    </select>
-  </div>
-  <div class="fld" data-cards-only>
-    <label for="card_type">Card type</label>
-    <select id="card_type">
-      <option value="">All</option>
-      <option value="raw">Raw</option>
-      <option value="pre_graded">Pre-graded</option>
-    </select>
-  </div>
-  <div class="fld" data-recomp-total hidden>
-    <label for="grader">Grader</label>
-    <input id="grader" list="grader-list" autocomplete="off" spellcheck="false"
-           placeholder="All graders">
-    <datalist id="grader-list"></datalist>
-    <span class="fldnote" id="gradernote"></span>
-  </div>
-  <div class="fld" data-recomp-age hidden>
-    <label for="sport">Sport</label>
-    <select id="sport"><option value="">All</option></select>
-  </div>
-  <div class="fld" data-recomp-age hidden>
-    <label for="pack_category">Pack category</label>
-    <select id="pack_category"><option value="">All</option></select>
-  </div>
-  <div class="fld" data-recomp-zone hidden>
-    <label for="zsport">Sport</label>
-    <select id="zsport"><option value="">All</option></select>
-  </div>
-  <div class="fld">
-    <label>&nbsp;</label>
-    <button id="run">Enter</button>
-  </div>
-  <div class="fld">
-    <label>&nbsp;</label>
-    <button class="ghost" id="auto" aria-pressed="false">Auto 60s</button>
-  </div>
-  <div class="fld">
-    <label>&nbsp;</label>
-    <button class="ghost grefresh" id="grefresh"
-            title="Reload this tab's data and pull the latest shared board">
-      <span class="spin"></span><span id="grefreshtx">Refresh</span></button>
-  </div>
-</div>
-
-<div class="sharedwarn" id="sharedbadge" hidden>
-  Local only &mdash; changes are not shared. Connect Neon
-  (<code>DATABASE_URL</code>) or Vercel KV on the project to sync across screens.
-</div>
-<div class="banner hide" id="banner"></div>
-
-<div id="panel-body">
-<div class="kpis" id="kpis"></div>
-<div class="groups" id="groups"></div>
-
-<section>
-  <div class="shead">
-    <h2>Shift rail <span class="hint railhint">cards per hour across the 2 PM–3 AM PT window</span></h2>
-    <span class="sub" id="railnote"></span>
-  </div>
-  <div class="card railcard">
-    <div class="railscroll">
-      <div class="rail" id="rail"></div>
-      <div class="rail-x" id="railx"></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="shead">
-    <h2 id="charttitle">Volume by period</h2>
-    <div style="display:flex;gap:8px">
-      <button class="ghost" id="vPeriod" aria-pressed="true">By period</button>
-      <button class="ghost" id="vHour" aria-pressed="false">By hour</button>
-      <button class="ghost" id="vAvg" aria-pressed="false">Avg per shift</button>
-    </div>
-  </div>
-  <div class="card">
-    <div class="chartwrap">
-      <div class="chart" id="chart"></div>
-      <div class="chart-x" id="chartx"></div>
-    </div>
-    <div class="legend" id="legend"></div>
-  </div>
-</section>
-
-<section>
-  <div class="shead">
-    <h2>Rows <span class="hint">as returned by the query</span></h2>
-    <span class="sub" id="rowcount"></span>
-  </div>
-  <div class="tblwrap">
-    <table>
-      <thead><tr>
-        <th>Period</th><th>Hour</th><th>Source</th><th>Card type</th>
-        <th style="text-align:right">Cards</th>
-        <th style="text-align:right">Shift days</th>
-        <th style="text-align:right">Avg/shift</th>
-        <th class="sp"></th>
-      </tr></thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-</section>
-</div>
-
-<div id="panel-recomp" hidden>
-
-  <div class="subtabs" id="recomp-subtabs">
-    <button class="subtab" id="sub-total" aria-selected="true">Total Recomps</button>
-    <button class="subtab" id="sub-age"   aria-selected="false">Avg EV Age</button>
-    <button class="subtab" id="sub-daily" aria-selected="false">Daily</button>
-    <button class="subtab" id="sub-zone"  aria-selected="false">Hot/Cold Zone</button>
-    <button class="subtab" id="sub-assign" aria-selected="false">Assignments</button>
-    <button class="subtab" id="sub-highend" aria-selected="false">High End</button>
-  </div>
-
-  <div class="subtabs" id="cardtype-subtabs" hidden>
-    <button class="subtab" id="sub-data"   aria-selected="true">Data</button>
-    <button class="subtab" id="sub-verify" aria-selected="false">Data Verify</button>
-  </div>
-
-  <div class="subtabs" id="review-subtabs" hidden>
-    <button class="subtab" id="sub-pregraded" aria-selected="true">Review (Pre-Graded)</button>
-    <button class="subtab" id="sub-raw"       aria-selected="false">Review Premium (Raw)</button>
-  </div>
-
-  <!-- Source toggle for Avg EV Age. Two questions, identical shape and identical
-       rendering: 34387 counts cards KEPT, 37588 counts what is IN WAREHOUSE. -->
-  <div class="subtabs agesrc" id="age-src" hidden>
-    <button class="subtab" id="agesrc-kept" aria-selected="true">Cards Kept</button>
-    <button class="subtab" id="agesrc-wh"   aria-selected="false">In Warehouse</button>
-  </div>
-
-  <div class="kpis" id="rkpis" style="margin-top:16px"></div>
-
-  <!-- ===== Total Recomps (grader productivity) ===== -->
-  <div id="rpanel-total">
-    <section>
-      <div class="shead">
-        <h2>Shift rail <span class="hint railhint">recomps per hour across the 2 PM–3 AM PT window</span></h2>
-        <span class="sub" id="grailnote"></span>
-      </div>
-      <div class="card railcard">
-        <div class="railscroll">
-          <div class="rail" id="grail"></div>
-          <div class="rail-x" id="grailx"></div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="shead">
-        <h2 id="gcharttitle">Total recomps by grader</h2>
-        <div style="display:flex;gap:8px">
-          <button class="ghost" id="gvGrader" aria-pressed="true">By grader</button>
-          <button class="ghost" id="gvPeriod" aria-pressed="false">By period</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="chartwrap">
-          <div class="chart" id="gchart"></div>
-          <div class="chart-x" id="gchartx"></div>
-        </div>
-        <div class="legend" id="glegend"></div>
-      </div>
-    </section>
-
-    <section>
-      <div class="shead">
-        <h2>Graders <span class="hint">as returned by the query</span></h2>
-        <span class="sub" id="growcount"></span>
-      </div>
-      <div class="tblwrap">
-        <table>
-          <thead><tr id="gthead"></tr></thead>
-          <tbody id="gtbody"></tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <!-- ===== Avg EV Age (pack categories) ===== -->
-  
-
-<div id="rpanel-highend" hidden>
-  <section class="panel">
-    <h2>High end <span class="hint" id="hhint"></span></h2>
-
-    <div class="dweek" style="margin-bottom:16px">
-      <button class="subtab htier on" id="h-mid">$2,500 &ndash; $4,999</button>
-      <button class="subtab htier" id="h-high">$5,000 +</button>
-      <span style="flex:1"></span>
-      <button class="dnav dtoday" id="h-yest">Yesterday</button>
-      <button class="dnav dtoday" id="h-today">Today</button>
-      <input type="date" id="h-date" class="ddate" aria-label="Comp date">
-    </div>
-
-    <div class="kpis" id="hkpis"></div>
-    <div id="hfeed"></div>
-  </section>
-</div>
-
-<div id="rpanel-daily" hidden>
-  <section class="panel">
-    <h2>Daily <span class="hint" id="dhint"></span></h2>
-    <div class="dweek">
-      <button class="dnav" id="dprev" aria-label="Previous week">&#8249;</button>
-      <div class="ddays" id="ddays"></div>
-      <button class="dnav" id="dnext" aria-label="Next week">&#8250;</button>
-      <input type="date" id="ddate" class="ddate" aria-label="Jump to date">
-      <button class="dnav dtoday" id="dtoday">Today</button>
-      <button class="dnav dclear" id="dclearall">Clear all</button>
-    </div>
-    <div id="dgrid" class="dgrid"></div>
-  </section>
-</div>
-
-<div id="rpanel-assign" hidden>
-  <section class="panel">
-    <h2>Assignments <span class="hint" id="ahint"></span></h2>
-    <div id="agrid" class="agrid"></div>
-  </section>
-</div>
-
-<div id="rpanel-zone" hidden>
-  <div class="kpis" id="zkpis"></div>
-
-  <section class="panel">
-    <h2>Top players <span class="hint" id="zhint">top 3 by cards, per sport</span></h2>
-    <div id="zsports" class="zgrid"></div>
-  </section>
-
-  <section class="panel" id="zexpanded-wrap" hidden>
-    <h2 class="zexph">
-      <img id="zexplogo" alt="" hidden>
-      <span>Leaderboard</span>
-      <span class="hint" id="zexphint"></span>
-    </h2>
-    <div id="zexpanded"></div>
-  </section>
-</div>
-
-<div id="rpanel-age" hidden>
-  <section>
-    <div class="shead">
-      <h2 id="rcharttitle">Cards sold by pack category</h2>
-      <div style="display:flex;gap:8px" id="rviewtoggle">
-        <button class="ghost" id="rvCat"    aria-pressed="true">By category</button>
-        <button class="ghost" id="rvPeriod" aria-pressed="false">By period</button>
-      </div>
-      <div style="display:flex;gap:8px" id="rgrouptoggle" hidden>
-        <button class="ghost" id="rgPack"  aria-pressed="true">By pack</button>
-        <button class="ghost" id="rgSport" aria-pressed="false">By sport</button>
-      </div>
-      <div style="display:flex;gap:8px" id="rmetrictoggle" hidden>
-        <button class="ghost" id="rmAvg" aria-pressed="true">Average</button>
-        <button class="ghost" id="rmMed" aria-pressed="false">Median</button>
-        <button class="ghost" id="rmP90" aria-pressed="false">90th pct</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="chartwrap">
-        <div class="chart" id="rchart"></div>
-        <div class="chart-x" id="rchartx"></div>
-      </div>
-      <div class="legend" id="rlegend"></div>
-    </div>
-  </section>
-
-  <section id="ragingsec" hidden>
-    <div class="shead">
-      <h2>Aging <span class="hint" id="raginghint">share of cards sold past each EV age threshold</span></h2>
-      <span class="sub" id="ragingnote"></span>
-    </div>
-    <div class="card">
-      <div class="aging" id="raging"></div>
-    </div>
-  </section>
-
-  <section>
-    <div class="shead">
-      <h2>Rows <span class="hint">as returned by the query</span></h2>
-      <span class="sub" id="rrowcount"></span>
-    </div>
-    <div class="tblwrap">
-      <table>
-        <thead><tr id="rthead"></tr></thead>
-        <tbody id="rtbody"></tbody>
-      </table>
-    </div>
-  </section>
-  </div>
-
-</div>
-
-<div class="subtabs" id="orders-subtabs" hidden>
-  <button class="subtab" id="osub-orders" aria-selected="true">Orders</button>
-  <button class="subtab" id="osub-queue"  aria-selected="false">Card Queue</button>
-  <button class="subtab" id="osub-assign" aria-selected="false">Assignments</button>
-  <button class="subtab" id="osub-done"   aria-selected="false">Breakdown</button>
-  <button class="subtab" id="osub-team"   aria-selected="false">Team</button>
-</div>
-
-<div id="opanel" hidden>
-  <section class="panel">
-    <div class="filters ofilters">
-      <div class="fld">
-        <label for="o-num">Order #</label>
-        <input id="o-num" class="numfilter" type="search" inputmode="numeric"
-               autocomplete="off" placeholder="e.g. 17622522" aria-label="Filter by order number">
-      </div>
-      <div class="fld">
-        <label>Status</label>
-        <div class="msel" id="ms-o-status"></div>
-      </div>
-      <div class="fld">
-        <label for="o-cat">Category</label>
-        <select id="o-cat"><option value="">All</option></select>
-      </div>
-      <div class="fld">
-        <label for="o-kind">Kind</label>
-        <select id="o-kind"><option value="">All</option></select>
-      </div>
-      <div class="fld">
-        <label>&nbsp;</label>
-        <button class="btn ghost" id="o-clear">Clear filters</button></div>
-      <div class="fld"><label>Select</label>
-        <div class="qpick">
-          <button class="btn ghost qn" id="o-pick5">5</button>
-          <button class="btn ghost qn" id="o-pick10">10</button>
-          <button class="btn ghost qn" id="o-pick0" disabled>None</button>
-          <span class="qpickn" id="o-pickn"></span>
-        </div>
-      </div>
-      <div class="fld"><label for="o-assignee">Assign to</label>
-        <div class="qcombo" id="o-assignee-wrap">
-          <input id="o-assignee" class="qcinput" type="text" role="combobox"
-                 autocomplete="off" aria-autocomplete="list" aria-expanded="false"
-                 aria-controls="o-assignee-menu" placeholder="Pick orders first">
-          <div id="o-assignee-menu" class="qcmenu" role="listbox" hidden></div>
-        </div></div>
-      <div class="fld"><label>&nbsp;</label>
-        <button class="btn ghost" id="o-split" disabled>Split evenly</button></div>
-      <div class="fld"><label>&nbsp;</label>
-        <button class="btn ghost" id="o-bulk" disabled>Assign all</button>
-      </div>
-    </div>
-    <div class="kpis" id="okpis"></div>
-    <div id="ofeed"></div>
-  </section>
-</div>
-
-<div id="qpanel" hidden>
-  <section class="panel">
-    <div class="filters ofilters">
-      <div class="fld">
-        <label for="q-num">Order #</label>
-        <input id="q-num" class="numfilter" type="search" inputmode="numeric"
-               autocomplete="off" placeholder="e.g. 17622522" aria-label="Filter by order number">
-      </div>
-      <div class="fld"><label for="q-cat">Category</label><select id="q-cat"></select></div>
-      <div class="fld"><label>Card status</label><div class="msel" id="ms-q-status"></div></div>
-      <div class="fld"><label for="q-who">Assignee</label><select id="q-who"></select></div>
-      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-clear">Clear filters</button></div>
-      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-auto">Auto-assign by skill</button></div>
-      <div class="fld"><label>Select</label>
-        <div class="qpick">
-          <button class="btn ghost qn" id="q-pick5">5</button>
-          <button class="btn ghost qn" id="q-pick10">10</button>
-          <button class="btn ghost qn" id="q-pick0" disabled>None</button>
-          <span class="qpickn" id="q-pickn"></span>
-        </div>
-      </div>
-      <div class="fld"><label for="q-assignee">Assign to</label>
-        <div class="qcombo" id="q-assignee-wrap">
-          <input id="q-assignee" class="qcinput" type="text" role="combobox"
-                 autocomplete="off" aria-autocomplete="list" aria-expanded="false"
-                 aria-controls="q-assignee-menu" placeholder="Pick cards first">
-          <div id="q-assignee-menu" class="qcmenu" role="listbox" hidden></div>
-        </div></div>
-      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-split" disabled>Split evenly</button></div>
-      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-bulk" disabled>Assign all</button></div>
-      <div class="fld"><label>&nbsp;</label><span class="qnote" id="q-note"></span></div>
-    </div>
-    <div class="kpis" id="qkpis"></div>
-    <div id="qfeed"></div>
-  </section>
-</div>
-
-<div id="oapanel" hidden>
-  <section class="panel">
-    <!-- Two units of work, same panel. Cards = the card queue; Orders = the
-         order-level reviewer assignments. -->
-    <div class="subtabs agesrc" id="oa-kind">
-      <button class="subtab" id="oakind-orders" aria-selected="true">Orders</button>
-      <button class="subtab" id="oakind-cards"  aria-selected="false">Cards</button>
-    </div>
-    <h2>Card assignments <span class="hint" id="oahint"></span></h2>
-    <div class="filters ofilters">
-      <div class="fld">
-        <label for="oa-search">Find</label>
-        <input id="oa-search" class="numfilter" type="search" autocomplete="off"
-               placeholder="Team member…" aria-label="Filter assignments by team member">
-      </div>
-      <div class="fld"><label for="oa-by">Group by</label>
-        <select id="oa-by">
-          <option value="person">Person</option>
-          <option value="category">Category</option>
-        </select></div>
-      <div class="fld"><label>&nbsp;</label>
-        <button class="btn ghost" id="oa-idle" aria-pressed="false">Show idle</button></div>
-      <div class="fld"><label>&nbsp;</label>
-        <button class="btn ghost" id="oa-clear">Clear all assignments</button></div>
-    </div>
-    <div id="oafeed" class="agrid"></div>
-  </section>
-</div>
-
-<div id="dnpanel" hidden>
-  <section class="panel">
-    <div class="filters ofilters">
-      <div class="fld"><label>&nbsp;</label>
-        <button class="btn ghost" id="dn-reset">Reset counts</button></div>
-      <div class="fld"><label>&nbsp;</label>
-        <span class="dnsince" id="dn-since"></span></div>
-    </div>
-    <div id="dn-cats" class="dncats"></div>
-    <div id="dn-people" class="dntable"></div>
-  </section>
-</div>
-
-<div id="tpanel" hidden>
-  <section class="panel">
-    <h2>Team <span class="hint" id="thint"></span></h2>
-    <!-- Two floors, one skill grid. Data does card work, Review does order
-         review; they are different people doing different jobs, so they get
-         separate rosters. -->
-    <div class="subtabs agesrc" id="team-kind">
-      <button class="subtab" id="tkind-review" aria-selected="true">Review</button>
-      <button class="subtab" id="tkind-data"   aria-selected="false">Data</button>
-    </div>
-    <div class="tsearchbar">
-      <input id="t-search" class="tsearch" type="search" autocomplete="off"
-             placeholder="Search a person…" aria-label="Search team members">
-      <span class="tcount" id="t-count"></span>
-      <button class="btn ghost" id="t-clear">Clear search</button>
-      <button class="btn ghost tclearall" id="t-wipe">Clear all skills</button>
-    </div>
-    <div id="tfeed" class="agrid"></div>
-  </section>
-</div>
-
-
-<div id="panel-setup" hidden>
-  <section>
-    <div class="card">
-      <div class="msg" id="setupmsg"></div>
-    </div>
-  </section>
-</div>
-
-<footer>
-  <span id="f-updated">Not loaded yet</span>
-  <span id="f-source">Source: —</span>
-  <span id="f-window">Window: 2 PM–3 AM PT, Mon–Fri shift start</span>
-</footer>
 
 <script>
 /* ------------------------------------------------------------------------
@@ -2703,6 +2189,526 @@
   }, 400);
 })();
 </script>
+
+
+<header>
+  <img class="logo" src="data:image/png;base64,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" alt="Precision Labeling">
+  <div class="brandwrap">
+    <h1><span class="g">D</span>ash<span class="g">b</span>oard</h1>
+    <div class="sub">
+      <span class="livedot on" id="dot"></span>
+      <span id="statusline"><b>Precision Labeling</b> · cards entering pending_release · 2 PM–3 AM PT · Mon–Fri</span>
+    </div>
+  </div>
+  <button class="tzbtn" id="tzbtn" data-tz="pacific" aria-pressed="false" aria-label="Toggle timezone between Pacific and Manila">
+    <span class="tzflag" id="tzflag"></span>
+    <span id="tzlabel">PACIFIC</span>
+  </button>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Dashboard sections">
+  <button class="tab" id="tab-cards"  role="tab" aria-selected="true"  aria-controls="panel-body">Cards</button>
+  <button class="tab" id="tab-review" role="tab" aria-selected="false" aria-controls="panel-body">Review</button>
+  <button class="tab" id="tab-cardtype" role="tab" aria-selected="false" aria-controls="panel-body">Card Type</button>
+  <button class="tab" id="tab-recomp" role="tab" aria-selected="false" aria-controls="panel-body">Recomp</button>
+  <button class="tab" id="tab-orders" role="tab" aria-selected="false" aria-controls="panel-body">Orders</button>
+</nav>
+
+<div class="filters">
+  <!-- Grain and the date range measure work COMPLETED in a window. The Orders
+       tab shows what is currently open, which has no window - params() already
+       strips these for it, so showing them there implies a filter that does
+       nothing. data-not-orders hides them on that tab. -->
+  <div class="fld" data-not-orders>
+    <label for="grain">Grain</label>
+    <select id="grain">
+      <option value="day" selected>Day</option>
+      <option value="week">Week</option>
+      <option value="month">Month</option>
+    </select>
+  </div>
+  <div class="fld" data-not-orders>
+    <label for="start_date">Start date</label>
+    <input type="date" id="start_date">
+  </div>
+  <div class="fld" data-not-orders>
+    <label for="end_date">End date</label>
+    <input type="date" id="end_date">
+  </div>
+  <div class="fld" data-cards-only>
+    <label for="source">Source</label>
+    <select id="source">
+      <option value="">All</option>
+      <option value="customer">Customer</option>
+      <option value="slab_pack">Slab pack</option>
+      <option value="unattributed">Unattributed</option>
+    </select>
+  </div>
+  <div class="fld" data-cards-only>
+    <label for="card_type">Card type</label>
+    <select id="card_type">
+      <option value="">All</option>
+      <option value="raw">Raw</option>
+      <option value="pre_graded">Pre-graded</option>
+    </select>
+  </div>
+  <div class="fld" data-recomp-total hidden>
+    <label for="grader">Grader</label>
+    <input id="grader" list="grader-list" autocomplete="off" spellcheck="false"
+           placeholder="All graders">
+    <datalist id="grader-list"></datalist>
+    <span class="fldnote" id="gradernote"></span>
+  </div>
+  <div class="fld" data-recomp-age hidden>
+    <label for="sport">Sport</label>
+    <select id="sport"><option value="">All</option></select>
+  </div>
+  <div class="fld" data-recomp-age hidden>
+    <label for="pack_category">Pack category</label>
+    <select id="pack_category"><option value="">All</option></select>
+  </div>
+  <div class="fld" data-recomp-zone hidden>
+    <label for="zsport">Sport</label>
+    <select id="zsport"><option value="">All</option></select>
+  </div>
+  <div class="fld">
+    <label>&nbsp;</label>
+    <button id="run">Enter</button>
+  </div>
+  <div class="fld">
+    <label>&nbsp;</label>
+    <button class="ghost" id="auto" aria-pressed="false">Auto 60s</button>
+  </div>
+  <div class="fld">
+    <label>&nbsp;</label>
+    <button class="ghost grefresh" id="grefresh"
+            title="Reload this tab's data and pull the latest shared board">
+      <span class="spin"></span><span id="grefreshtx">Refresh</span></button>
+  </div>
+</div>
+
+<div class="sharedwarn" id="sharedbadge" hidden>
+  Local only &mdash; changes are not shared. Connect Neon
+  (<code>DATABASE_URL</code>) or Vercel KV on the project to sync across screens.
+</div>
+<div class="banner hide" id="banner"></div>
+
+<div id="panel-body">
+<div class="kpis" id="kpis"></div>
+<div class="groups" id="groups"></div>
+
+<section>
+  <div class="shead">
+    <h2>Shift rail <span class="hint railhint">cards per hour across the 2 PM–3 AM PT window</span></h2>
+    <span class="sub" id="railnote"></span>
+  </div>
+  <div class="card railcard">
+    <div class="railscroll">
+      <div class="rail" id="rail"></div>
+      <div class="rail-x" id="railx"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <h2 id="charttitle">Volume by period</h2>
+    <div style="display:flex;gap:8px">
+      <button class="ghost" id="vPeriod" aria-pressed="true">By period</button>
+      <button class="ghost" id="vHour" aria-pressed="false">By hour</button>
+      <button class="ghost" id="vAvg" aria-pressed="false">Avg per shift</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="chartwrap">
+      <div class="chart" id="chart"></div>
+      <div class="chart-x" id="chartx"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <h2>Rows <span class="hint">as returned by the query</span></h2>
+    <span class="sub" id="rowcount"></span>
+  </div>
+  <div class="tblwrap">
+    <table>
+      <thead><tr>
+        <th>Period</th><th>Hour</th><th>Source</th><th>Card type</th>
+        <th style="text-align:right">Cards</th>
+        <th style="text-align:right">Shift days</th>
+        <th style="text-align:right">Avg/shift</th>
+        <th class="sp"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</section>
+</div>
+
+<div id="panel-recomp" hidden>
+
+  <div class="subtabs" id="recomp-subtabs">
+    <button class="subtab" id="sub-total" aria-selected="true">Total Recomps</button>
+    <button class="subtab" id="sub-age"   aria-selected="false">Avg EV Age</button>
+    <button class="subtab" id="sub-daily" aria-selected="false">Daily</button>
+    <button class="subtab" id="sub-zone"  aria-selected="false">Hot/Cold Zone</button>
+    <button class="subtab" id="sub-assign" aria-selected="false">Assignments</button>
+    <button class="subtab" id="sub-highend" aria-selected="false">High End</button>
+  </div>
+
+  <div class="subtabs" id="cardtype-subtabs" hidden>
+    <button class="subtab" id="sub-data"   aria-selected="true">Data</button>
+    <button class="subtab" id="sub-verify" aria-selected="false">Data Verify</button>
+  </div>
+
+  <div class="subtabs" id="review-subtabs" hidden>
+    <button class="subtab" id="sub-pregraded" aria-selected="true">Review (Pre-Graded)</button>
+    <button class="subtab" id="sub-raw"       aria-selected="false">Review Premium (Raw)</button>
+  </div>
+
+  <!-- Source toggle for Avg EV Age. Two questions, identical shape and identical
+       rendering: 34387 counts cards KEPT, 37588 counts what is IN WAREHOUSE. -->
+  <div class="subtabs agesrc" id="age-src" hidden>
+    <button class="subtab" id="agesrc-kept" aria-selected="true">Cards Kept</button>
+    <button class="subtab" id="agesrc-wh"   aria-selected="false">In Warehouse</button>
+  </div>
+
+  <div class="kpis" id="rkpis" style="margin-top:16px"></div>
+
+  <!-- ===== Total Recomps (grader productivity) ===== -->
+  <div id="rpanel-total">
+    <section>
+      <div class="shead">
+        <h2>Shift rail <span class="hint railhint">recomps per hour across the 2 PM–3 AM PT window</span></h2>
+        <span class="sub" id="grailnote"></span>
+      </div>
+      <div class="card railcard">
+        <div class="railscroll">
+          <div class="rail" id="grail"></div>
+          <div class="rail-x" id="grailx"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shead">
+        <h2 id="gcharttitle">Total recomps by grader</h2>
+        <div style="display:flex;gap:8px">
+          <button class="ghost" id="gvGrader" aria-pressed="true">By grader</button>
+          <button class="ghost" id="gvPeriod" aria-pressed="false">By period</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="chartwrap">
+          <div class="chart" id="gchart"></div>
+          <div class="chart-x" id="gchartx"></div>
+        </div>
+        <div class="legend" id="glegend"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shead">
+        <h2>Graders <span class="hint">as returned by the query</span></h2>
+        <span class="sub" id="growcount"></span>
+      </div>
+      <div class="tblwrap">
+        <table>
+          <thead><tr id="gthead"></tr></thead>
+          <tbody id="gtbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Avg EV Age (pack categories) ===== -->
+  
+
+<div id="rpanel-highend" hidden>
+  <section class="panel">
+    <h2>High end <span class="hint" id="hhint"></span></h2>
+
+    <div class="dweek" style="margin-bottom:16px">
+      <button class="subtab htier on" id="h-mid">$2,500 &ndash; $4,999</button>
+      <button class="subtab htier" id="h-high">$5,000 +</button>
+      <span style="flex:1"></span>
+      <button class="dnav dtoday" id="h-yest">Yesterday</button>
+      <button class="dnav dtoday" id="h-today">Today</button>
+      <input type="date" id="h-date" class="ddate" aria-label="Comp date">
+    </div>
+
+    <div class="kpis" id="hkpis"></div>
+    <div id="hfeed"></div>
+  </section>
+</div>
+
+<div id="rpanel-daily" hidden>
+  <section class="panel">
+    <h2>Daily <span class="hint" id="dhint"></span></h2>
+    <div class="dweek">
+      <button class="dnav" id="dprev" aria-label="Previous week">&#8249;</button>
+      <div class="ddays" id="ddays"></div>
+      <button class="dnav" id="dnext" aria-label="Next week">&#8250;</button>
+      <input type="date" id="ddate" class="ddate" aria-label="Jump to date">
+      <button class="dnav dtoday" id="dtoday">Today</button>
+      <button class="dnav dclear" id="dclearall">Clear all</button>
+    </div>
+    <div id="dgrid" class="dgrid"></div>
+  </section>
+</div>
+
+<div id="rpanel-assign" hidden>
+  <section class="panel">
+    <h2>Assignments <span class="hint" id="ahint"></span></h2>
+    <div id="agrid" class="agrid"></div>
+  </section>
+</div>
+
+<div id="rpanel-zone" hidden>
+  <div class="kpis" id="zkpis"></div>
+
+  <section class="panel">
+    <h2>Top players <span class="hint" id="zhint">top 3 by cards, per sport</span></h2>
+    <div id="zsports" class="zgrid"></div>
+  </section>
+
+  <section class="panel" id="zexpanded-wrap" hidden>
+    <h2 class="zexph">
+      <img id="zexplogo" alt="" hidden>
+      <span>Leaderboard</span>
+      <span class="hint" id="zexphint"></span>
+    </h2>
+    <div id="zexpanded"></div>
+  </section>
+</div>
+
+<div id="rpanel-age" hidden>
+  <section>
+    <div class="shead">
+      <h2 id="rcharttitle">Cards sold by pack category</h2>
+      <div style="display:flex;gap:8px" id="rviewtoggle">
+        <button class="ghost" id="rvCat"    aria-pressed="true">By category</button>
+        <button class="ghost" id="rvPeriod" aria-pressed="false">By period</button>
+      </div>
+      <div style="display:flex;gap:8px" id="rgrouptoggle" hidden>
+        <button class="ghost" id="rgPack"  aria-pressed="true">By pack</button>
+        <button class="ghost" id="rgSport" aria-pressed="false">By sport</button>
+      </div>
+      <div style="display:flex;gap:8px" id="rmetrictoggle" hidden>
+        <button class="ghost" id="rmAvg" aria-pressed="true">Average</button>
+        <button class="ghost" id="rmMed" aria-pressed="false">Median</button>
+        <button class="ghost" id="rmP90" aria-pressed="false">90th pct</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chartwrap">
+        <div class="chart" id="rchart"></div>
+        <div class="chart-x" id="rchartx"></div>
+      </div>
+      <div class="legend" id="rlegend"></div>
+    </div>
+  </section>
+
+  <section id="ragingsec" hidden>
+    <div class="shead">
+      <h2>Aging <span class="hint" id="raginghint">share of cards sold past each EV age threshold</span></h2>
+      <span class="sub" id="ragingnote"></span>
+    </div>
+    <div class="card">
+      <div class="aging" id="raging"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>Rows <span class="hint">as returned by the query</span></h2>
+      <span class="sub" id="rrowcount"></span>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr id="rthead"></tr></thead>
+        <tbody id="rtbody"></tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+
+</div>
+
+<div class="subtabs" id="orders-subtabs" hidden>
+  <button class="subtab" id="osub-orders" aria-selected="true">Orders</button>
+  <button class="subtab" id="osub-queue"  aria-selected="false">Card Queue</button>
+  <button class="subtab" id="osub-assign" aria-selected="false">Assignments</button>
+  <button class="subtab" id="osub-done"   aria-selected="false">Breakdown</button>
+  <button class="subtab" id="osub-team"   aria-selected="false">Team</button>
+</div>
+
+<div id="opanel" hidden>
+  <section class="panel">
+    <div class="filters ofilters">
+      <div class="fld">
+        <label for="o-num">Order #</label>
+        <input id="o-num" class="numfilter" type="search" inputmode="numeric"
+               autocomplete="off" placeholder="e.g. 17622522" aria-label="Filter by order number">
+      </div>
+      <div class="fld">
+        <label>Status</label>
+        <div class="msel" id="ms-o-status"></div>
+      </div>
+      <div class="fld">
+        <label for="o-cat">Category</label>
+        <select id="o-cat"><option value="">All</option></select>
+      </div>
+      <div class="fld">
+        <label for="o-kind">Kind</label>
+        <select id="o-kind"><option value="">All</option></select>
+      </div>
+      <div class="fld">
+        <label>&nbsp;</label>
+        <button class="btn ghost" id="o-clear">Clear filters</button></div>
+      <div class="fld"><label>Select</label>
+        <div class="qpick">
+          <button class="btn ghost qn" id="o-pick5">5</button>
+          <button class="btn ghost qn" id="o-pick10">10</button>
+          <button class="btn ghost qn" id="o-pick0" disabled>None</button>
+          <span class="qpickn" id="o-pickn"></span>
+        </div>
+      </div>
+      <div class="fld"><label for="o-assignee">Assign to</label>
+        <div class="qcombo" id="o-assignee-wrap">
+          <input id="o-assignee" class="qcinput" type="text" role="combobox"
+                 autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="o-assignee-menu" placeholder="Pick orders first">
+          <div id="o-assignee-menu" class="qcmenu" role="listbox" hidden></div>
+        </div></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="o-split" disabled>Split evenly</button></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="o-bulk" disabled>Assign all</button>
+      </div>
+    </div>
+    <div class="kpis" id="okpis"></div>
+    <div id="ofeed"></div>
+  </section>
+</div>
+
+<div id="qpanel" hidden>
+  <section class="panel">
+    <div class="filters ofilters">
+      <div class="fld">
+        <label for="q-num">Order #</label>
+        <input id="q-num" class="numfilter" type="search" inputmode="numeric"
+               autocomplete="off" placeholder="e.g. 17622522" aria-label="Filter by order number">
+      </div>
+      <div class="fld"><label for="q-cat">Category</label><select id="q-cat"></select></div>
+      <div class="fld"><label>Card status</label><div class="msel" id="ms-q-status"></div></div>
+      <div class="fld"><label for="q-who">Assignee</label><select id="q-who"></select></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-clear">Clear filters</button></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-auto">Auto-assign by skill</button></div>
+      <div class="fld"><label>Select</label>
+        <div class="qpick">
+          <button class="btn ghost qn" id="q-pick5">5</button>
+          <button class="btn ghost qn" id="q-pick10">10</button>
+          <button class="btn ghost qn" id="q-pick0" disabled>None</button>
+          <span class="qpickn" id="q-pickn"></span>
+        </div>
+      </div>
+      <div class="fld"><label for="q-assignee">Assign to</label>
+        <div class="qcombo" id="q-assignee-wrap">
+          <input id="q-assignee" class="qcinput" type="text" role="combobox"
+                 autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="q-assignee-menu" placeholder="Pick cards first">
+          <div id="q-assignee-menu" class="qcmenu" role="listbox" hidden></div>
+        </div></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-split" disabled>Split evenly</button></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn ghost" id="q-bulk" disabled>Assign all</button></div>
+      <div class="fld"><label>&nbsp;</label><span class="qnote" id="q-note"></span></div>
+    </div>
+    <div class="kpis" id="qkpis"></div>
+    <div id="qfeed"></div>
+  </section>
+</div>
+
+<div id="oapanel" hidden>
+  <section class="panel">
+    <!-- Two units of work, same panel. Cards = the card queue; Orders = the
+         order-level reviewer assignments. -->
+    <div class="subtabs agesrc" id="oa-kind">
+      <button class="subtab" id="oakind-orders" aria-selected="true">Orders</button>
+      <button class="subtab" id="oakind-cards"  aria-selected="false">Cards</button>
+    </div>
+    <h2>Card assignments <span class="hint" id="oahint"></span></h2>
+    <div class="filters ofilters">
+      <div class="fld">
+        <label for="oa-search">Find</label>
+        <input id="oa-search" class="numfilter" type="search" autocomplete="off"
+               placeholder="Team member…" aria-label="Filter assignments by team member">
+      </div>
+      <div class="fld"><label for="oa-by">Group by</label>
+        <select id="oa-by">
+          <option value="person">Person</option>
+          <option value="category">Category</option>
+        </select></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="oa-idle" aria-pressed="false">Show idle</button></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="oa-clear">Clear all assignments</button></div>
+    </div>
+    <div id="oafeed" class="agrid"></div>
+  </section>
+</div>
+
+<div id="dnpanel" hidden>
+  <section class="panel">
+    <div class="filters ofilters">
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn ghost" id="dn-reset">Reset counts</button></div>
+      <div class="fld"><label>&nbsp;</label>
+        <span class="dnsince" id="dn-since"></span></div>
+    </div>
+    <div id="dn-cats" class="dncats"></div>
+    <div id="dn-people" class="dntable"></div>
+  </section>
+</div>
+
+<div id="tpanel" hidden>
+  <section class="panel">
+    <h2>Team <span class="hint" id="thint"></span></h2>
+    <!-- Two floors, one skill grid. Data does card work, Review does order
+         review; they are different people doing different jobs, so they get
+         separate rosters. -->
+    <div class="subtabs agesrc" id="team-kind">
+      <button class="subtab" id="tkind-review" aria-selected="true">Review</button>
+      <button class="subtab" id="tkind-data"   aria-selected="false">Data</button>
+    </div>
+    <div class="tsearchbar">
+      <input id="t-search" class="tsearch" type="search" autocomplete="off"
+             placeholder="Search a person…" aria-label="Search team members">
+      <span class="tcount" id="t-count"></span>
+      <button class="btn ghost" id="t-clear">Clear search</button>
+      <button class="btn ghost tclearall" id="t-wipe">Clear all skills</button>
+    </div>
+    <div id="tfeed" class="agrid"></div>
+  </section>
+</div>
+
+
+<div id="panel-setup" hidden>
+  <section>
+    <div class="card">
+      <div class="msg" id="setupmsg"></div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span id="f-updated">Not loaded yet</span>
+  <span id="f-source">Source: —</span>
+  <span id="f-window">Window: 2 PM–3 AM PT, Mon–Fri shift start</span>
+</footer>
 
 <script>
 (function(){
@@ -7636,6 +7642,41 @@
       });
   }
 
+  // The four headers api/ticker.js sets on every response. Read once, in one
+  // place, so the filtered and unfiltered paths report the same fields.
+  function readDiagHeaders(r){
+    var out = {};
+    try {
+      ["X-Metabase-Card-Id","X-Metabase-Transport","X-Metabase-Params",
+       "X-Metabase-Tags","X-Metabase-Rows"].forEach(function(h){
+        var v = r.headers.get(h); if(v) out[h] = v;
+      });
+    } catch(e){}
+    return out;
+  }
+
+  // Print what the proxy actually did. An empty expanded row has three causes
+  // that look identical -- the question ran bare and returned nothing, the
+  // order-number parameter never bound, or the question itself errored -- and
+  // the only thing that tells them apart is the payload that went out.
+  function ocDiagHTML(k){
+    var parts = [];
+    [ocDiag[k], allDiag].forEach(function(d){
+      if(!d) return;
+      var h = d.headers || {};
+      var line = d.stage
+        + ": rows=" + (d.rows === null ? "n/a" : d.rows)
+        + (h["X-Metabase-Card-Id"]   ? " \u00b7 card " + h["X-Metabase-Card-Id"] : "")
+        + (h["X-Metabase-Transport"] ? " \u00b7 via " + h["X-Metabase-Transport"] : "")
+        + (h["X-Metabase-Params"]    ? "\nparams: " + h["X-Metabase-Params"] : "\nparams: (none sent)")
+        + (h["X-Metabase-Tags"]      ? "\ntags:   " + h["X-Metabase-Tags"] : "")
+        + (d.error                   ? "\nerror:  " + d.error : "");
+      parts.push(line);
+    });
+    if(!parts.length) return "";
+    return '<pre class="ocdiag">' + esc(parts.join("\n\n")) + '</pre>';
+  }
+
   function orderCardsHTML(o){
     // Prefer the per-order fetch (37819, which needs the order number); fall
     // back to whatever the bulk sources gave us.
@@ -7652,11 +7693,13 @@
             // Zero rows from a parameterised question usually means the filter
             // didn't match, not that the order is empty -- say so, and say
             // where to look.
-            : st === "done"    ? "No cards returned for this order. If it has cards in "
-                               + "Metabase, the order-number filter didn't match \u2014 "
-                               + "the console logs the tag and value that were sent."
+            : st === "done"    ? "No cards returned for this order \u2014 neither the "
+                               + "per-order run nor the unfiltered fallback came back "
+                               + "with rows. What the proxy sent and got:"
             : (ocNote || "Loading cards\u2026"))
-        + '</div></div>';
+        + '</div>'
+        + (st === "done" || st === "error" ? ocDiagHTML(orderKeyOf(o.number)) : "")
+        + '</div>';
     }
 
     // Per-order toolbar. Selection and assignment happen inside the order you
@@ -7820,6 +7863,11 @@
   // every card in the warehouse.
   var ocByOrder = {};     // order -> [cards]
   var ocState   = {};     // order -> "loading" | "done" | "error"
+  // What the proxy reported for each attempt. Kept so an empty expanded row can
+  // SAY why it is empty instead of leaving the answer in a console nobody has
+  // open on a wall display.
+  var ocDiag    = {};     // order -> {stage, headers, error, rows}
+  var allDiag   = null;   // same, for the one unfiltered pull
   function cardsForOrder(num){ return ocByOrder[orderKeyOf(num)] || null; }
 
   // One unfiltered pull of 37819, used when a per-order run comes back empty.
@@ -7832,12 +7880,17 @@
     }
     allCardsState = "loading";
     var q = new URLSearchParams({tab:"orders", view:"cardlist"});
+    var ahdrs = {};
     fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
-      .then(function(r){ return r.json(); })
+      .then(function(r){
+        ahdrs = readDiagHeaders(r);
+        return r.json();
+      })
       .then(function(d){
         if(!d || !d.rows || !d.rows.length){
           allCardsState = "empty";
-          console.warn("order cards (37819) unfiltered returned nothing", d && d.error);
+          allDiag = {stage:"unfiltered", headers:ahdrs, error:(d && d.error) || "", rows:0};
+          console.warn("order cards (37819) unfiltered returned nothing", d && d.error, ahdrs);
           Object.keys(ocState).forEach(function(k){
             if(ocState[k] === "loading"){ ocState[k] = "done"; ocByOrder[k] = []; }
           });
@@ -7850,10 +7903,12 @@
         }
         oCards = orderCardListRows(d.rows);
         allCardsState = "done";
+        allDiag = {stage:"unfiltered", headers:ahdrs, error:"", rows:d.rows.length};
         spreadAllCards();
       })
       .catch(function(e){
         allCardsState = "";
+        allDiag = {stage:"unfiltered", headers:ahdrs, error:String(e && e.message || e), rows:null};
         console.warn("order cards (37819) unfiltered failed", e);
         Object.keys(ocState).forEach(function(k){
           if(ocState[k] === "loading") ocState[k] = "error";
@@ -7891,8 +7946,7 @@
       .then(function(r){
         // Carry the proxy's diagnostics through so an empty result can be told
         // apart from a parameter that never matched.
-        ["X-Metabase-Card-Id","X-Metabase-Params","X-Metabase-Tags","X-Metabase-Rows"]
-          .forEach(function(h){ var v = r.headers.get(h); if(v) hdrs[h] = v; });
+        hdrs = readDiagHeaders(r);
         return r.json();
       })
       .then(function(d){
@@ -7903,10 +7957,12 @@
           }
           ocByOrder[k] = orderCardListRows(d.rows);
           ocState[k] = "done";
+          ocDiag[k] = {stage:"filtered", headers:hdrs, error:"", rows:d.rows.length};
         } else {
           // Zero rows from the per-order run. The question also runs unfiltered,
           // so pull the whole set once and filter locally rather than leaving
           // the row empty because a template tag didn't match.
+          ocDiag[k] = {stage:"filtered", headers:hdrs, error:(d && d.error) || "", rows:0};
           console.warn("order cards (37819) empty for", k, d && d.error, hdrs);
           ocState[k] = "loading";
           ensureAllOrderCards();
@@ -7917,6 +7973,7 @@
       .catch(function(e){
         // A failed per-order run is still worth falling back from: the
         // unfiltered set answers the same question.
+        ocDiag[k] = {stage:"filtered", headers:hdrs, error:String(e && e.message || e), rows:null};
         console.warn("order cards (37819) failed for", k, e);
         ocState[k] = "loading";
         ensureAllOrderCards();
