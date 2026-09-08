@@ -171,15 +171,34 @@ function buildParameters(query, key, tagIds, noParams) {
   const parameters = [];
 
   if (ORDER_PARAM.has(key)) {
-    const value = String(query.order_number || '').replace(/\D+/g, '');
-    if (!value) throw new Error('Missing required filter: order_number');
+    const digits = String(query.order_number || '').replace(/\D+/g, '');
+    // OPTIONAL. The question runs unfiltered and returns every order's cards,
+    // so omitting the parameter is a valid request -- it is how the client
+    // falls back when a per-order run matches nothing.
+    if (!digits) return parameters;
+
+    // Find the tag by SHAPE, not by an assumed name. The question's variable
+    // may be `order_number`, `number`, `order`, or a display name like
+    // "Order Number" -- and an id we invent is silently ignored by Metabase,
+    // which then returns zero rows with no error. That is exactly the "no
+    // cards returned" case this replaces.
+    const names = Object.keys(tagIds || {});
+    const tagName =
+      names.find((n) => n === 'order_number') ||
+      names.find((n) => /order.*num|num.*order/.test(n)) ||
+      names.find((n) => /order/.test(n)) ||
+      (names.length === 1 ? names[0] : null) ||
+      'order_number';
+
+    const declared = tagIds[tagName]?.type || '';
+    // A number tag rejects a string and vice versa; either way the clause
+    // matches nothing rather than erroring, so the type has to follow the tag.
+    const isNumber = /^number/.test(declared);
     parameters.push({
-      id: tagIds['order_number']?.id || 'order_number',
-      // The tag is typed in the question; fall back to a bare text match rather
-      // than guessing a number type, which Metabase rejects on a text tag.
-      type: tagIds['order_number']?.type || 'category',
-      value,
-      target: ['variable', ['template-tag', 'order_number']],
+      id: tagIds[tagName]?.id || tagName,
+      type: declared || 'category',
+      value: isNumber ? Number(digits) : digits,
+      target: ['variable', ['template-tag', tagName]],
     });
     return parameters;
   }
@@ -404,11 +423,21 @@ export default async function handler(req, res) {
   const key  = VIEWED.has(tab) ? `${tab}:${view}` : tab;
 
   try {
-    const { rows, cardId, via } = await runQuery(key, q);
+    const { rows, cardId, via, tagInfo, parameters } = await runQuery(key, q);
     const ttl = Number(process.env.TICKER_CACHE_SECONDS || 30);
     res.setHeader('Cache-Control', `s-maxage=${ttl}, stale-while-revalidate=60`);
     res.setHeader('X-Metabase-Card-Id', cardId);
     res.setHeader('X-Metabase-Transport', via);
+    // A parameterised question that matches nothing returns 200 with zero rows
+    // and no error, which is indistinguishable from "this order has no cards".
+    // Reporting the tags found and the parameter actually sent makes the
+    // difference visible from the browser instead of guessable.
+    if (Array.isArray(parameters) && parameters.length) {
+      res.setHeader('X-Metabase-Params', parameters
+        .map((p) => `${p.target?.[1]?.[1] || p.id}=${p.value}:${p.type}`).join(','));
+    }
+    if (tagInfo?.note) res.setHeader('X-Metabase-Tags', String(tagInfo.note).slice(0, 300));
+    res.setHeader('X-Metabase-Rows', Array.isArray(rows) ? rows.length : 0);
     return res.status(200).json(rows);
   } catch (err) {
     return res.status(err.status || 500).json({

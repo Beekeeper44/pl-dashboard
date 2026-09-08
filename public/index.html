@@ -4667,10 +4667,7 @@
       // Ascending by AC, whatever the table is sorted by: "1-5 and 6-10" has to
       // mean the same thing every time.
       var rows = picked.map(function(k){ return idx[k]; }).filter(Boolean)
-        .sort(function(a, b){
-          return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
-               - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
-        });
+        .sort(function(a, b){ return acNumeric(a.ac) - acNumeric(b.ac); });
       var ranges = [];
       splitBlocks(rows, whos).forEach(function(b){
         b.items.forEach(function(r){ cardAssign[cardKey(r)] = b.who; });
@@ -4729,11 +4726,8 @@
         var onum = cp.getAttribute("data-ord");
         var mode = cp.getAttribute("data-cpick");
         var mine = oCards.filter(function(c){
-          return orderKeyOf(c.order) === orderKeyOf(onum);
-        }).sort(function(a, b){
-          return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
-               - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
-        });
+          return sameOrder(c.order, onum);
+        }).sort(function(a, b){ return acNumeric(a.ac) - acNumeric(b.ac); });
         if(mode === "0"){
           mine.forEach(function(c){ delete cSelected[cardRevKey(c)]; });
         } else if(mode === "all"){
@@ -4946,7 +4940,7 @@
       if(call){
         var on = call.checked, onum2 = call.getAttribute("data-ord");
         oCards.forEach(function(c){
-          if(orderKeyOf(c.order) === orderKeyOf(onum2)) cSelected[cardRevKey(c)] = on;
+          if(sameOrder(c.order, onum2)) cSelected[cardRevKey(c)] = on;
         });
         renderOrders();
         return;
@@ -5193,7 +5187,11 @@
   // assignment follows the card instead of being orphaned by its own progress.
   var cardRev = loadLocal("pl_cardrev_v1");
 
-  function cardRevKey(c){ return String((c && c.ac) || "").trim(); }
+  // Digits only, like every other AC comparison. 37819 returns "4061789" while
+  // 35905 returns "AC4061789" -- keyed on the raw string those are two
+  // different cards, so an assignment made from one source would be invisible
+  // from the other.
+  function cardRevKey(c){ return acKeyOf(c && c.ac); }
   function cardRevs(k){
     var v = cardRev[k];
     if(!v) return [];
@@ -5234,7 +5232,7 @@
   function cPickedIn(num){
     var mine = {};
     oCards.forEach(function(c){
-      if(orderKeyOf(c.order) === orderKeyOf(num)) mine[cardRevKey(c)] = 1;
+      if(sameOrder(c.order, num)) mine[cardRevKey(c)] = 1;
     });
     return cPicked().filter(function(k){ return mine[k]; });
   }
@@ -6360,10 +6358,7 @@
     var keys = wmCardKeys(), who = wmSel.slice();
     if(!keys.length || !who.length) return null;
     var order = oCards.filter(function(c){ return keys.indexOf(cardRevKey(c)) >= 0; })
-      .sort(function(a, b){
-        return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
-             - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
-      });
+      .sort(function(a, b){ return acNumeric(a.ac) - acNumeric(b.ac); });
     var tally = {};
     order.forEach(function(c, i){
       var n = who[i % who.length];
@@ -6668,6 +6663,35 @@
   // strict string compare silently yields no matches and a column of dashes.
   function orderKeyOf(v){ return String(v == null ? "" : v).replace(/\D+/g, ""); }
 
+  // ORDER_NUMBER and AC_NUMBER are the two identity columns, and both arrive as
+  // text that may be padded, prefixed ("AC4061789") or formatted. Compare on
+  // digits, and use these two helpers everywhere so a card can never be matched
+  // one way in the table and another way in the assignment store.
+  function sameOrder(a, b){
+    var x = orderKeyOf(a), y = orderKeyOf(b);
+    return !!x && x === y;
+  }
+  function acKeyOf(v){ return String(v == null ? "" : v).replace(/\D+/g, ""); }
+  function acNumeric(v){ return Number(acKeyOf(v)) || 0; }
+
+  // Cards in one order, deduped on AC. A question that joins can repeat a card
+  // once per matched row, and the same slab listed twice would be assigned
+  // twice and counted twice.
+  function cardsOfOrder(pool, num){
+    var seen = {}, out = [];
+    (pool || []).forEach(function(r){
+      if(!sameOrder(r.order, num)) return;
+      var k = acKeyOf(r.ac);
+      if(k && seen[k]) return;
+      if(k) seen[k] = 1;
+      out.push(r);
+    });
+    return out.sort(function(a, b){
+      return acNumeric(a.ac) - acNumeric(b.ac)
+          || String(a.ac||"").localeCompare(String(b.ac||""));
+    });
+  }
+
   // How far through grading an order is, from its cards on the queue question.
   //
   // Summed from done/tasks across the order's cards rather than averaging the
@@ -6742,10 +6766,7 @@
       return;
     }
     var cards = oCards.filter(function(c){ return keys.indexOf(cardRevKey(c)) >= 0; })
-      .sort(function(a, b){
-        return (Number(String(a.ac||"").replace(/\D+/g,"")) || 0)
-             - (Number(String(b.ac||"").replace(/\D+/g,"")) || 0);
-      });
+      .sort(function(a, b){ return acNumeric(a.ac) - acNumeric(b.ac); });
     var tally = {}, ranges = [];
     if(mode === "split"){
       splitBlocks(cards, who).forEach(function(b){
@@ -6786,8 +6807,9 @@
   function clearCardAssign(btn, num){
     var picked = cPickedIn(num);
     var scope = picked.length ? picked
-      : oCards.filter(function(c){ return orderKeyOf(c.order) === orderKeyOf(num); })
-          .map(cardRevKey);
+      // Clear-all covers the same set the expanded table shows, deduped the
+      // same way -- otherwise it could report clearing more cards than exist.
+      : cardsOfOrder(cardsForOrder(num) || oCards, num).map(cardRevKey);
     var hits = scope.filter(function(k){ return cardRevs(k).length; });
     if(!hits.length){
       disarmAction(btn);
@@ -6808,21 +6830,21 @@
     // Prefer the per-order fetch (37819, which needs the order number); fall
     // back to whatever the bulk sources gave us.
     var perOrder = cardsForOrder(o.number);
+    // Prefer the per-order fetch; fall back to whatever bulk source loaded.
     var pool = perOrder && perOrder.length ? perOrder : oCards;
-    var cards = pool.filter(function(r){
-      return orderKeyOf(r.order) === orderKeyOf(o.number);
-    }).sort(function(a, b){
-      var x = Number(String(a.ac||"").replace(/\D+/g,"")) || 0;
-      var y = Number(String(b.ac||"").replace(/\D+/g,"")) || 0;
-      return x - y || String(a.ac||"").localeCompare(String(b.ac||""));
-    });
+    var cards = cardsOfOrder(pool, o.number);
 
     if(!cards.length){
       var st = ocState[orderKeyOf(o.number)];
       return '<div class="ocards"><div class="ocempty">'
         + esc(st === "loading" ? "Loading cards\u2026"
             : st === "error"   ? "Could not load this order's cards."
-            : st === "done"    ? "No cards returned for this order."
+            // Zero rows from a parameterised question usually means the filter
+            // didn't match, not that the order is empty -- say so, and say
+            // where to look.
+            : st === "done"    ? "No cards returned for this order. If it has cards in "
+                               + "Metabase, the order-number filter didn't match \u2014 "
+                               + "the console logs the tag and value that were sent."
             : (ocNote || "Loading cards\u2026"))
         + '</div></div>';
     }
@@ -6990,34 +7012,104 @@
   var ocState   = {};     // order -> "loading" | "done" | "error"
   function cardsForOrder(num){ return ocByOrder[orderKeyOf(num)] || null; }
 
+  // One unfiltered pull of 37819, used when a per-order run comes back empty.
+  // Cached for the session: it is the same request whichever order asked for it.
+  var allCardsState = "";
+  function ensureAllOrderCards(){
+    if(allCardsState === "loading" || allCardsState === "done"){
+      if(allCardsState === "done") spreadAllCards();
+      return;
+    }
+    allCardsState = "loading";
+    var q = new URLSearchParams({tab:"orders", view:"cardlist"});
+    fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d || !d.rows || !d.rows.length){
+          allCardsState = "empty";
+          console.warn("order cards (37819) unfiltered returned nothing", d && d.error);
+          Object.keys(ocState).forEach(function(k){
+            if(ocState[k] === "loading"){ ocState[k] = "done"; ocByOrder[k] = []; }
+          });
+          if(TAB === "orders" && OSUB === "orders") renderOrders();
+          return;
+        }
+        if(!window.__clCols){
+          window.__clCols = Object.keys(d.rows[0]);
+          console.info("order cards (37819, unfiltered) columns:", window.__clCols);
+        }
+        oCards = orderCardListRows(d.rows);
+        allCardsState = "done";
+        spreadAllCards();
+      })
+      .catch(function(e){
+        allCardsState = "";
+        console.warn("order cards (37819) unfiltered failed", e);
+        Object.keys(ocState).forEach(function(k){
+          if(ocState[k] === "loading") ocState[k] = "error";
+        });
+        if(TAB === "orders" && OSUB === "orders") renderOrders();
+      });
+  }
+
+  // Bucket the unfiltered set by order, so every expanded row resolves from it.
+  function spreadAllCards(){
+    var by = {};
+    oCards.forEach(function(c){
+      var k = orderKeyOf(c.order);
+      if(!k) return;
+      (by[k] = by[k] || []).push(c);
+    });
+    Object.keys(ocState).forEach(function(k){
+      if(ocState[k] === "loading" || !ocByOrder[k] || !ocByOrder[k].length){
+        ocByOrder[k] = by[k] || [];
+        ocState[k] = "done";
+      }
+    });
+    pruneReview();
+    if(TAB === "orders" && OSUB === "orders") renderOrders();
+    if(TAB === "orders" && OSUB === "assign") renderOrderAssign();
+  }
+
   function ensureCardsForOrder(num){
     var k = orderKeyOf(num);
     if(!k || ocState[k]) return;
     ocState[k] = "loading";
     var q = new URLSearchParams({tab:"orders", view:"cardlist", order_number:k});
+    var hdrs = {};
     fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
-      .then(function(r){ return r.json(); })
+      .then(function(r){
+        // Carry the proxy's diagnostics through so an empty result can be told
+        // apart from a parameter that never matched.
+        ["X-Metabase-Card-Id","X-Metabase-Params","X-Metabase-Tags","X-Metabase-Rows"]
+          .forEach(function(h){ var v = r.headers.get(h); if(v) hdrs[h] = v; });
+        return r.json();
+      })
       .then(function(d){
         if(d && d.rows && d.rows.length){
           if(!window.__clCols){
             window.__clCols = Object.keys(d.rows[0]);
-            console.info("order cards (37819) columns:", window.__clCols);
+            console.info("order cards (37819) columns:", window.__clCols, hdrs);
           }
           ocByOrder[k] = orderCardListRows(d.rows);
           ocState[k] = "done";
         } else {
-          console.warn("order cards (37819) empty for", k, d && d.error);
-          ocByOrder[k] = [];
-          ocState[k] = d && d.error ? "error" : "done";
+          // Zero rows from the per-order run. The question also runs unfiltered,
+          // so pull the whole set once and filter locally rather than leaving
+          // the row empty because a template tag didn't match.
+          console.warn("order cards (37819) empty for", k, d && d.error, hdrs);
+          ocState[k] = "loading";
+          ensureAllOrderCards();
+          return;
         }
         if(TAB === "orders" && OSUB === "orders") renderOrders();
       })
       .catch(function(e){
+        // A failed per-order run is still worth falling back from: the
+        // unfiltered set answers the same question.
         console.warn("order cards (37819) failed for", k, e);
-        ocState[k] = "error";
-        // Cleared so expanding again retries rather than sticking on an error.
-        setTimeout(function(){ delete ocState[k]; }, 5000);
-        if(TAB === "orders" && OSUB === "orders") renderOrders();
+        ocState[k] = "loading";
+        ensureAllOrderCards();
       });
   }
 

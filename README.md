@@ -1889,12 +1889,58 @@ above the table so a wall of dashes never reads as broken:
 | 2 | **37819** (`METABASE_ORDER_CARDS_CARD_ID`) | the cards, with identity and card-type status |
 | 3 | **35905** | the cards, and little else |
 
-#### 37819 is fetched PER ORDER
+#### Matching on ORDER_NUMBER and AC_NUMBER
 
-It takes an **Order Number** parameter — run bare it returns nothing, which is
-why the expanded list was empty. The proxy now sends `order_number` for
-`orders:cardlist` (digits only, and it refuses the request without one), and
-the client fetches it when a row is **expanded**, caching by order.
+Both identity columns arrive as text that may be padded, prefixed or formatted —
+37819 returns `4061789` where 35905 returns `AC4061789`, and an order number can
+come back with separators. Every comparison goes through three helpers so the
+same card can never be matched one way in the table and another in the
+assignment store:
+
+```js
+sameOrder(a, b)   // digits, and an empty key never matches
+acKeyOf(v)        // digits
+acNumeric(v)      // digits, as a number, for sorting
+cardsOfOrder(pool, num)   // that order's cards, deduped on AC, AC-ascending
+```
+
+Three things this fixes:
+
+- **`cardRevKey` used the raw AC string.** Keyed that way, `AC4061789` and
+  `4061789` are two different cards, so an assignment made while one question
+  was the source would vanish when the other took over.
+- **An empty order key no longer matches an empty one**, which would have put
+  every card with a missing order number into every order.
+- **Cards are deduped on AC.** A question that joins can return a slab once per
+  matched row; assigned twice, the work would be counted twice.
+
+#### 37819: per order, with an unfiltered safety net
+
+The question runs **both ways** — filtered to one order, or bare returning every
+order's cards. So the client tries the small request first and falls back to the
+big one:
+
+1. Expand a row -> fetch 37819 with `order_number`.
+2. If that returns **zero rows or throws**, fetch 37819 **unfiltered** once,
+   bucket the result by order number, and resolve every expanded row from it.
+
+The fallback matters because a parameterised question that matches nothing
+returns `200` with an empty array and no error — indistinguishable from "this
+order has no cards". Rather than trusting the template tag to be named and typed
+as expected, the unfiltered set is filtered client-side on the order number,
+which cannot miss.
+
+The bulk pull happens **once per session** and is shared by every order that
+needs it.
+
+#### The parameter is optional
+
+The proxy sends `order_number` when the client provides one and omits it
+otherwise, so both modes work through the same key. The tag is found **by
+shape** — exact name, then anything order-ish, then the only tag if there is
+one — and the value is coerced to the tag's declared type. A number tag rejects
+a string and vice versa, and either way the clause matches nothing *without
+erroring*.
 
 That means opening the same order twice costs one request, and opening twenty
 orders never pulls every card in the warehouse. A failed fetch clears its state
