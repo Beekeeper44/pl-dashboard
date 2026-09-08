@@ -652,8 +652,24 @@
          grid-template-columns:26px 58px 84px minmax(96px,1fr) minmax(120px,1.2fr) 74px
                                126px 62px 92px 92px 70px repeat(7, minmax(62px,1fr))
                                minmax(130px,0.8fr)}
+  /* Sticky column header. An order can hold 200+ cards, so by the time you are
+     picking a reviewer for row 140 the labels are long gone and CROP, CORNER,
+     EDGE, SURFACE and CENTERING are five identical-looking columns.
+
+     top is 0 because nothing above it on the page is sticky -- the app header
+     and the tab bar scroll away. If either becomes sticky, this has to become
+     their combined height or the labels will hide behind them.
+
+     The background is OPAQUE and matches .orow (--panel2) rather than being
+     inherited or semi-transparent: a sticky row with a transparent background
+     shows the card rows sliding underneath it, which is worse than no sticky
+     header at all. */
   .ocrow.ochead{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
-                opacity:.8;padding-bottom:8px;border-bottom:1px solid var(--line)}
+                opacity:1;color:color-mix(in srgb, var(--tx) 80%, transparent);
+                padding-top:8px;padding-bottom:8px;
+                border-bottom:1px solid var(--line);
+                position:sticky;top:0;z-index:4;background:var(--panel2)}
+
   .oc-ac{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;
          min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .oc-who{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

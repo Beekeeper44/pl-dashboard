@@ -3454,3 +3454,34 @@ exclude still lists its cards.
 Merging is by AC digits, first non-empty source as the base, each later source
 filling only blanks. A card no earlier source had is appended rather than
 dropped: a card missing from the table cannot be assigned at all.
+
+## Sticky header on the expanded card table
+
+`.ocrow.ochead` is `position:sticky; top:0`. An order can hold 200+ cards, and
+by the time you are picking a reviewer for row 140 the labels are long gone —
+CROP, CORNER, EDGE, SURFACE and CENTERING are five identical-looking columns of
+pills without them.
+
+Two things this needed beyond the one property:
+
+- **The background has to be opaque.** The rule carried `opacity:.8`, which
+  applies to the background as well as the text, so the stuck header would have
+  had card rows visibly sliding underneath it — worse than no sticky header.
+  It is now `opacity:1` with the transparency moved onto `color` via
+  `color-mix`, and an explicit `background:var(--panel2)` matching `.orow`.
+- **`z-index:4`**, below the dropdown layers (40 / 60) and the modal scrim (80),
+  so an open reviewer picker still paints over it.
+
+`top:0` is correct only because nothing above it on the page is sticky — the app
+header and the tab bar both scroll away. If either becomes sticky, this has to
+become their combined height or the labels will hide behind them.
+
+Each expanded order gets its own sticky header, scoped to its own `.octable`, so
+with several orders open each set of labels holds until its own block scrolls
+past and then hands over to the next. That falls out of sticky's containing
+block; no scroll listener.
+
+An earlier version also masked the 14px gap beside the header with an absolutely
+positioned `::before`. That was solving nothing — the gap is `.octable`'s own
+padding and no card row ever paints into it — and it cut a notch out of the left
+rule. Removed.
