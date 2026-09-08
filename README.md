@@ -3213,27 +3213,83 @@ source. Correct them in `ORDERS_ROSTER` when you have the real spellings —
 skills and assignments key on the exact string, so a rename after people have
 been assigned will orphan their queues.
 
+## ⚠ The expanded order could never show cards — /api/ticker returns a bare array
+
+`api/ticker.js` ends with `return res.status(200).json(rows)`. It sends the row
+array **itself**, not `{rows:[...]}`.
+
+`load()` has always allowed for that:
+
+```js
+var arr = Array.isArray(data) ? data
+        : (data && Array.isArray(data.rows)) ? data.rows
+        : (data && Array.isArray(data.data)) ? data.data : [];
+```
+
+which is why every tab works. The six order-card helpers added later read
+`d.rows` and nothing else. On an array that is `undefined`, so **every one of
+them concluded "no rows" regardless of what Metabase returned** — the per-order
+run of 37819, the unfiltered fallback, all three steps of `ensureQueueCards`,
+and `ensureOrderDays`.
+
+Nothing was wrong with the question, the parameter, the template tag or the
+transport. The diagnostics confirmed it before the fix landed: `order_number=
+18554823:number/=` went out, the tag id resolved from `parameters[]`, and the
+call returned 200 via `query/json`. The 25 rows arrived and were discarded on
+the doorstep.
+
+`rowsOf(d)` is now the single reader, with `load()`'s tolerance, used by all
+seven call sites. A unit test covers bare array, `{rows}`, `{data}`, an error
+object, `null` and `undefined`, and asserts that the old `d.rows` really is
+`undefined` on the shape the API sends.
+
+This also explains the dashes in the Card Queue's **In process** column:
+`ensureOrderDays` bailed on `if(!d || !d.rows) return;` before building the
+lookup, so the join never had anything to match against.
+
+### Two things worth taking from it
+
+**The proxy was never the suspect it looked like.** The first read of the
+evidence was that `/query/json` drops parameters and Metabase was substituting a
+tag default. That would have meant reordering the transports so parameterized
+runs prefer `/api/card/:id/query` — which has a ~2000-row cap and would have
+silently clipped the Cards and Recomp tabs, breaking three working tabs to fix
+one. The change was written and then reverted once the response shape explained
+everything. A fix that requires a theory about someone else's server deserves
+one more look at your own client first.
+
+**A shared helper is worth it at two call sites, not six.** `load()` had the
+correct reader from the start. The cost of not reaching for it was six copies of
+the wrong one.
+
 ## An empty expanded order now says why
 
 `orderCardsHTML` printed one sentence — *"the console logs the tag and value
 that were sent"* — which is useless on a wall display and awkward even at a
 desk, since it means reproducing the expand with devtools already open.
 
-Three different failures produce an identical empty row:
-
-1. The per-order run of 37819 matched nothing because the order-number
-   parameter never bound.
-2. 37819 cannot run bare, so the unfiltered fallback returned nothing either.
-3. The question itself errored.
-
 `readDiagHeaders()` captures the five headers `api/ticker.js` already sets
 (`X-Metabase-Card-Id`, `-Transport`, `-Params`, `-Tags`, `-Rows`) on **both**
 requests, and `ocDiagHTML()` prints them under the empty state — the filtered
-attempt and the unfiltered one, each with its row count, the parameter payload
-that went out, where the template-tag ids were read from, and any error.
+attempt and the unfiltered one, each with the parameter payload that went out,
+where the template-tag ids were read from, and any error.
 
 The headers were always there; only the client was throwing them away. Nothing
 new is fetched for this.
+
+### It reports both row counts, and that is the point
+
+```
+filtered: rows parsed=0 · proxy reported=25 · card 37819 · via query/json
+```
+
+`rows parsed` is what the client made of the response; `proxy reported` is
+`X-Metabase-Rows`, counted server-side before it was serialised. **When those
+two disagree the problem is the response shape, not the question** — which is
+exactly the bug above, and the first version of this block printed only the
+client's count, so it read as "Metabase returned nothing" when Metabase had
+returned 25. A diagnostic that reports one side of a mismatch can send you
+looking in the wrong system.
 
 `.ocdiag` is `user-select:text` with `overflow-wrap:anywhere`, because the whole
 point of the block is that someone copies the line into a message rather than
@@ -3243,16 +3299,32 @@ retyping it off a screen.
 
 Runs **37819 both ways in one request** — filtered on that order, then bare —
 and reports each with its transport, row count, columns, `parametersSent` and
-`templateTags`, plus a `verdict` naming which of the three cases above it is:
+`templateTags`, plus a `verdict`.
 
-| what came back | what it means |
-|---|---|
-| filtered has rows | the proxy is fine; the bug is client-side in `ocState` / `spreadAllCards` |
-| bare has rows, filtered doesn't | the order-number parameter isn't binding — compare `parametersSent` against `templateTags` |
-| neither has rows | 37819 needs its filter and can't run bare, so the unfiltered fallback can never work; the fallback has to filter 35905 client-side instead |
+Unlike the in-page block this reads the rows server-side, so it is unaffected by
+whatever the client makes of the response — which makes it the right place to
+confirm a question works before touching any rendering code.
 
 The two runs are **sequential, not parallel**. They hit the same question and
 `getTagIds` caches per card id, so running them in order means the second reuses
 the first's lookup instead of both racing for the same fetch.
 
 `?id=NNN` is unchanged — it still runs any question bare to identify it.
+
+## 37819's `order_number` is a Number tag against an ILIKE
+
+Not a live bug, but worth knowing before someone changes it:
+
+```sql
+[[ AND o.number::text ILIKE '%' || {{order_number}} || '%' ]]
+```
+
+The variable is declared **Number** (`parameters[]` reports
+`order_number(number/=)`), so Metabase substitutes it unquoted and the
+concatenation relies on an implicit numeric-to-text cast. It works, and the
+proxy already sends `Number(digits)` because it follows the declared type. But
+the clause is a substring match, which is a text operation — declaring the
+variable as **Text** would match the intent, remove the implicit cast, and let a
+query like `4061` behave the way the Order # filter in the UI already does.
+Changing the type requires nothing on this side; `buildParameters` reads the
+declared type and sends a string or a number to match.

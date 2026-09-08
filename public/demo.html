@@ -7642,6 +7642,22 @@
       });
   }
 
+  // /api/ticker returns a BARE ARRAY -- `return res.status(200).json(rows)`.
+  // It does not wrap it in {rows:[...]}. load() has always handled all three
+  // shapes, which is why every tab works; the order-card helpers added later
+  // read `d.rows` only, so on an array that is `undefined` and every one of
+  // them concluded "no rows" no matter what Metabase returned. That is the
+  // whole reason an expanded order showed nothing.
+  //
+  // One reader, used by every call site, so a fourth helper can't reintroduce
+  // it. Same tolerance as load().
+  function rowsOf(d){
+    return Array.isArray(d) ? d
+         : (d && Array.isArray(d.rows)) ? d.rows
+         : (d && Array.isArray(d.data)) ? d.data
+         : [];
+  }
+
   // The four headers api/ticker.js sets on every response. Read once, in one
   // place, so the filtered and unfiltered paths report the same fields.
   function readDiagHeaders(r){
@@ -7665,7 +7681,10 @@
       if(!d) return;
       var h = d.headers || {};
       var line = d.stage
-        + ": rows=" + (d.rows === null ? "n/a" : d.rows)
+        + ": rows parsed=" + (d.rows === null ? "n/a" : d.rows)
+        // X-Metabase-Rows is what the PROXY counted. If it disagrees with the
+        // parsed count, the response shape is the problem, not the question.
+        + " \u00b7 proxy reported=" + (h["X-Metabase-Rows"] || "?")
         + (h["X-Metabase-Card-Id"]   ? " \u00b7 card " + h["X-Metabase-Card-Id"] : "")
         + (h["X-Metabase-Transport"] ? " \u00b7 via " + h["X-Metabase-Transport"] : "")
         + (h["X-Metabase-Params"]    ? "\nparams: " + h["X-Metabase-Params"] : "\nparams: (none sent)")
@@ -7887,7 +7906,8 @@
         return r.json();
       })
       .then(function(d){
-        if(!d || !d.rows || !d.rows.length){
+        var rows = rowsOf(d);
+        if(!rows.length){
           allCardsState = "empty";
           allDiag = {stage:"unfiltered", headers:ahdrs, error:(d && d.error) || "", rows:0};
           console.warn("order cards (37819) unfiltered returned nothing", d && d.error, ahdrs);
@@ -7898,12 +7918,12 @@
           return;
         }
         if(!window.__clCols){
-          window.__clCols = Object.keys(d.rows[0]);
+          window.__clCols = Object.keys(rows[0]);
           console.info("order cards (37819, unfiltered) columns:", window.__clCols);
         }
-        oCards = orderCardListRows(d.rows);
+        oCards = orderCardListRows(rows);
         allCardsState = "done";
-        allDiag = {stage:"unfiltered", headers:ahdrs, error:"", rows:d.rows.length};
+        allDiag = {stage:"unfiltered", headers:ahdrs, error:"", rows:rows.length};
         spreadAllCards();
       })
       .catch(function(e){
@@ -7950,14 +7970,15 @@
         return r.json();
       })
       .then(function(d){
-        if(d && d.rows && d.rows.length){
+        var rows = rowsOf(d);
+        if(rows.length){
           if(!window.__clCols){
-            window.__clCols = Object.keys(d.rows[0]);
+            window.__clCols = Object.keys(rows[0]);
             console.info("order cards (37819) columns:", window.__clCols, hdrs);
           }
-          ocByOrder[k] = orderCardListRows(d.rows);
+          ocByOrder[k] = orderCardListRows(rows);
           ocState[k] = "done";
-          ocDiag[k] = {stage:"filtered", headers:hdrs, error:"", rows:d.rows.length};
+          ocDiag[k] = {stage:"filtered", headers:hdrs, error:"", rows:rows.length};
         } else {
           // Zero rows from the per-order run. The question also runs unfiltered,
           // so pull the whole set once and filter locally rather than leaving
@@ -7988,12 +8009,13 @@
     fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(d && d.rows && d.rows.length){
+        var rows = rowsOf(d);
+        if(rows.length){
           if(!window.__ocCols){
-            window.__ocCols = Object.keys(d.rows[0]);
+            window.__ocCols = Object.keys(rows[0]);
             console.info("orders queue columns:", window.__ocCols);
           }
-          oCards = normalizeOrderCards(d.rows);
+          oCards = normalizeOrderCards(rows);
           ocNote = "";
           afterCards();
           return;
@@ -8015,12 +8037,13 @@
       fetch(API+"?"+q2.toString(), {headers:{"Accept":"application/json"}})
         .then(function(r){ return r.json(); })
         .then(function(d2){
-          if(d2 && d2.rows && d2.rows.length){
+          var rows2 = rowsOf(d2);
+          if(rows2.length){
             if(!window.__clCols){
-              window.__clCols = Object.keys(d2.rows[0]);
+              window.__clCols = Object.keys(rows2[0]);
               console.info("order cards (37819) columns:", window.__clCols);
             }
-            oCards = orderCardListRows(d2.rows);
+            oCards = orderCardListRows(rows2);
             ocNote = "Grading-step detail unavailable \u2014 showing cards from the "
                    + "order-cards question. Card type is live; the other steps are blank.";
             afterCards();
@@ -8040,13 +8063,14 @@
       fetch(API+"?"+q3.toString(), {headers:{"Accept":"application/json"}})
         .then(function(r){ return r.json(); })
         .then(function(d3){
-          if(!d3 || !d3.rows || !d3.rows.length){
+          var rows3 = rowsOf(d3);
+          if(!rows3.length){
             ocNote = "No question returned cards for this order.";
             qCardsAt = 0;
             afterCards();
             return;
           }
-          oCards = queueRowsAsCards(d3.rows);
+          oCards = queueRowsAsCards(rows3);
           ocNote = "Grading-step detail unavailable \u2014 showing cards from the card queue.";
           afterCards();
         })
@@ -8075,9 +8099,9 @@
     fetch(API+"?"+q.toString(), {headers:{"Accept":"application/json"}})
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d || !d.rows) return;
+        var rows = rowsOf(d);
         var map = {}, withDays = 0;
-        normalizeOrders(d.rows).forEach(function(o){
+        normalizeOrders(rows).forEach(function(o){
           var k = orderKeyOf(o.number);
           if(!k) return;
           map[k] = o.days;
@@ -8088,7 +8112,7 @@
         // came back, orders came back without the column, or they matched
         // nothing in the queue.
         var matched = qRows.filter(function(r){ return oDays[orderKeyOf(r.order)] != null; }).length;
-        oDaysNote = !d.rows.length
+        oDaysNote = !rows.length
           ? "In proc: the orders question returned no rows."
           : !withDays
             ? "In proc: the orders question has no in_process_days column."
@@ -8096,7 +8120,7 @@
               ? "In proc: no queue order number matched the orders question."
               : "";
         if(oDaysNote) console.warn(oDaysNote,
-          {orders:d.rows.length, withDays:withDays, queueRows:qRows.length,
+          {orders:rows.length, withDays:withDays, queueRows:qRows.length,
            sampleOrderKeys:Object.keys(oDays).slice(0,3),
            sampleQueueOrders:qRows.slice(0,3).map(function(r){ return r.order; })});
         if(TAB === "orders" && OSUB === "assign") renderOrderAssign();
