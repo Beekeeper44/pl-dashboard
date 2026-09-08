@@ -3328,3 +3328,129 @@ variable as **Text** would match the intent, remove the implicit cast, and let a
 query like `4061` behave the way the Order # filter in the UI already does.
 Changing the type requires nothing on this side; `buildParameters` reads the
 declared type and sends a string or a number to match.
+
+## ⚠ The expanded rows preferred the question with less in it
+
+With the response-shape bug fixed, the per-order 37819 fetch started returning
+rows — and every expanded card lost `CROP`, `CORNER`, `EDGE`, `SURFACE`,
+`CENTERING`, `REVIEW`, `TASKS COMPLETE` and `PCT COMPLETE`. All dashes, on an
+order whose own header was reporting **24.6%** from 37687 two lines above.
+
+The cause was the preference:
+
+```js
+var pool = perOrder && perOrder.length ? perOrder : oCards;
+```
+
+37819 wins, and `orderCardListRows` sets `done/tasks/remaining/pct` to `null`
+and fills only `card_type` in `steps` — correctly, because that question does
+not have the other six. This was harmless for as long as `perOrder` was always
+empty. The moment it worked, it started shadowing the better source.
+
+### They are complements, not alternatives
+
+| question | has |
+|---|---|
+| 37687 (`oCards`) | per-step grading state, `TASKS` / `REMAINING` / `PCT_COMPLETE` |
+| 37819 (per order) | identity — player, year, brand, set, sport |
+
+`cardsOfOrderMerged()` merges them on **AC number**, with 37687 as the base
+because step state has no other source, and 37819 filling the fields it left
+empty.
+
+Three things it gets right that a shallow object spread would not:
+
+- **Steps merge per step, not wholesale.** 37819's array has six empty entries;
+  taking it entire would blank the six 37687 had. Each step keeps its own value
+  and only an empty one is filled.
+- **A populated base is never overwritten by a blank.** The fill is
+  `if(!out[k] && extra[k])`, not `extra[k] || out[k]`.
+- **A card only 37819 returned is kept, not dropped.** A card missing from the
+  table cannot be assigned at all, which is worse than one missing its steps.
+
+AC numbers arrive in both formats (`AC4061789` from one, `4061789` from the
+other), so the merge keys on `acKeyOf` — digits — the same helper `cardRevKey`
+uses. Keying on the raw string would merge nothing and silently produce two rows
+per card.
+
+### A dash now says which kind of dash it is
+
+When every card in an order comes back with `tasks == null`, the step columns
+are empty because of the *source*, not because no work has been done.
+`stepSourceNote()` says so above the table. A grid of dashes with no explanation
+reads as "nothing started", which is the opposite of what it meant here — those
+cards had `crop = done` and `card_type = approved`.
+
+## ⚠ Why it worked for some orders and not others: the status filter
+
+Order 18504539 shows 25 raw cards on the Orders tab and returns nothing from
+37819. The diagnostic settled it in one read:
+
+```
+filtered:   rows parsed=0    · proxy reported=0    · card 37819 · via query/json
+unfiltered: rows parsed=1437 · proxy reported=1437 · card 37819 · via query/json
+```
+
+The unfiltered pull worked and this order was in none of its 1,437 rows. It is
+**`pending_release`**, and `relevant_orders` admits six statuses:
+
+```sql
+AND ao.status IN (
+      'pending_rescan','pending_grading','pending_customer_support',
+      'pending_review','pending_rejection','pending_data_issue'
+)
+```
+
+`pending_release`, `pending_authentication` and `pending_scan` are not there.
+18554823 was `pending_grading`, which is why it worked. The question is behaving
+correctly; its population is simply narrower than the Orders tab's, which shows
+all nine.
+
+`09_order_cards_status_widen.sql` has the change. It needs **two** edits, not
+one: adding the statuses is not enough on its own, because
+
+```sql
+AND ( (o.kind = 'submit'            AND ao.ready_to_reveal_email_sent_at IS NULL)
+   OR (o.kind = 'submit_and_return' AND ao.shipped_at IS NULL) )
+```
+
+excludes an order once its reveal email has gone out — which is exactly the
+state a released order is in. Widening the status list without exempting those
+three would re-exclude every order it had just admitted.
+
+### The client no longer blames the filter
+
+`CARD_Q_STATUSES` mirrors the SQL's IN list, and the empty state now separates
+three cases that used to print one message:
+
+| case | what it says |
+|---|---|
+| status outside the list | names the status, says the question doesn't cover it, and that the SQL needs widening — not a bug on this side |
+| status covered, unfiltered pull had rows | says how many rows came back with none for this order, and points at `kind` and the reveal/shipped conditions |
+| nothing came back at all | the payload dump, as before |
+
+The first case is the one that mattered. "The order-number filter didn't match"
+was a confident, plausible, wrong answer, and it is what sent the first pass of
+this investigation at the proxy instead of at the question.
+
+`CARD_Q_STATUSES` is a copy of something that lives in SQL, which is a
+maintenance cost taken deliberately: the alternative is a dashboard that cannot
+tell "no cards" from "this question doesn't cover this order". The SQL file
+carries a matching comment.
+
+## The expanded table now merges three sources
+
+| question | contributes | can be missing an order because |
+|---|---|---|
+| 37687 `oCards` | per-step state, `TASKS` / `REMAINING` / `PCT` | same status filter |
+| 37819 per-order | identity — player, year, brand, set, sport | same status filter |
+| 35905 `qRows` | neither, but a **different population** | different filter entirely |
+
+The queue is merged in last and **only if it is already loaded** — expanding a
+row never triggers a fetch of it, since a wall display shouldn't pull the whole
+warehouse to open one order. When it happens to be there, an order the other two
+exclude still lists its cards.
+
+Merging is by AC digits, first non-empty source as the base, each later source
+filling only blanks. A card no earlier source had is appended rather than
+dropped: a card missing from the table cannot be assigned at all.

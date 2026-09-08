@@ -3817,6 +3817,22 @@
     pending_customer_support: "#8A6BE0"    // dark purple
   };
 
+  // The statuses 37819's `relevant_orders` CTE admits. MIRRORS THE SQL -- if
+  // that IN list changes, change this.
+  //
+  // It is deliberately narrower than OSTATUS_COLOR above: pending_release,
+  // pending_authentication and pending_scan are NOT in it, so an order in one
+  // of those can never return cards from that question however the request is
+  // made. Without this list the app blamed the order-number filter, which sent
+  // the search in exactly the wrong direction.
+  var CARD_Q_STATUSES = [
+    "pending_rescan", "pending_grading", "pending_customer_support",
+    "pending_review", "pending_rejection", "pending_data_issue"
+  ];
+  function cardQuestionCovers(status){
+    return CARD_Q_STATUSES.indexOf(String(status || "").toLowerCase()) >= 0;
+  }
+
   function statusColor(s){ return OSTATUS_COLOR[String(s||"").toLowerCase()] || "#8FA3B8"; }
   function prettyStatus(s){
     return String(s||"").replace(/_/g," ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
@@ -5410,7 +5426,14 @@
   }
 
   function queueRowsAsCards(raw){
-    return normalizeQueue(raw).map(function(r){
+    return normalizeQueue(raw).map(queueRowAsCard);
+  }
+
+  // Same mapping, but for a row that has already been through normalizeQueue --
+  // which is what `qRows` holds. Lets the Card Queue's own data serve as a
+  // third source for an expanded order without re-fetching 35905.
+  function queueRowAsCard(r){
+    {
       return {
         cardUrl: r.cardUrl || r.taskUrl || "",
         order: r.order, ordStat: r.ordStat, due: r.due, ac: r.ac,
@@ -5424,7 +5447,7 @@
         }),
         _fromQueue: true
       };
-    });
+    }
   }
 
   function normalizeOrderCards(raw){
@@ -6886,26 +6909,133 @@
     return '<pre class="ocdiag">' + esc(parts.join("\n\n")) + '</pre>';
   }
 
+  // The two questions are complements, not alternatives:
+  //
+  //   37687 (oCards)      per-step grading state, TASKS / REMAINING / PCT
+  //   37819 (per order)   identity -- player, year, brand, set, sport
+  //
+  // Preferring one wholesale throws away whatever the other knew. The original
+  // "per-order first, bulk second" was harmless only because the per-order
+  // fetch never returned anything; the moment it started working, every
+  // expanded row lost CROP, CORNER, EDGE, SURFACE, CENTERING, REVIEW, TASKS
+  // COMPLETE and PCT COMPLETE -- all dashes, on an order the header was
+  // simultaneously reporting as 24.6% done from 37687.
+  //
+  // Merge on AC number instead. 37687 is the base because step state is the
+  // thing with no other source; 37819 fills the fields it left empty.
+  function mergeCardRow(base, extra){
+    var out = {};
+    Object.keys(base).forEach(function(k){ out[k] = base[k]; });
+    // Identity and links: take the extra only where the base has nothing, so a
+    // populated primary is never overwritten by a blank.
+    ["player","sport","setLabel","cardUrl","typeFlag","due","cardStatus","ordStat"]
+      .forEach(function(k){
+        if(!out[k] && extra[k]) out[k] = extra[k];
+      });
+    // Steps merge per step, not wholesale: 37819 only ever fills card_type, and
+    // taking its array entire would blank the six the base did have.
+    if(Array.isArray(out.steps) && Array.isArray(extra.steps)){
+      var ex = {};
+      extra.steps.forEach(function(st){ if(st && st.val) ex[st.key] = st.val; });
+      out.steps = out.steps.map(function(st){
+        return st.val ? st : {key:st.key, label:st.label, val: ex[st.key] || ""};
+      });
+    }
+    return out;
+  }
+
+  // THREE sources, merged in priority order. Each knows something the others
+  // don't, and each can be missing an order entirely:
+  //
+  //   37687  oCards            per-step grading state, TASKS / REMAINING / PCT
+  //   37819  cardsForOrder()   identity -- player, year, brand, set, sport
+  //   35905  qRows             the card queue; no steps, but a different
+  //                            population, so it can hold an order the other
+  //                            two exclude
+  //
+  // The queue is used only if it is already loaded -- no fetch is triggered
+  // from a row expansion, since a wall display expanding an order shouldn't
+  // pull the whole warehouse.
+  function cardsOfOrderMerged(num){
+    var sources = [
+      cardsOfOrder(oCards, num),                                  // 37687
+      cardsOfOrder(cardsForOrder(num) || [], num),                // 37819
+      cardsOfOrder((qRows || []).map(queueRowAsCard), num)        // 35905
+    ].filter(function(a){ return a.length; });
+
+    if(!sources.length) return [];
+    if(sources.length === 1) return sources[0];
+
+    // The first non-empty source is the base; the rest fill only what it left
+    // blank. Priority is by how much each question knows, not by which one
+    // happened to answer first.
+    var byAc = {}, order = [];
+    sources.forEach(function(list){
+      list.forEach(function(c){
+        var k = acKeyOf(c.ac);
+        if(!k){ order.push(c); return; }        // no AC: can't merge, keep as-is
+        if(byAc[k]) byAc[k] = mergeCardRow(byAc[k], c);
+        else { byAc[k] = c; order.push(k); }
+      });
+    });
+
+    var out = order.map(function(k){
+      return typeof k === "string" ? byAc[k] : k;
+    });
+    return out.sort(function(a, b){
+      return acNumeric(a.ac) - acNumeric(b.ac)
+          || String(a.ac||"").localeCompare(String(b.ac||""));
+    });
+  }
+
+  // Say so when the step columns are empty because of the SOURCE rather than
+  // because no work has been done. A grid of dashes reads as "nothing started".
+  function stepSourceNote(cards){
+    if(!cards.length) return "";
+    var noSteps = cards.every(function(c){ return c.tasks == null; });
+    if(!noSteps) return "";
+    return "Grading-step detail unavailable for this order \u2014 these rows come "
+         + "from the order-cards question, which carries card type but not the "
+         + "other six steps or % complete. A dash means the question doesn't "
+         + "say, not that the step is unstarted.";
+  }
+
   function orderCardsHTML(o){
-    // Prefer the per-order fetch (37819, which needs the order number); fall
-    // back to whatever the bulk sources gave us.
-    var perOrder = cardsForOrder(o.number);
-    // Prefer the per-order fetch; fall back to whatever bulk source loaded.
-    var pool = perOrder && perOrder.length ? perOrder : oCards;
-    var cards = cardsOfOrder(pool, o.number);
+    var cards = cardsOfOrderMerged(o.number);
 
     if(!cards.length){
       var st = ocState[orderKeyOf(o.number)];
+      // Three different reasons produce an empty table, and only one of them is
+      // a bug worth chasing. Distinguish them before showing the payload dump.
+      var why;
+      if(st === "loading" || (!st && !ocNote)) why = "Loading cards\u2026";
+      else if(st === "error") why = "Could not load this order's cards.";
+      else if(!cardQuestionCovers(o.status)){
+        // The decisive case. 37819's relevant_orders CTE filters on status, and
+        // this order's status isn't in it -- so the question is working
+        // correctly and will never return these cards. Blaming the
+        // order-number filter here sent an hour in the wrong direction.
+        why = "This order is " + prettyStatus(o.status) + ", which the cards "
+            + "question doesn't cover \u2014 its relevant_orders CTE only admits "
+            + CARD_Q_STATUSES.map(prettyStatus).join(", ") + ". Nothing is broken "
+            + "on this side; the status list in the SQL needs widening to include "
+            + prettyStatus(o.status) + ".";
+      }
+      else if(allDiag && allDiag.rows > 0){
+        // The question ran, returned plenty, and simply had nothing for this
+        // order. That is a data question, not a plumbing one.
+        why = "The cards question returned " + allDiag.rows.toLocaleString()
+            + " rows but none for this order, and its status IS one it covers. "
+            + "Worth checking the order's kind and the ready_to_reveal / shipped "
+            + "conditions in relevant_orders.";
+      }
+      else {
+        why = "No cards returned for this order \u2014 neither the per-order run "
+            + "nor the unfiltered fallback came back with rows. What the proxy "
+            + "sent and got:";
+      }
       return '<div class="ocards"><div class="ocempty">'
-        + esc(st === "loading" ? "Loading cards\u2026"
-            : st === "error"   ? "Could not load this order's cards."
-            // Zero rows from a parameterised question usually means the filter
-            // didn't match, not that the order is empty -- say so, and say
-            // where to look.
-            : st === "done"    ? "No cards returned for this order \u2014 neither the "
-                               + "per-order run nor the unfiltered fallback came back "
-                               + "with rows. What the proxy sent and got:"
-            : (ocNote || "Loading cards\u2026"))
+        + esc(why)
         + '</div>'
         + (st === "done" || st === "error" ? ocDiagHTML(orderKeyOf(o.number)) : "")
         + '</div>';
@@ -6919,7 +7049,8 @@
     var cid = "oc-as-" + String(o.number).replace(/\W+/g, "");
     // How many cards in THIS order currently carry a reviewer.
     var assignedIn = cards.filter(function(c){ return cardRevs(cardRevKey(c)).length; }).length;
-    var bar = (ocNote ? '<div class="ocwarn">'+esc(ocNote)+'</div>' : '')
+    var srcNote = ocNote || stepSourceNote(cards);
+    var bar = (srcNote ? '<div class="ocwarn">'+esc(srcNote)+'</div>' : '')
       + '<div class="ocbar">'
       + '<span class="ocbar-l">Select</span>'
       + '<button class="btn ghost qn" data-cpick="5"  data-ord="'+esc(o.number)+'">5</button>'
