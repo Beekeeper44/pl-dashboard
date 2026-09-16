@@ -688,6 +688,129 @@
   .ocrow.sel{background:color-mix(in srgb,var(--panel2) 70%, #39FF14 10%);
              box-shadow:inset 0 0 0 1px color-mix(in srgb,#39FF14 30%,transparent);
              border-radius:6px}
+  /* ---- Grading tab ---------------------------------------------------- */
+  /* The four subgrade colours are the Metabase column fills. They are pastels
+     picked against a white table, so on this ground they read as light-on-dark,
+     which is why the numerals stay legible unlightened.
+
+     Corner (light pink) and Centering (mid red) are the closest pair; the gap
+     between them is carried by saturation and lightness, roughly 1.9:1 in
+     luminance. Every symbol sits on the same black plate, so colour is the only
+     other thing telling those two tiles apart -- keep the gap if either moves. */
+  .gsect{background:#000;border-radius:14px;padding:18px;margin-top:6px;
+         --corners:#F8D3D6; --edges:#F2C68E; --surface:#838CC8; --centering:#E8858E;
+         --plate:#000000}
+  .gtop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 4px 14px}
+  .gname{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;
+         color:var(--tx)}
+  /* Same treatment as .subtab, not a lookalike -- these sit one level down
+     from the Orders subtabs and should read as the same control. Real buttons,
+     so Tab reaches them and the pressed one is announced, not just coloured. */
+  .gpills{display:flex;gap:10px}
+  .gpill{background:transparent;color:var(--tx);border:1px solid var(--line2);
+         border-radius:999px;padding:9px 20px;cursor:pointer;
+         font-family:var(--mono);font-size:14px;font-weight:500;
+         letter-spacing:.8px;text-transform:uppercase}
+  .gpill:hover{border-color:var(--neon)}
+  .gpill[aria-pressed="true"]{background:var(--neon);border-color:var(--neon);
+                              color:#06240A;font-weight:700}
+  .gpill:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
+  .gtot{margin-left:auto;display:flex;align-items:baseline;gap:9px;padding-right:4px}
+  .gtot b{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;
+          color:var(--neon)}
+  .gtot span{font-size:12px;color:var(--tx);letter-spacing:.06em;
+             text-transform:uppercase}
+
+  .gtiles{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(252px,1fr))}
+  .gtile{background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+         padding:16px 16px 0;display:flex;flex-direction:column;gap:15px;
+         position:relative;overflow:hidden}
+  /* Black plate, neon linework, all four. */
+  .gico{width:52px;height:52px;border-radius:11px;flex:none;
+        display:flex;align-items:center;justify-content:center;
+        background:var(--plate);border:1px solid #1C3A16;color:var(--neon)}
+  .ghead{display:flex;align-items:center;gap:13px}
+  .gtname{font-size:17px;font-weight:700;letter-spacing:.01em}
+  .gbody{display:flex;align-items:flex-end;gap:12px;padding-bottom:16px}
+  .gnum{font-size:46px;line-height:.92;font-weight:700;color:var(--c);
+        font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .gside{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:5px}
+  /* The share reads in the tile's own colour rather than a dimmed white: it
+     describes that subgrade, so it belongs to it. */
+  .gside i{font-style:normal;font-size:13.5px;color:var(--tx);
+           font-variant-numeric:tabular-nums}
+  .gside s{text-decoration:none;font-size:13.5px;color:var(--c);
+           font-variant-numeric:tabular-nums}
+  .gbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--c)}
+  /* Zero state: the whole tile recedes. A subgrade with nothing waiting is not
+     news and should not compete with the ones that are. */
+  /* Zero state: the tile recedes as a whole rather than having its numeral
+     repainted grey. Overriding the colour meant an empty subgrade lost the one
+     cue saying WHICH subgrade it is. */
+  .gtile.zero{opacity:.5}
+  .gnote{padding:12px 4px 0;font-size:12.5px;color:var(--tx);line-height:1.6}
+
+  /* A tile is a button: clicking it picks which subgrade the table below
+     lists. Real <button>, so Tab reaches it and the selection is announced. */
+  .gtile{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+  .gtile:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
+  .gtile[aria-pressed="true"]{border-color:var(--c)}
+  /* The selected tile lifts by brightening its own border and ground rather
+     than by a glow, so it still reads at a distance on the wall screen. */
+  .gtile[aria-pressed="true"]{background:color-mix(in srgb,var(--panel2) 82%,var(--c) 18%)}
+
+  .gtasks{margin-top:14px}
+  .gfilters{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;
+            padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .gfilters .fld{display:flex;flex-direction:column;gap:5px}
+  .gfilters label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+                  color:var(--tx)}
+  .gfilters input,.gfilters select{
+    font-family:var(--mono);font-size:13px;padding:7px 9px;border-radius:6px;
+    background:var(--panel);color:var(--tx);border:1px solid var(--line2);
+    min-height:34px;min-width:118px}
+  .gfilters input:focus,.gfilters select:focus{outline:2px solid var(--neon);
+                                               outline-offset:1px}
+  .gcount{padding:11px 0 9px;font-size:12.5px;color:var(--tx)}
+  .gcount b{color:var(--neon);font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* The table scrolls inside its own box so the filter bar and the tiles stay
+     put; the header sticks to the top of that box. */
+  /* Scrolls in both directions now that the table is max-content. overflow-x
+     lives here rather than on the page, so the panel never pushes the whole
+     dashboard sideways. */
+  .gtwrap{max-height:560px;overflow:auto;border:1px solid var(--line);
+          border-radius:8px}
+  /* max-content, not 100%: twelve columns squeezed into the panel width is
+     what clipped "Pending Customer Support" to "Pending Custome...". Columns
+     now take the width their content needs and .gtwrap scrolls sideways;
+     min-width keeps the table filling the panel when it is narrower. */
+  .gtable{width:max-content;min-width:100%;border-collapse:collapse}
+  /* .ostat ellipsises at 100% of its cell, which is right in the Orders grid
+     where the column is fixed. Here the column sizes to the chip, so the cap
+     only ever truncates something that would have fitted. */
+  .gtable .ostat{max-width:none}
+  .gtable th{position:sticky;top:0;z-index:2;background:var(--panel2);
+             text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);
+             font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+             color:var(--tx);white-space:nowrap;font-weight:500}
+  .gtable td{padding:8px 12px;border-bottom:1px solid var(--line);
+             font-size:13px;white-space:nowrap}
+  .gtable tbody tr:hover td{background:var(--panel)}
+  .gtable td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .gtable a{color:#38BDF8;text-decoration:none;font-weight:500}
+  .gtable a:hover{text-decoration:underline}
+  /* Days in queue is the column someone scans for trouble, so age colours it
+     rather than leaving it a wall of identical numerals. */
+  .gage-0{color:var(--tx)}
+  .gage-1{color:#F2C68E}
+  .gage-2{color:#E8858E;font-weight:600}
+  .gempty{padding:22px 12px;font-size:13px;color:var(--tx)}
+  /* Task side and kind are low-cardinality labels, so they get the same chip
+     shape as a status -- just without a status colour behind them. */
+  .gchip{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;
+         background:var(--line);color:var(--tx)}
+
   .ocbar{display:flex;align-items:center;gap:8px;padding:0 0 12px 14px;flex-wrap:wrap}
   .ocbar-l{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;
            margin-right:2px}
@@ -1418,6 +1541,7 @@
   <button class="tab" id="tab-cardtype" role="tab" aria-selected="false" aria-controls="panel-body">Card Type</button>
   <button class="tab" id="tab-recomp" role="tab" aria-selected="false" aria-controls="panel-body">Recomp</button>
   <button class="tab" id="tab-orders" role="tab" aria-selected="false" aria-controls="panel-body">Orders</button>
+  <button class="tab" id="tab-grading" role="tab" aria-selected="false" aria-controls="gpanel">Grading</button>
 </nav>
 
 <div class="filters">
@@ -1752,6 +1876,65 @@
   <button class="subtab" id="osub-team"   aria-selected="false">Team</button>
 </div>
 
+<!-- Grading: open subgrade work, task level. Its own panel rather than an
+     Orders subtab, because it is not scoped to an order. -->
+<div id="gpanel" hidden>
+  <section class="gsect" aria-labelledby="g-name">
+    <div class="gtop">
+      <span class="gname" id="g-name">Grading</span>
+      <div class="gpills" role="group" aria-label="Grading task state">
+        <button class="gpill" id="p-queued" aria-pressed="true">Queued</button>
+        <button class="gpill" id="p-verify" aria-pressed="false">Verify needed</button>
+      </div>
+      <div class="gtot">
+        <b id="g-tot">&mdash;</b><span id="g-tot-l">tasks queued</span>
+      </div>
+    </div>
+    <div class="gtiles" id="g-tiles"></div>
+    <div class="gnote" id="g-note"></div>
+  </section>
+
+  <!-- Task list for the selected subgrade. Queued only: the four subgrade
+       questions return queued tasks, so there is nothing to list under the
+       other pill. -->
+  <section class="panel gtasks" id="g-tasksec" hidden>
+    <div class="gfilters">
+      <div class="fld"><label for="gf-order">Order #</label>
+        <input id="gf-order" type="text" inputmode="numeric" placeholder="any"></div>
+      <div class="fld"><label for="gf-ac">AC #</label>
+        <input id="gf-ac" type="text" inputmode="numeric" placeholder="any"></div>
+      <div class="fld"><label for="gf-side">Side</label>
+        <select id="gf-side"></select></div>
+      <div class="fld"><label for="gf-pre">Pre-graded</label>
+        <select id="gf-pre">
+          <option value="">All</option>
+          <option value="true">Pre-graded</option>
+          <option value="false">Raw</option>
+        </select></div>
+      <div class="fld"><label for="gf-ostat">Order status</label>
+        <select id="gf-ostat"></select></div>
+      <div class="fld"><label for="gf-cstat">Card status</label>
+        <select id="gf-cstat"></select></div>
+      <div class="fld"><label for="gf-kind">Kind</label>
+        <select id="gf-kind"></select></div>
+      <div class="fld"><label for="gf-tstat">Task status</label>
+        <select id="gf-tstat"></select></div>
+      <div class="fld"><label for="gf-days">Days in queue &ge;</label>
+        <input id="gf-days" type="number" min="0" step="1" placeholder="any"></div>
+      <div class="fld"><label for="gf-due">Due on or before</label>
+        <input id="gf-due" type="date"></div>
+      <button class="btn ghost" id="gf-clear">Clear filters</button>
+    </div>
+    <div class="gcount" id="g-count"></div>
+    <div class="gtwrap">
+      <table class="gtable">
+        <thead><tr id="g-thead"></tr></thead>
+        <tbody id="g-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
 <div id="opanel" hidden>
   <section class="panel">
     <div class="filters ofilters">
@@ -1945,6 +2128,15 @@
       unit: "orders",
       showSourceFilters: false
     },
+    // Like Orders, a snapshot of what is open right now rather than work
+    // completed in a window -- so no grain, no date range, no rail.
+    grading: {
+      label: "Grading",
+      subtitle: "subgrade workload \u00b7 queued and awaiting verify",
+      railHint: "",
+      unit: "tasks",
+      showSourceFilters: false
+    },
     cardtype: {
       label: "Card Type",
       subtitle: "card type task throughput · shift {W14-23} {TZ}",
@@ -2063,6 +2255,14 @@
   function usesGraderPanel(t){
     t = t || TAB;
     return t === "recomp" || t === "cardtype" || t === "review";
+  }
+  // Tabs that replace the shared body entirely: no shift window, no rail, no
+  // grain or date filters. Orders was the only one, so those were all written
+  // as `name === "orders"`; Grading is the second, which is why they now ask
+  // this instead.
+  function ownsBody(t){
+    t = t || TAB;
+    return t === "orders" || t === "grading";
   }
   var rrows = [];
   var rview = "cat";
@@ -7016,6 +7216,461 @@
          + "say, not that the step is unstarted.";
   }
 
+  // ===================== Grading tab =====================================
+  //
+  // QUEUED comes from four TASK-level questions, one per subgrade:
+  //
+  //   corner    39535      edge   39536
+  //   surface   39469      centering 39436
+  //
+  // They are task rows, not card rows -- one per side, so a card contributes
+  // four corner tasks and two centering tasks. That is why a tile total here
+  // is larger than a card count and must not be compared with one.
+  //
+  // VERIFY NEEDED has no equivalent question, so it still derives from 37687's
+  // per-step columns: status `done` means finished but not yet approved, which
+  // VERIFIED deliberately excludes -- the reason a card reading crop=done,
+  // card_type=approved, corner=done reports 1 of 7 and not 3.
+  var GSTEPS = [
+    {key:"corner",    name:"Corners"},
+    {key:"edge",      name:"Edges"},
+    {key:"surface",   name:"Surface"},
+    {key:"centering", name:"Centering"}
+  ];
+  // Array order is display order; nothing sorts these afterwards.
+
+  // The CSS var per tile is named for the step key, so these two lists have to
+  // agree. Kept as a map rather than built from the key, so a renamed step
+  // fails visibly here instead of producing var(--undefined).
+  var GCOLOR = {corner:"--corners", edge:"--edges",
+                surface:"--surface", centering:"--centering"};
+
+  // Each symbol draws the defect its grader is looking for. Inline stroke SVG
+  // so it takes the plate colour through currentColor and stays crisp at 52px.
+  var GICON = {
+    // One bare corner mark. Butt caps and a mitred join keep the angle sharp --
+    // a rounded cap draws the worn corner, not the crisp one.
+    corner:
+      '<svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor"'
+      + ' stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true">'
+      + '<path d="M9 6.5V25.5H25"/></svg>',
+    // A single edge seen straight on, same weight and caps for the same reason.
+    edge:
+      '<svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor"'
+      + ' stroke-width="3.4" stroke-linecap="butt" aria-hidden="true">'
+      + '<path d="M4 16H28"/></svg>',
+    // Two cards, back one solid, front one outlined and FILLED with the plate
+    // colour so it occludes the one behind; hollow, the back card shows through
+    // and the depth collapses. The counter-rotation is what makes it read as
+    // two cards rather than one thick one.
+    surface:
+      '<svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor"'
+      + ' stroke-linejoin="round" aria-hidden="true">'
+      + '<rect x="4" y="2" width="17" height="24" rx="2.4" fill="currentColor"'
+      +   ' stroke="none" transform="rotate(-10 12.5 14)"/>'
+      + '<rect x="10" y="5" width="17" height="24" rx="2.4" stroke-width="2.2"'
+      +   ' style="fill:var(--plate)" transform="rotate(5 18.5 17)"/></svg>',
+    // The court diagram: outline, crosshair, centre circle, and an inner frame
+    // offset up-and-left. That offset IS the measurement -- a concentric frame
+    // would draw a perfectly centred card and say nothing.
+    centering:
+      '<svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" aria-hidden="true">'
+      + '<rect x="3" y="2" width="26" height="28" rx="1.5" stroke-width="1.8"/>'
+      + '<path d="M16 2v28M3 16h26" stroke-width="1" opacity=".55"/>'
+      + '<circle cx="16" cy="16" r="3.1" stroke-width="1.3"/>'
+      + '<path d="M15.1 13.1v5.8M12.9 16h6.2" stroke-width="1" opacity=".8"/>'
+      + '<rect x="6.4" y="5" width="20" height="22" rx="1" stroke-width="1.5"'
+      +   ' stroke-dasharray="3 2.4"/></svg>'
+  };
+
+  var gTasks = {};            // step key -> task rows (queued)
+  var gTaskState = {};        // step key -> "" | "loading" | "done" | "error"
+  var gTaskErr = {};
+  var gCards = [];            // 37687 rows, for the Verify pill
+  var gCardState = "";
+  var gCardErr = "";
+  var gPill = "queued";       // "queued" | "verify"
+  var gSel  = "corner";       // which subgrade the table lists
+
+  // Every filter is client-side. The four questions' own filters (Order Number,
+  // Side, Is Pre Graded, Ac Number) are all optional, so one bare run returns
+  // the whole queue and filtering in the browser is instant and cannot fail on
+  // a parameter that did not bind. It also lets one filter bar drive all four
+  // tiles at once, which a server-side filter on a single question could not.
+  var gFil = {order:"", ac:"", side:"", pre:"", ostat:"", cstat:"",
+              kind:"", tstat:"", days:"", due:""};
+
+  function gradeTaskRows(raw){
+    return (raw||[]).map(function(r){
+      // The per-card queued count is named for its kind -- EDGES_QUEUED,
+      // CORNERS_QUEUED -- and centering and surface have none. Match the
+      // suffix rather than listing four spellings that would silently miss a
+      // fifth.
+      var onCard = null;
+      Object.keys(r || {}).some(function(k){
+        if(/_queued$/i.test(k)){ onCard = numOrNull(r[k]); return true; }
+        return false;
+      });
+      return {
+        taskUrl:    String(pick(r,["task_url","TASK_URL"]) || ""),
+        order:      String(pick(r,["order_number","ORDER_NUMBER"]) || ""),
+        ordStat:    String(pick(r,["order_status","ORDER_STATUS"]) || ""),
+        due:        String(pick(r,["due_date","DUE_DATE"]) || ""),
+        ac:         String(pick(r,["ac_number","AC_NUMBER"]) || ""),
+        pre:        String(pick(r,["is_pre_graded","IS_PRE_GRADED"]) || "").toLowerCase() === "true",
+        cardStatus: String(pick(r,["card_status","CARD_STATUS"]) || ""),
+        side:       String(pick(r,["task_side","TASK_SIDE"]) || ""),
+        kind:       String(pick(r,["task_kind","TASK_KIND"]) || ""),
+        status:     String(pick(r,["task_status","TASK_STATUS"]) || ""),
+        days:       numOrNull(pick(r,["days_in_queue","DAYS_IN_QUEUE"])),
+        onCard:     onCard
+      };
+    });
+  }
+
+  // Dates arrive as "Feb 6, 2024" from the JSON export, not ISO, so the due
+  // filter parses rather than string-compares. An unparseable date passes the
+  // filter instead of being silently dropped.
+  function gDueMs(v){
+    var t = Date.parse(String(v || ""));
+    return isNaN(t) ? null : t;
+  }
+
+  function gMatch(t){
+    if(gFil.order && String(t.order).indexOf(gFil.order) < 0) return false;
+    if(gFil.ac    && String(t.ac).indexOf(gFil.ac) < 0) return false;
+    if(gFil.side  && t.side !== gFil.side) return false;
+    if(gFil.ostat && t.ordStat !== gFil.ostat) return false;
+    if(gFil.cstat && t.cardStatus !== gFil.cstat) return false;
+    if(gFil.kind  && t.kind !== gFil.kind) return false;
+    if(gFil.tstat && t.status !== gFil.tstat) return false;
+    if(gFil.pre   && String(t.pre) !== gFil.pre) return false;
+    if(gFil.days !== ""){
+      // A task with no days figure is not "0 days old", it is unknown -- so a
+      // minimum-age filter excludes it rather than counting it as new.
+      if(t.days == null || t.days < Number(gFil.days)) return false;
+    }
+    if(gFil.due){
+      var ms = gDueMs(t.due), cut = Date.parse(gFil.due + "T23:59:59");
+      if(ms != null && !isNaN(cut) && ms > cut) return false;
+    }
+    return true;
+  }
+
+  function gFiltered(key){ return (gTasks[key] || []).filter(gMatch); }
+  function gAnyFilter(){
+    return Object.keys(gFil).some(function(k){ return gFil[k] !== ""; });
+  }
+
+  // Verify-needed counts, from 37687's per-step columns.
+  function gVerifyCounts(){
+    var out = {};
+    GSTEPS.forEach(function(st){ out[st.key] = 0; });
+    gCards.forEach(function(c){
+      (c.steps || []).forEach(function(step){
+        if(out[step.key] !== undefined && step.val === "done") out[step.key]++;
+      });
+    });
+    return out;
+  }
+
+  function gCounts(){
+    if(gPill === "verify") return gVerifyCounts();
+    var out = {};
+    GSTEPS.forEach(function(st){ out[st.key] = gFiltered(st.key).length; });
+    return out;
+  }
+
+  function gBusy(){
+    if(gPill === "verify") return gCardState === "loading" || gCardState === "";
+    return GSTEPS.some(function(st){
+      return gTaskState[st.key] === "loading" || !gTaskState[st.key];
+    });
+  }
+  function gFailed(){
+    if(gPill === "verify") return gCardState === "error" ? gCardErr : "";
+    var bad = GSTEPS.filter(function(st){ return gTaskState[st.key] === "error"; });
+    return bad.length
+      ? bad.map(function(st){ return st.name + ": " + gTaskErr[st.key]; }).join(" \u00b7 ")
+      : "";
+  }
+
+  function renderGrading(){
+    var tiles = $("g-tiles"), note = $("g-note");
+    if(!tiles) return;
+
+    // The task list belongs to the queued pill only: the four subgrade
+    // questions return queued rows, so under Verify there is nothing to list.
+    $("g-tasksec").hidden = (gPill !== "queued");
+
+    if(gBusy()){
+      tiles.innerHTML = '<div class="gnote">Loading grading tasks\u2026</div>';
+      $("g-tot").textContent = "\u2014";
+      note.textContent = "";
+      return;
+    }
+
+    var err = gFailed();
+    var counts = gCounts();
+    var total  = GSTEPS.reduce(function(a, st){ return a + counts[st.key]; }, 0);
+
+    $("g-tot").textContent   = fmt(total);
+    $("g-tot-l").textContent = (gPill === "queued")
+      ? (gAnyFilter() ? "tasks queued, filtered" : "tasks queued")
+      : "tasks awaiting verify";
+
+    tiles.innerHTML = GSTEPS.map(function(st){
+      var n = counts[st.key];
+      var pct = total ? Math.round(n / total * 100) : 0;
+      var sel = (gPill === "queued" && gSel === st.key);
+      return '<button type="button" class="gtile' + (n ? '' : ' zero')
+           +      '" data-gstep="' + st.key + '"'
+           +      ' aria-pressed="' + (sel ? 'true' : 'false') + '"'
+           +      ' style="--c:var(' + GCOLOR[st.key] + ')">'
+           + '<span class="ghead">'
+           +   '<span class="gico" aria-hidden="true">' + GICON[st.key] + '</span>'
+           +   '<span class="gtname">' + esc(st.name) + '</span>'
+           + '</span>'
+           + '<span class="gbody">'
+           +   '<span class="gnum">' + fmt(n) + '</span>'
+           +   '<span class="gside">'
+           +     '<s>' + pct + '% of ' + (gPill === "queued" ? "queue" : "verify") + '</s>'
+           +   '</span>'
+           + '</span>'
+           + '<span class="gbar"></span>'
+           + '</button>';
+    }).join("");
+
+    tiles.querySelectorAll("[data-gstep]").forEach(function(b){
+      b.onclick = function(){ gSel = b.getAttribute("data-gstep"); renderGrading(); };
+    });
+
+    note.textContent = err
+      ? "Some subgrades failed to load \u2014 " + err
+      : (gPill === "queued")
+        ? "One row per task, so a card contributes four corner tasks and two "
+          + "centering tasks \u2014 these are task counts, not card counts."
+        : fmt(gCards.length) + " cards on in-process orders \u00b7 finished steps "
+          + "not yet approved";
+
+    if(gPill === "queued"){ syncGradeFilterOptions(); renderGradeTable(); }
+  }
+
+  // The same chip the Orders tab uses -- OSTATUS_COLOR at 22 alpha behind the
+  // colour itself. Reusing it means pending_grading is the same purple here as
+  // it is three tabs away, which is what a status palette is for.
+  function statusChip(v){
+    if(!v) return '<span class="gchip">\u2014</span>';
+    var c = statusColor(v);
+    return '<span class="ostat" style="background:' + c + '22;color:' + c + '">'
+         + esc(prettyStatus(v)) + '</span>';
+  }
+  // Task states have their own palette, already defined for the card table:
+  // queued grey, done light green, the three terminal states dark green.
+  function taskChip(v){
+    if(!v) return '<span class="gchip">\u2014</span>';
+    var c = taskColor(v);
+    return '<span class="ostat" style="background:' + c.bg + ';color:' + c.fg + '">'
+         + esc(taskLabel(v)) + '</span>';
+  }
+
+  var GCOLS = [
+    ["Task",          "taskUrl"],
+    ["Order #",       "order"],
+    ["Order status",  "ordStat"],
+    ["Due",           "due"],
+    ["AC #",          "ac"],
+    ["Pre-graded",    "pre"],
+    ["Card status",   "cardStatus"],
+    ["Side",          "side"],
+    ["Kind",          "kind"],
+    ["Task status",   "status"],
+    ["Days in queue", "days", 1],
+    ["Queued on card","onCard", 1]
+  ];
+
+  function renderGradeTable(){
+    var rows = gFiltered(gSel);
+    var name = (GSTEPS.filter(function(s){ return s.key === gSel; })[0] || {}).name || gSel;
+
+    $("g-count").innerHTML = "<b>" + fmt(rows.length) + "</b> "
+      + (rows.length === 1 ? "task" : "tasks") + " \u00b7 " + esc(name)
+      + (gAnyFilter()
+          ? " \u00b7 filtered from <b>" + fmt((gTasks[gSel]||[]).length) + "</b>"
+          : "");
+
+    $("g-thead").innerHTML = GCOLS.map(function(c){
+      return '<th' + (c[2] ? ' style="text-align:right"' : '') + '>' + esc(c[0]) + '</th>';
+    }).join("");
+
+    if(!rows.length){
+      $("g-tbody").innerHTML = '<tr><td colspan="' + GCOLS.length + '">'
+        + '<div class="gempty">No queued ' + esc(name.toLowerCase())
+        + ' tasks match these filters.</div></td></tr>';
+      return;
+    }
+
+    // Cap what is painted. 39535 and 39536 return four rows per card, so an
+    // unfiltered corner queue is tens of thousands of rows -- enough DOM to
+    // stall the tab. The count above always reports the true total.
+    var CAP = 500, shown = rows.slice(0, CAP);
+
+    $("g-tbody").innerHTML = shown.map(function(t){
+      var age = t.days == null ? 0 : (t.days >= 5 ? 2 : t.days >= 2 ? 1 : 0);
+      return '<tr>'
+        + '<td>' + (t.taskUrl
+            ? '<a href="' + esc(t.taskUrl) + '" target="_blank" rel="noopener">Click me</a>'
+            : '<span class="gchip">\u2014</span>') + '</td>'
+        + '<td>' + esc(t.order) + '</td>'
+        + '<td>' + statusChip(t.ordStat) + '</td>'
+        + '<td>' + esc(t.due) + '</td>'
+        + '<td>' + esc(t.ac) + '</td>'
+        + '<td>' + (t.pre ? "true" : "false") + '</td>'
+        + '<td>' + statusChip(t.cardStatus) + '</td>'
+        + '<td><span class="gchip">' + esc(t.side.replace(/_/g, " ")) + '</span></td>'
+        + '<td><span class="gchip">' + esc(t.kind) + '</span></td>'
+        + '<td>' + taskChip(t.status) + '</td>'
+        + '<td class="n gage-' + age + '">' + (t.days == null ? "\u2014" : fmt(t.days)) + '</td>'
+        + '<td class="n">' + (t.onCard == null ? "\u2014" : fmt(t.onCard)) + '</td>'
+        + '</tr>';
+    }).join("")
+      + (rows.length > CAP
+          ? '<tr><td colspan="' + GCOLS.length + '"><div class="gempty">Showing the '
+            + 'first ' + fmt(CAP) + ' of ' + fmt(rows.length)
+            + ' \u2014 narrow the filters to see the rest.</div></td></tr>'
+          : "");
+  }
+
+  // Options come from the rows actually loaded, across all four subgrades, so
+  // a value that exists only under Edges is still selectable while Corners is
+  // showing. A selected value that no longer appears is kept in the list, or
+  // changing subgrade would silently clear the filter.
+  function syncGradeFilterOptions(){
+    [["gf-side","side"], ["gf-ostat","ordStat"], ["gf-cstat","cardStatus"],
+     ["gf-kind","kind"], ["gf-tstat","status"]].forEach(function(pair){
+      var el = $(pair[0]); if(!el) return;
+      var seen = {}, vals = [];
+      GSTEPS.forEach(function(st){
+        (gTasks[st.key] || []).forEach(function(t){
+          var v = t[pair[1]];
+          if(v && !seen[v]){ seen[v] = 1; vals.push(v); }
+        });
+      });
+      var cur = el.value;
+      if(cur && !seen[cur]) vals.push(cur);
+      vals.sort();
+      var sig = vals.join("\u0001");
+      if(el._sig === sig) return;          // nothing changed; leave the DOM alone
+      el._sig = sig;
+      // Labels match what the chips in the table say -- a dropdown reading
+      // "pending_grading" next to a chip reading "Pending Grading" looks like
+      // two different values.
+      var isStatus = (pair[1] === "ordStat" || pair[1] === "cardStatus");
+      el.innerHTML = '<option value="">All</option>'
+        + vals.map(function(v){
+            var label = isStatus ? prettyStatus(v)
+                      : pair[1] === "status" ? taskLabel(v)
+                      : v.replace(/_/g," ");
+            return '<option value="' + esc(v) + '">' + esc(label) + '</option>';
+          }).join("");
+      el.value = cur;
+    });
+  }
+
+  function setGradingPill(which){
+    gPill = which;
+    $("p-queued").setAttribute("aria-pressed", which === "queued" ? "true" : "false");
+    $("p-verify").setAttribute("aria-pressed", which === "verify" ? "true" : "false");
+    // Verify needs 37687, which the queued path never fetches.
+    if(which === "verify" && gCardState !== "done") loadGradingCards(false);
+    else renderGrading();
+  }
+
+  function loadGradingCards(force){
+    if(!force && gCardState === "done"){ renderGrading(); return Promise.resolve("ok"); }
+    gCardState = "loading";
+    renderGrading();
+    var q = new URLSearchParams({tab:"orders", view:"cards"});
+    return fetch(API + "?" + q.toString(), {headers:{"Accept":"application/json"}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        // rowsOf, not d.rows: /api/ticker sends a bare array.
+        gCards = normalizeOrderCards(rowsOf(d));
+        gCardState = "done"; gCardErr = "";
+        renderGrading();
+        return "ok";
+      })
+      .catch(function(e){
+        gCardState = "error"; gCardErr = String(e && e.message || e);
+        renderGrading();
+        return "error";
+      });
+  }
+
+  // Returns a promise resolving "ok" or "error" so Refresh can report on this
+  // tab the way it reports on every other one.
+  function loadGrading(force){
+    if(gPill === "verify") return loadGradingCards(force);
+
+    var need = GSTEPS.filter(function(st){
+      return force || gTaskState[st.key] !== "done";
+    });
+    if(!need.length){ renderGrading(); return Promise.resolve("ok"); }
+
+    need.forEach(function(st){ gTaskState[st.key] = "loading"; });
+    renderGrading();
+
+    // Four independent questions: fired together rather than in sequence, so
+    // the tab waits for the slowest rather than the sum.
+    return Promise.all(need.map(function(st){
+      var q = new URLSearchParams({tab:"grading", view:st.key});
+      return fetch(API + "?" + q.toString(), {headers:{"Accept":"application/json"}})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          gTasks[st.key] = gradeTaskRows(rowsOf(d));
+          gTaskState[st.key] = "done";
+          gTaskErr[st.key] = "";
+          return "ok";
+        })
+        .catch(function(e){
+          gTasks[st.key] = [];
+          gTaskState[st.key] = "error";
+          gTaskErr[st.key] = String(e && e.message || e);
+          return "error";
+        });
+    })).then(function(r){
+      renderGrading();
+      // One subgrade failing is reported on the tile row, but Refresh should
+      // still go red -- three of four loading is not "Updated".
+      return r.indexOf("error") >= 0 ? "error" : "ok";
+    });
+  }
+
+  function bindGradeFilters(){
+    var map = [["gf-order","order"], ["gf-ac","ac"], ["gf-side","side"],
+               ["gf-pre","pre"], ["gf-ostat","ostat"], ["gf-cstat","cstat"],
+               ["gf-kind","kind"], ["gf-tstat","tstat"], ["gf-days","days"],
+               ["gf-due","due"]];
+    map.forEach(function(pair){
+      var el = $(pair[0]); if(!el) return;
+      var handler = function(){
+        // Order and AC are matched as substrings on digits, so strip anything
+        // else rather than letting "AC4061789" match nothing.
+        var v = el.value;
+        if(pair[1] === "order" || pair[1] === "ac") v = v.replace(/\D+/g, "");
+        gFil[pair[1]] = v;
+        renderGrading();
+      };
+      el.oninput = handler;
+      el.onchange = handler;
+    });
+    $("gf-clear").onclick = function(){
+      Object.keys(gFil).forEach(function(k){ gFil[k] = ""; });
+      map.forEach(function(pair){ var el = $(pair[0]); if(el) el.value = ""; });
+      renderGrading();
+    };
+  }
+
   function orderCardsHTML(o){
     var cards = cardsOfOrderMerged(o.number);
 
@@ -8925,7 +9580,7 @@
   // window; params() strips start/end/grain for them. So the date validation
   // has to be skipped there too -- otherwise a blank date field would block a
   // query that never used the dates in the first place.
-  function tabUsesDates(){ return TAB !== "orders"; }
+  function tabUsesDates(){ return !ownsBody(TAB); }
 
   function load(){
     if(tabUsesDates()){
@@ -9207,8 +9862,11 @@
     $("tab-cardtype").setAttribute("aria-selected", name==="cardtype");
     $("tab-review").setAttribute("aria-selected", name==="review");
     $("tab-orders").setAttribute("aria-selected", name==="orders");
-    // Orders owns the whole body: no shift window, no rail, no recomp pills.
+    $("tab-grading").setAttribute("aria-selected", name==="grading");
+    // Orders and Grading own the whole body: no shift window, no rail, no
+    // recomp pills.
     $("orders-subtabs").hidden = (name!=="orders");
+    $("gpanel").hidden = (name!=="grading");
     if(name!=="orders"){
       $("opanel").hidden = true; $("qpanel").hidden = true;
       $("oapanel").hidden = true; $("tpanel").hidden = true;
@@ -9222,11 +9880,19 @@
       bindOrders(); bindQueue();
       showOrdersPanel();
     }
+    if(name==="grading"){
+      $("panel-body").hidden = true;
+      $("groups").hidden = true;
+      $("panel-recomp").hidden = true;
+      bindGradeFilters();
+    }
     $("statusline").innerHTML = "<b>Precision Labeling</b> · " + fillTz(cfg.subtitle);
     // The window note describes the measurement period for completed work.
     // Orders has none -- it is a snapshot of what is open right now -- and
     // leaving the shift-window text there implied a filter that isn't applied.
-    $("f-window").textContent = (name==="orders")
+    $("f-window").textContent = (name==="grading")
+      ? "Open grading tasks right now \u2014 no date window applies here"
+      : (name==="orders")
       ? "Showing every open order \u2014 no date window applies here"
       : (name==="cards")
         ? "Window: 2 PM\u20133 AM PT, Mon\u2013Fri shift start"
@@ -9235,7 +9901,7 @@
       el.hidden = !cfg.showSourceFilters;
     });
     document.querySelectorAll("[data-not-orders]").forEach(function(el){
-      el.hidden = (name==="orders");
+      el.hidden = ownsBody(name);
     });
     document.querySelectorAll(".railhint").forEach(function(el){
       el.textContent = fillTz(cfg.railHint);
@@ -9261,6 +9927,7 @@
     // that belongs to the other team.
     $("grader").value = "";
     refreshGraderFilter();
+    if(name==="grading"){ loadGrading(false); return; }
     if(graderPanel) renderRecomp(); else renderAll();
     load();
   }
@@ -9373,6 +10040,9 @@
   $("tab-cardtype").onclick = function(){ setTab("cardtype"); };
   $("tab-review").onclick   = function(){ setTab("review"); };
   $("tab-orders").onclick   = function(){ setTab("orders"); };
+  $("tab-grading").onclick  = function(){ setTab("grading"); };
+  $("p-queued").onclick     = function(){ setGradingPill("queued"); };
+  $("p-verify").onclick     = function(){ setGradingPill("verify"); };
 
   function setRvSub(name){
     RVSUB = name;
@@ -9468,7 +10138,7 @@
   $("tab-cards").onclick  = function(){ setTab("cards"); };
   $("tab-recomp").onclick = function(){ setTab("recomp"); };
 
-  $("run").onclick = load;
+  $("run").onclick = loadCurrent;
 
   // Global Refresh. Two independent things are stale on any given tab: the
   // Metabase query behind it, and the shared board (assignments, skills, daily
@@ -9487,7 +10157,7 @@
     tx.textContent = "Refreshing";
 
     Promise.all([
-      Promise.resolve(load()).catch(function(){ return "error"; }),
+      Promise.resolve(loadCurrent()).catch(function(){ return "error"; }),
       refreshState().catch(function(){ return "error"; })
     ]).then(function(r){
       btn.disabled = false;
@@ -9521,7 +10191,7 @@
   $("auto").onclick = function(){
     var on = this.getAttribute("aria-pressed")==="true";
     if(on){ clearInterval(autoTimer); autoTimer=null; this.setAttribute("aria-pressed","false"); }
-    else { autoTimer = setInterval(load, AUTO_MS); this.setAttribute("aria-pressed","true"); load(); }
+    else { autoTimer = setInterval(loadCurrent, AUTO_MS); this.setAttribute("aria-pressed","true"); loadCurrent(); }
   };
 
   // ---- styled dropdowns ----

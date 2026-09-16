@@ -3485,3 +3485,143 @@ An earlier version also masked the 14px gap beside the header with an absolutely
 positioned `::before`. That was solving nothing — the gap is `.octable`'s own
 padding and no card row ever paints into it — and it cut a notch out of the left
 rule. Removed.
+
+## Grading tab
+
+A fifth tab beside Orders: how much subgrade work is open right now, split by
+the two states the floor acts on.
+
+**No new Metabase question.** 37687 already returns one row per card with a
+status column per step and takes no parameters, so the tab groups columns it
+was already fetching rather than asking for a second cut of the same data.
+
+| pill | step status | |
+|---|---|---|
+| Queued | `queued` | not started |
+| Verify needed | `done` | finished, not yet approved |
+
+`done` is the right bucket for the second pill and not an invention: `VERIFIED`
+excludes it deliberately, which is why a card reading crop=done,
+card_type=approved, corner=done reports **1 of 7** and not 3. `approved`,
+`done_skip_verify` and `reviewer_override` are terminal and appear in neither
+pill — the test asserts that, since counting `reviewer_override` as needing
+verification would be the easy mistake.
+
+Four tiles, in Metabase column order: **Corner, Edge, Surface, Centering**.
+Crop, card type and review are steps but not subgrades, so they are not here;
+adding one is a line in `GSTEPS` plus a colour and a symbol.
+
+### What each tile says
+
+Big number is tasks in that state. Beside it, the number of distinct **orders**
+they sit on — because "1,388 tasks" and "spread across 12 orders" are different
+staffing problems, and one row per card per step means a task count and a card
+count would have been the same number printed twice.
+
+Percentages derive from the counts at render time, so nothing needs keeping in
+sync, and a pill with nothing in any subgrade prints `0%` rather than `NaN%`.
+
+### Colour and symbol
+
+| subgrade | colour | |
+|---|---|---|
+| Corner | `#F8D3D6` | light pink |
+| Edge | `#F2C68E` | orange |
+| Surface | `#838CC8` | lavender |
+| Centering | `#E8858E` | mid red |
+
+Corner and Centering are the closest pair, separated by saturation and
+lightness (~1.9:1 in luminance) rather than hue. Every symbol sits on the same
+black plate, so **colour is the only other thing telling those two tiles
+apart** — keep that gap if either moves.
+
+Symbols are inline stroke SVG in neon on black, each drawing the defect its
+grader is hunting: one bare corner mark, a single edge, two stacked cards, and
+the court centring diagram. Three details that would otherwise get "tidied":
+butt caps and a mitred join on Corner and Edge, because a rounded cap draws the
+worn corner rather than the crisp one; Surface's front card is *filled* with
+`--plate` so it occludes the card behind, since hollow collapses the depth; and
+Centering's inner frame is offset up-and-left, because that offset is the
+measurement — a concentric frame would draw a perfectly centred card and say
+nothing.
+
+### Wiring
+
+Orders used to be the only tab that replaced the whole body, so every check for
+it was written `name === "orders"`. Grading is the second, hence `ownsBody()`.
+
+`load()` builds its query from `TAB`; on Grading that would send `tab=grading`
+and come back "Unknown tab/view". **Enter, Refresh and Auto now go through
+`loadCurrent()`**, which dispatches. Missing any one of those three would have
+left a button that silently errors only on this tab.
+
+Switching to the tab reuses rows already loaded; Refresh and Auto pass `force`
+and refetch. `loadGrading` returns a promise resolving `"ok"` or `"error"` so
+the global Refresh reports on this tab like any other — otherwise it would show
+a green "Updated" while the query had failed.
+
+## Grading tab — the queued pill is task-level
+
+The Queued pill is driven by four **task-level** questions, one per subgrade:
+
+| subgrade | question | env |
+|---|---|---|
+| Corner | 39535 | `METABASE_GRADING_CORNER_CARD_ID` |
+| Edge | 39536 | `METABASE_GRADING_EDGE_CARD_ID` |
+| Surface | 39469 | `METABASE_GRADING_SURFACE_CARD_ID` |
+| Centering | 39436 | `METABASE_GRADING_CENTERING_CARD_ID` |
+
+**These are task rows, not card rows.** A card contributes four corner tasks and
+two centering tasks, one per `TASK_SIDE`. A tile total is therefore larger than
+any card count and must not be compared with one — the note under the tiles says
+so, because "1,455 corners queued" next to "1,306 cards" invites exactly that
+mistake.
+
+Verify needed has no equivalent question, so it still derives from 37687's
+per-step columns (`done` = finished, not yet approved). The task table is hidden
+under that pill rather than showing stale queued rows.
+
+### Filters are client-side, and that is the point
+
+All four questions' own filters — Order Number, Side, Is Pre Graded, Ac Number —
+are optional, so one bare run returns the whole queue. Filtering in the browser
+then:
+
+- **drives all four tiles at once.** A server-side filter would have to be sent
+  to four questions separately and could still disagree between them.
+- **cannot fail on a parameter that did not bind** — the failure mode that cost
+  a session on 37819.
+- is instant, with no round trip per keystroke.
+
+The bar filters every column: order #, AC #, side, pre-graded, order status,
+card status, kind, task status, days-in-queue minimum, and due-on-or-before.
+Order and AC strip to digits before matching, so `AC4061789` finds the card
+rather than nothing.
+
+Two judgement calls in there:
+
+- **A null `DAYS_IN_QUEUE` fails a minimum-age filter, including `>= 0`.** No
+  figure means unknown, not "zero days old"; counting it as new would hide it
+  from the exact query meant to surface stale work.
+- **Select options are gathered across all four subgrades**, so a value that
+  only occurs under Edges is still selectable while Corners is showing, and a
+  selected value that has vanished stays in the list rather than silently
+  clearing itself.
+
+### The table
+
+Columns as the questions return them, plus the per-kind count column, which is
+found by matching the `*_QUEUED` **suffix** rather than listing `EDGES_QUEUED`
+and `CORNERS_QUEUED` by name — centering and surface have none, and a fifth
+spelling would otherwise be missed silently.
+
+Clicking a tile picks which subgrade the table lists; the tiles are real
+`<button>`s with `aria-pressed`.
+
+**Painting is capped at 500 rows.** Four rows per card means an unfiltered
+corner queue is tens of thousands of rows, which is enough DOM to stall the tab.
+The count above the table always reports the true total, and a final row says
+how many are not shown.
+
+`DAYS_IN_QUEUE` is coloured at 2 and 5 days. It is the column someone scans for
+trouble, and a wall of identical numerals does not reward scanning.

@@ -37,6 +37,13 @@ const CARDS = {
   'orders:cardlist':  { env: 'METABASE_ORDER_CARDS_CARD_ID',         fallback: '37819' },
   // Value Tracker — high-end comps. Tier + date are filtered client-side.
   'recomp:highend':   { env: 'METABASE_VALUE_TRACKER_CARD_ID',     fallback: '3213' },
+  // Grading — one question per subgrade, TASK-level rows (one per side, so four
+  // per card for corner and edge, two for centering and surface). These cover
+  // the QUEUED state only; the Verify-needed pill still derives from 37687.
+  'grading:corner':    { env: 'METABASE_GRADING_CORNER_CARD_ID',    fallback: '39535' },
+  'grading:edge':      { env: 'METABASE_GRADING_EDGE_CARD_ID',      fallback: '39536' },
+  'grading:surface':   { env: 'METABASE_GRADING_SURFACE_CARD_ID',   fallback: '39469' },
+  'grading:centering': { env: 'METABASE_GRADING_CENTERING_CARD_ID', fallback: '39436' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
   'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
@@ -54,6 +61,14 @@ const TEXT_VARS = {
   'orders:queue':     [],
   'orders:cards':     [],
   'orders:cardlist':  ['order_number'],
+  // Every filter on these four is applied client-side, so nothing is sent.
+  // Their Metabase filters (Order Number, Side, Is Pre Graded, Ac Number) are
+  // all optional, so a bare run returns the whole queue -- which is what the
+  // tab wants anyway, since the tile totals ARE the unfiltered counts.
+  'grading:corner':    [],
+  'grading:edge':      [],
+  'grading:surface':   [],
+  'grading:centering': [],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -156,7 +171,10 @@ const SINGLE_DATE = new Set(['recomp:highend']);
 
 // Cards whose filters are all optional — we pull the set and filter in the
 // browser, so sending nothing is both valid and cheaper than guessing.
-const NO_PARAMS = new Set(['orders:all', 'orders:queue', 'orders:cards']);
+const NO_PARAMS = new Set([
+  'orders:all', 'orders:queue', 'orders:cards',
+  'grading:corner', 'grading:edge', 'grading:surface', 'grading:centering',
+]);
 
 // Numeric template tags, sent only when the client provides a value.
 const NUM_VARS = {
