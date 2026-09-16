@@ -3652,3 +3652,52 @@ being inside one tab's block.
 is a scan for handlers bound by bare name — `.onclick = someName;` and
 `setInterval(someName, …)` — asserting each one is actually declared. It would
 have caught this before it shipped, and now runs with the other checks.
+
+## Verify needed is now its own four questions
+
+| subgrade | queued | verify needed |
+|---|---|---|
+| Corner | 39535 | 39601 |
+| Edge | 39536 | 39604 |
+| Surface | 39469 | 39603 |
+| Centering | 39436 | 39602 |
+
+Env overrides follow the pattern `METABASE_GRADING_<SUBGRADE>_VERIFY_CARD_ID`.
+
+**This removed a real defect, not just added a feature.** Verify used to be
+derived from 37687's per-step columns, which counts **cards**, while queued
+counted **tasks** from the subgrade questions. The two pills were quietly
+measuring different things — flipping between them compared four-per-card
+against one-per-card and the numbers were not on the same scale. Both pills are
+now the same row shape from the same kind of question, so there is one code
+path and nothing derived. `gVerifyCounts`, `loadGradingCards` and the `gCards`
+store are gone.
+
+The task table, the filter bar and the column set now serve both pills; only the
+dataset changes.
+
+### Keyed by pill, not just by step
+
+`gTasks`, `gTaskState` and `gTaskErr` are `pill -> step -> …`. That matters for
+three things the tests cover:
+
+- **Switching pills is instant** the second time, because the other pill's rows
+  are kept rather than discarded.
+- **One pill's loading state is never read as the other's.** A flat store would
+  have shown Verify as "loaded" the moment Queued finished.
+- **A response that lands after the user switched pills stores under the pill
+  it was requested for**, not the pill now showing. `loadGrading` captures
+  `gPill` once at the top and every callback uses that capture.
+
+### Two things that would have shipped broken
+
+`#g-tasksec` carried `hidden` in the markup, revealed by the line that used to
+hide it under Verify. Removing that line left a section hidden at parse time
+with nothing left to reveal it — invisible forever. The attribute is gone.
+
+The per-card count column is matched by suffix, now widened to
+`_(queued|verify|needed|remaining)` since the verify questions name theirs
+differently. The test checks `DAYS_IN_QUEUE` does **not** match — it ends in
+QUEUE, not QUEUED, and a looser pattern would have put days-in-queue in the
+"On card" column. That column's header is no longer "Queued on card", since it
+holds two different quantities depending on the pill.

@@ -44,6 +44,13 @@ const CARDS = {
   'grading:edge':      { env: 'METABASE_GRADING_EDGE_CARD_ID',      fallback: '39536' },
   'grading:surface':   { env: 'METABASE_GRADING_SURFACE_CARD_ID',   fallback: '39469' },
   'grading:centering': { env: 'METABASE_GRADING_CENTERING_CARD_ID', fallback: '39436' },
+  // ...and the same four again for the verify-needed pill. Separate questions
+  // rather than a status parameter, so the two pills are symmetric: same row
+  // shape, same client code path, nothing derived.
+  'grading:corner_verify':    { env: 'METABASE_GRADING_CORNER_VERIFY_CARD_ID',    fallback: '39601' },
+  'grading:edge_verify':      { env: 'METABASE_GRADING_EDGE_VERIFY_CARD_ID',      fallback: '39604' },
+  'grading:surface_verify':   { env: 'METABASE_GRADING_SURFACE_VERIFY_CARD_ID',   fallback: '39603' },
+  'grading:centering_verify': { env: 'METABASE_GRADING_CENTERING_VERIFY_CARD_ID', fallback: '39602' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
   'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
@@ -69,6 +76,10 @@ const TEXT_VARS = {
   'grading:edge':      [],
   'grading:surface':   [],
   'grading:centering': [],
+  'grading:corner_verify':    [],
+  'grading:edge_verify':      [],
+  'grading:surface_verify':   [],
+  'grading:centering_verify': [],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -174,6 +185,8 @@ const SINGLE_DATE = new Set(['recomp:highend']);
 const NO_PARAMS = new Set([
   'orders:all', 'orders:queue', 'orders:cards',
   'grading:corner', 'grading:edge', 'grading:surface', 'grading:centering',
+  'grading:corner_verify', 'grading:edge_verify',
+  'grading:surface_verify', 'grading:centering_verify',
 ]);
 
 // Numeric template tags, sent only when the client provides a value.
