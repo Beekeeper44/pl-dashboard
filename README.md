@@ -3625,3 +3625,30 @@ how many are not shown.
 
 `DAYS_IN_QUEUE` is coloured at 2 and 5 days. It is the column someone scans for
 trouble, and a wall of identical numerals does not reward scanning.
+
+## ⚠ One undefined name killed Enter, Refresh, Auto and the dropdowns
+
+`loadCurrent()` was defined inside the Grading block. Rewriting that block to
+use the four task questions replaced it wholesale — and did not put it back.
+
+`$("run").onclick = loadCurrent;` then threw a **ReferenceError**, and because
+those bindings run as one straight-line sequence, everything after that line
+never bound:
+
+| bound before the throw | never bound |
+|---|---|
+| `tab-cards`, `tab-recomp`, `tab-orders`, `tab-grading` | `run` (Enter), `grefresh`, `auto`, every styled dropdown |
+
+Which is why the page looked completely healthy — tabs switched, the Grading
+tiles rendered, data loaded — and only the buttons were dead. A dead button
+reads as "that feature isn't wired up yet", not as "the script crashed", so it
+points away from the real cause.
+
+`loadCurrent()` now lives **outside** the grading section, with the tab-agnostic
+helpers, because it is the shared entry point for every tab and had no business
+being inside one tab's block.
+
+`node --check` does not catch this: the file is syntactically perfect. The guard
+is a scan for handlers bound by bare name — `.onclick = someName;` and
+`setInterval(someName, …)` — asserting each one is actually declared. It would
+have caught this before it shipped, and now runs with the other checks.

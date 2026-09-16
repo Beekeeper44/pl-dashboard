@@ -7646,6 +7646,21 @@
     });
   }
 
+  // Enter, Refresh and Auto all called load() directly, which builds its query
+  // from TAB -- on Grading that sends tab=grading and comes back "Unknown
+  // tab/view". They go through here instead.
+  //
+  // This lives OUTSIDE the grading block on purpose: it is the shared entry
+  // point for every tab, and having it inside meant a rewrite of the grading
+  // section deleted it. `$("run").onclick = loadCurrent` then threw a
+  // ReferenceError that killed every binding after it -- Enter, Refresh, Auto
+  // and the styled dropdowns -- while the tabs bound above it kept working, so
+  // the page looked fine and only the buttons were dead.
+  function loadCurrent(){
+    if(TAB === "grading") return loadGrading(true);
+    return load();
+  }
+
   function bindGradeFilters(){
     var map = [["gf-order","order"], ["gf-ac","ac"], ["gf-side","side"],
                ["gf-pre","pre"], ["gf-ostat","ostat"], ["gf-cstat","cstat"],
