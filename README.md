@@ -4362,3 +4362,122 @@ Two related gaps closed at the same time:
 - The payload dump showed only when *all four* subgrades were empty. It also
   shows when one has failed while others returned rows — which is the case where
   a single broken question hides behind three working ones.
+
+## ⚠ The real cause: a TypeError in the render, after the data arrived
+
+```
+Some subgrades failed to load — Cannot read properties of undefined (reading 'corner')
+```
+
+`gTasks`, `gTaskState` and `gTaskErr` are keyed `queued | verify` — Activity has
+no task-level rows at all, it has grader rows in `gActLists`. But on Activity
+`gPill` is `"activity"`, so `gRows()` evaluated `gTasks["activity"]["corner"]`
+and threw.
+
+`renderGrading` called `syncGradeFilterOptions()` unconditionally — added when
+the task table started serving both snapshot pills — and that walks every step
+through `gRows`. So:
+
+1. All four Graded questions answered correctly.
+2. `renderGrading` ran from the `.then` and threw on the first step.
+3. The promise rejected, the `catch` set `gActState = "error"`, and the note
+   reported **"some subgrades failed to load"**.
+
+The questions were never the problem. Neither was the mapping, and the duplicate
+`start_date` was a real but separate bug that this masked: even with parameters
+correct the render still died.
+
+Two fixes, either of which is sufficient, both kept:
+
+- `gRows` guards the missing bucket instead of assuming every pill has one.
+- `renderGrading` skips `syncGradeFilterOptions` and `renderGradeTable` on
+  Activity. They belong to a table that does not exist there — running them was
+  not just wasted work, it was the path into the crash.
+
+### Why this took so long to find
+
+The `catch` turned an exception in the *rendering* into a message about
+*loading*. Five rounds were spent on the request — parameters, question ids,
+deploys — because the error text pointed there, and the actual stack was in the
+console where nobody was looking on a wall display.
+
+Worth remembering: a `catch` around both a fetch and its render will blame the
+fetch for the render's faults. The lesson is in the same family as the bare-array
+response shape and the hidden note -- the message on screen described a
+different thing from what had gone wrong.
+
+## Every pill gets a bucket, and the build is stamped
+
+`gTasks`, `gTaskState` and `gTaskErr` now carry an `activity` key alongside
+`queued` and `verify`. Activity has no task-level rows — its data is in
+`gActLists` — but omitting the key meant any lookup reached while that pill was
+selected evaluated `undefined[step]` and threw. An empty object costs nothing
+and makes every call site safe whether or not it remembers to check the pill
+first, which is better than relying on four `gIsActivity()` guards staying in
+place. The test probes deliberately *unguarded* lookups for all three pills.
+
+**`BUILD` is a dated stamp**, logged once on load and appended to the footer's
+source line:
+
+```
+Source: Metabase question · build grading-fix-20260917-1656
+```
+
+Several rounds on this tab were spent unsure whether a fix was actually live —
+a symptom reappearing looks identical to a fix that did not work. The footer
+answers that without opening the console.
+
+It is declared at the **top** of the IIFE, above every reader: `var` hoists the
+declaration but not the assignment, so a stamp defined near the bottom reads as
+`undefined` for anything running during initialisation. Asserted by position.
+
+## tools-harness.cjs — run it headlessly
+
+```
+node tools-harness.cjs
+```
+
+Boots the real `index.html` script against a stub DOM, serves it the demo mock's
+data, then clicks through the whole Grading tab. Current output:
+
+```
+app booted OK
+gPill: activity | gAct: graded | gActState: done
+subgrade row counts: { corner: 23, edge: 23, surface: 16, centering: 20 }
+grows (merged): 33
+g-tot: 4,556 tasks in window
+
+--- subgrade pills ---
+corner     grows=23     edge      grows=23
+surface    grows=16     centering grows=20     all grows=33
+
+--- Grading verify sub-pill ---
+graded -> verify   tot=1,879   back to graded   tot=4,480
+
+--- snapshot pills ---
+queued   4,888 tasks queued
+verify   1,009 tasks awaiting verify
+activity 4,480 tasks in window
+
+cards ok · review ok · cardtype ok · recomp ok
+```
+
+Four requests go out on entry, one per subgrade, with the right view names:
+
+```
+tab=grading&view=act_corner&grain=day&start_date=2026-09-16&end_date=2026-09-16
+tab=grading&view=act_edge&...  act_surface&...  act_centering&...
+```
+
+**This should have existed nine faults ago.** Several of them — a TypeError in
+the render reported as a load failure, a note written into a hidden element,
+four correct responses thrown away by a bad lookup, three functions called but
+never declared — would have surfaced here in seconds. Diagnosing them from
+screenshots produced a series of plausible wrong answers instead.
+
+The stub DOM is thin on purpose. The Orders tab throws on `insertBefore` in the
+harness because the stub's `querySelector` returns null for a panel anchor —
+that is the harness, not the app. Grading, Cards, Review, Card Type and Recomp
+all run clean.
+
+Run it before packaging, alongside `tools-check-undeclared.py`.

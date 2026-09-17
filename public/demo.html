@@ -3076,6 +3076,15 @@
   var API = "/api/ticker";
   var TAB = "cards";
 
+  // Build stamp. Declared up here, above every reader: `var` hoists the
+  // declaration but not the assignment, so a stamp defined near the bottom
+  // reads as undefined for anything that runs during initialisation.
+  //
+  // It exists because several rounds of this tab were spent unsure whether a
+  // fix was actually live. The footer and one console line answer that.
+  var BUILD = "grading-fix-20260917-1656";
+  try { console.info("PL DASHBOARD build", BUILD); } catch(e){}
+
   var TABS = {
     cards: {
       label: "Cards",
@@ -8277,9 +8286,14 @@
 
   // Keyed pill-then-step, so switching pills swaps datasets rather than
   // refetching, and one pill's failure cannot be read as the other's.
-  var gTasks     = {queued:{}, verify:{}};   // pill -> step -> task rows
-  var gTaskState = {queued:{}, verify:{}};   // "" | "loading" | "done" | "error"
-  var gTaskErr   = {queued:{}, verify:{}};
+  // A bucket per pill INCLUDING activity. Activity has no task-level rows --
+  // its data lives in gActLists -- but leaving the key out meant any lookup
+  // reached while that pill was selected evaluated undefined[step] and threw
+  // a TypeError. An empty object costs nothing and makes every call site safe
+  // whether or not it remembers to check the pill first.
+  var gTasks     = {activity:{}, queued:{}, verify:{}};  // pill -> step -> rows
+  var gTaskState = {activity:{}, queued:{}, verify:{}};  // "" | loading | done | error
+  var gTaskErr   = {activity:{}, queued:{}, verify:{}};
   var gPill = "activity";     // "activity" | "queued" | "verify"
   var gAct  = "graded";       // Activity's half: "graded" | "verify"
   var gSel  = "corner";       // which subgrade the task table lists
@@ -8378,7 +8392,16 @@
     return true;
   }
 
-  function gRows(step, pill){ return gTasks[pill || gPill][step] || []; }
+  // gTasks is keyed queued|verify only -- Activity has no task-level rows, it
+  // has grader rows in gActLists. On Activity gPill is "activity", so the
+  // unguarded form evaluated undefined["corner"] and threw a TypeError. That
+  // threw inside renderGrading, which runs from loadGradingActivity's .then,
+  // so the promise rejected and the catch reported "some subgrades failed to
+  // load" -- AFTER all four questions had answered correctly.
+  function gRows(step, pill){
+    var bucket = gTasks[pill || gPill];
+    return (bucket && bucket[step]) || [];
+  }
   function gFiltered(step){ return gRows(step).filter(gMatch); }
   function gAnyFilter(){
     return Object.keys(gFil).some(function(k){ return gFil[k] !== ""; });
@@ -8512,8 +8535,13 @@
           + "centering tasks \u2014 these are task counts, not card counts."
           + (gPill === "verify" ? " Awaiting verify means graded but not yet approved." : "");
 
-    syncGradeFilterOptions();
-    renderGradeTable();
+    // Both belong to the task table, which only exists on the snapshot pills.
+    // Running them on Activity was not just wasted work: it was the path into
+    // the crash above.
+    if(!gIsActivity()){
+      syncGradeFilterOptions();
+      renderGradeTable();
+    }
   }
 
   // The same chip the Orders tab uses -- OSTATUS_COLOR at 22 alpha behind the
@@ -8980,7 +9008,7 @@
       renderGrading();
       renderRecomp();
       $("f-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-US");
-      $("f-source").textContent  = "Source: Metabase question";
+      $("f-source").textContent  = "Source: Metabase question \u00b7 build " + BUILD;
       if(!gData().length){
         banner("Query ran but returned no rows for this date range.","");
         setDot("stale");
@@ -11195,7 +11223,7 @@
         }
         var now = new Date();
         $("f-updated").textContent = "Updated "+now.toLocaleTimeString("en-US");
-        $("f-source").textContent  = "Source: Metabase question";
+        $("f-source").textContent  = "Source: Metabase question \u00b7 build " + BUILD;
         if(shapeWarn){
           banner(shapeWarn,"err");
           setDot("err");
