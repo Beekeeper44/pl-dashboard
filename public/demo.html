@@ -773,7 +773,10 @@
      repainted grey. Overriding the colour meant an empty subgrade lost the one
      cue saying WHICH subgrade it is. */
   .gtile.zero{opacity:.5}
-  .gnote{padding:12px 4px 0;font-size:12.5px;color:var(--tx);line-height:1.6}
+  /* pre-wrap so the per-subgrade diagnostic lines keep their breaks, and
+     selectable because the point of them is being pasted into a message. */
+  .gnote{padding:12px 4px 0;font-size:12.5px;color:var(--tx);line-height:1.6;
+         white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 
   /* A tile is a button: clicking it picks which subgrade the table below
      lists. Real <button>, so Tab reaches it and the selection is announced. */
@@ -8285,6 +8288,11 @@
   // Each subgrade's grader rows kept separately as well as merged, so picking
   // a subgrade swaps the panel's data instead of refetching. "" means all four.
   var gActLists = {};         // step key -> normalizeGrader rows
+  // What the proxy reported per subgrade: card id, transport, the parameter
+  // payload it sent and the row count it counted server-side. Kept so an
+  // empty Activity view can SAY what happened instead of showing zeros --
+  // the headers are already on every response, the client just binned them.
+  var gActDiag = {};          // step key -> {headers, rows, error}
   var gActSel   = "";         // "" | step key
 
   // Activity is a different KIND of view from the other two pills: per-grader
@@ -8477,7 +8485,13 @@
     note.textContent = err
       ? "Some subgrades failed to load \u2014 " + err
       : gIsActivity()
-        ? (total === 0
+        ? (total === 0 && gActDiagText()
+            // Zeros with the payload the proxy actually sent. Four separate
+            // faults on this tab have produced an identical row of zeros, and
+            // the only thing that tells them apart is the request.
+            ? "Every subgrade came back empty. What the proxy sent and got:\n"
+              + gActDiagText()
+          : total === 0
             // Zero across all four is almost never a data problem: the
             // grading shift runs into the small hours, so "today" is empty
             // until the afternoon and the default date range is today.
@@ -8734,6 +8748,7 @@
     if(!need.length){ renderGrading(); return Promise.resolve("ok"); }
 
     need.forEach(function(st){ gTaskState[pill][st.key] = "loading"; });
+    setRunBusy(true);
     renderGrading();
 
     // Four independent questions: fired together rather than in sequence, so
@@ -8756,6 +8771,7 @@
           return "error";
         });
     })).then(function(r){
+      setRunBusy(false);
       // The pill may have changed while four requests were in flight. Repaint
       // regardless -- the render reads gPill, so it shows whatever is current
       // and the finished rows are already stored under the pill they belong to.
@@ -8834,6 +8850,26 @@
     renderRecomp();
   }
 
+  // One line per subgrade: card id, transport, row count as the PROXY counted
+  // it, and the parameter payload. A duplicated tag shows up here as
+  // start_date appearing twice, which is invisible from the numbers alone.
+  function gActDiagText(){
+    var lines = [];
+    GSTEPS.forEach(function(st){
+      var d = gActDiag[st.key];
+      if(!d) return;
+      var h = d.headers || {};
+      lines.push(st.name
+        + ": card " + (h["X-Metabase-Card-Id"] || "?")
+        + " \u00b7 rows parsed=" + (d.rows == null ? "n/a" : d.rows)
+        + " \u00b7 proxy reported=" + (h["X-Metabase-Rows"] || "?")
+        + (h["X-Metabase-Transport"] ? " \u00b7 via " + h["X-Metabase-Transport"] : "")
+        + (h["X-Metabase-Params"] ? "\n    params: " + h["X-Metabase-Params"] : "")
+        + (d.error ? "\n    error:  " + d.error : ""));
+    });
+    return lines.join("\n");
+  }
+
   function renderSubPills(){
     var host = $("g-subpills");
     // Deliberately NOT skipped when hidden. Bailing on host.hidden made the
@@ -8878,6 +8914,7 @@
     }
 
     gActState = "loading";
+    setRunBusy(true);
     // Repaint immediately. Without this the tiles keep the PREVIOUS pill's
     // numbers -- queued task counts sitting under the Activity label, captioned
     // "% of queue" -- for as long as four questions take to answer. On a slow
@@ -8896,16 +8933,30 @@
       return q;
     });
 
-    return Promise.all(qs.map(function(q){
+    gActDiag = {};
+    return Promise.all(qs.map(function(q, qi){
+      var stepKey = GSTEPS[qi].key;
       return fetch(API + "?" + q.toString(), {headers:{"Accept":"application/json"}})
         .then(function(r){
+          var hdrs = readDiagHeaders(r);
           return r.json().then(function(d){
+            gActDiag[stepKey] = {headers:hdrs, rows:null, error:""};
             // A 501 means the view is registered but has no question id yet --
             // which is exactly the Grading-verify half. Carry the message
             // rather than an empty array, or it reads as "nobody did any work".
-            if(!r.ok) throw new Error((d && d.error) || ("HTTP " + r.status));
-            return normalizeGrader(rowsOf(d));
+            if(!r.ok){
+              gActDiag[stepKey].error = (d && d.error) || ("HTTP " + r.status);
+              throw new Error(gActDiag[stepKey].error);
+            }
+            var norm = normalizeGrader(rowsOf(d));
+            gActDiag[stepKey].rows = norm.length;
+            return norm;
           });
+        })
+        .catch(function(e){
+          if(!gActDiag[stepKey]) gActDiag[stepKey] = {headers:{}, rows:null, error:""};
+          gActDiag[stepKey].error = String(e && e.message || e);
+          throw e;
         });
     })).then(function(lists){
       gActLists = {};
@@ -8913,6 +8964,7 @@
       applyGraderRows();
       refreshGraderFilter();
       gActState = "done"; gActErr = "";
+      setRunBusy(false);
       applyGradingLayout();
       renderGrading();
       renderRecomp();
@@ -8927,6 +8979,7 @@
       gActLists = {}; grows = [];
       gActState = "error";
       gActErr = String(e && e.message || e);
+      setRunBusy(false);
       applyGradingLayout();
       // renderGrading too, or the pill row keeps the zeros from the loading
       // state and nothing anywhere says the request failed.
@@ -8948,6 +9001,18 @@
   // ReferenceError that killed every binding after it -- Enter, Refresh, Auto
   // and the styled dropdowns -- while the tabs bound above it kept working, so
   // the page looked fine and only the buttons were dead.
+  // Enter's busy state. load() set it inline, so the two Grading loaders --
+  // which Enter, Refresh and Auto all reach through loadCurrent -- left the
+  // button reading "Enter" while four requests were in flight. On a tab whose
+  // whole failure mode is looking plausibly empty, no feedback at all is the
+  // worst option.
+  function setRunBusy(on){
+    var b = $("run");
+    if(!b) return;
+    b.disabled = !!on;
+    b.textContent = on ? "Loading" : "Enter";
+  }
+
   function loadCurrent(){
     if(TAB === "grading"){
       return gIsActivity() ? loadGradingActivity(true) : loadGrading(true);
@@ -10948,8 +11013,7 @@
         return Promise.resolve("error");
       }
     }
-    $("run").disabled = true;
-    $("run").textContent = "Loading";
+    setRunBusy(true);
     setDot("");
 
     return fetch(API+"?"+params().toString(), {headers:{"Accept":"application/json"}})
@@ -11177,7 +11241,7 @@
         $("f-updated").textContent = "Load failed";
       })
       .then(function(){
-        $("run").disabled=false; $("run").textContent="Enter";
+        setRunBusy(false);
         return loadFailed ? "error" : "ok";
       });
   }

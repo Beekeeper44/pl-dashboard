@@ -4264,3 +4264,78 @@ zeros and "no rows" look like a quiet shift, not a fault. The others were the
 bare-array response shape, the missing declarations, and the unrepainted
 failure path. Anything on this tab that reads as "nothing happened" is worth
 checking against Metabase directly before believing it.
+
+## Enter shows its busy state on Grading too
+
+`load()` set `#run` to a disabled "Loading" inline. The two Grading loaders --
+which Enter, Refresh and Auto all reach through `loadCurrent()` -- never touched
+it, so pressing Enter on any Grading pill fired four requests with the button
+still reading "Enter" and nothing anywhere indicating work in progress. On a tab
+whose failure mode is *looking plausibly empty*, no feedback is the worst of the
+options.
+
+`setRunBusy(on)` is now the only thing that writes that button, called by all
+three loaders. Each clears it on both the success and the failure path -- a
+stuck disabled Enter cannot be recovered without reloading the page, so the
+count is asserted: three `true`, four `false` (Activity clears in its `then`
+*and* its `catch`).
+
+## `/api/debug?view=…` — proving which ticker is deployed
+
+```
+/api/debug?view=act_centering&start_date=2026-09-16&end_date=2026-09-16
+```
+
+Runs a Grading view exactly as the tab does and echoes the **parameter payload**
+next to the row count, plus `parameterTagCounts` and `duplicatedTags`.
+
+That payload is the point. A duplicated `start_date` — two parameters aimed at
+one template tag — returns zero rows and is indistinguishable from a quiet day
+in the browser. The verdict names it outright:
+
+```
+DUPLICATE PARAMETERS (start_date x2, end_date x2) — api/ticker.js is the
+pre-fix version. Redeploy the api/ routes, not just index.html.
+```
+
+Otherwise it says whether the parameters bound and the question returned rows,
+or bound correctly and returned nothing for that window.
+
+**This exists because `api/` changes need the api routes redeployed**, and a
+frontend-only deploy leaves the old proxy running with a new client in front of
+it — which looks exactly like the bug it was meant to fix. Worth reaching for
+whenever a fix "didn't take".
+
+Views: `act_corner`, `act_edge`, `act_surface`, `act_centering`, the `actv_*`
+verify halves, and the task-level `corner` / `edge` / `surface` / `centering`
+and their `_verify` counterparts.
+
+## An empty Activity view prints what it sent
+
+The Graded mapping is correct and asserted:
+
+```
+grading:act_corner    -> 39639
+grading:act_edge      -> 39640
+grading:act_surface   -> 39641
+grading:act_centering -> 39638
+```
+
+So when all four come back empty the fault is between the request and the
+response, and **four different faults on this tab have produced an identical row
+of zeros**. `gActDiag` captures the `X-Metabase-*` headers per subgrade and the
+note prints them, which tells them apart at a glance:
+
+| what the line shows | what it means |
+|---|---|
+| `params: start_date=…,start_date=…` | duplicated tag — the pre-fix `api/ticker.js` is still deployed |
+| `rows parsed=0 · proxy reported=0`, params clean | the window really is empty |
+| `rows parsed=0 · proxy reported=18` | the proxy got rows and the client dropped them — a response-shape bug |
+| `error: No Metabase card id for …` | the view has no question configured |
+
+The headers were always on the responses; the client was binning them. Same fix
+as the expanded-order diagnostics, for the same reason: on this tab "nothing
+happened" is never self-explanatory.
+
+`.gnote` is `pre-wrap` and selectable, because the point of those lines is being
+pasted into a message rather than retyped off a screen.

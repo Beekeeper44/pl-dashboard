@@ -37,6 +37,68 @@ export default async function handler(req, res) {
     },
   };
 
+  // ?view=act_centering&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD[&grain=day]
+  //
+  // Runs a Grading view exactly as the tab does and echoes the PARAMETER PAYLOAD
+  // alongside the row count. That payload is the whole point: a duplicated
+  // start_date -- two parameters aimed at one template tag -- returns zero rows
+  // and looks identical to a quiet day from the browser. Seeing the array makes
+  // it obvious, and it also tells you whether the deployed api/ticker.js is the
+  // version with the fix.
+  const view = req.query?.view;
+  if (view) {
+    const key = `grading:${view}`;
+    const q = {
+      grain:      req.query?.grain || 'day',
+      start_date: req.query?.start_date,
+      end_date:   req.query?.end_date,
+    };
+    try {
+      const r = await runQuery(key, q);
+      const tags = {};
+      (r.parameters || []).forEach((p) => {
+        const t = p.target?.[1]?.[1] || '?';
+        tags[t] = (tags[t] || 0) + 1;
+      });
+      const duplicated = Object.entries(tags)
+        .filter(([, n]) => n > 1)
+        .map(([t, n]) => `${t} x${n}`);
+      res.status(200).json({
+        checkedAt: out.checkedAt,
+        questionKey: key,
+        cardId: r.cardId,
+        transport: r.via,
+        sent: q,
+        parametersSent: r.parameters,
+        parameterTagCounts: tags,
+        duplicatedTags: duplicated,
+        verdict: duplicated.length
+          ? `DUPLICATE PARAMETERS (${duplicated.join(', ')}) — api/ticker.js is the `
+            + 'pre-fix version. Redeploy the api/ routes, not just index.html.'
+          : r.rows.length
+            ? 'Parameters bind and the question returns rows.'
+            : 'Parameters look right but the question returned nothing for this '
+              + 'window — check the same dates in Metabase.',
+        rowCount: r.rows.length,
+        columns: r.rows.length ? Object.keys(r.rows[0]) : [],
+        firstRow: r.rows[0] || null,
+        templateTags: r.tagInfo,
+      });
+    } catch (err) {
+      res.status(200).json({
+        checkedAt: out.checkedAt,
+        questionKey: key,
+        result: 'FAILED',
+        sent: q,
+        error: String(err.message || err),
+        detail: err.detail || null,
+        parametersSent: err.parameters || null,
+        templateTags: err.tagInfo || null,
+      });
+    }
+    return;
+  }
+
   // ?order_number=NNN — runs 37819 BOTH ways in one request: filtered on the
   // order, and bare. An expanded order that shows no cards has three possible
   // causes and they look identical from the browser; running both here says
