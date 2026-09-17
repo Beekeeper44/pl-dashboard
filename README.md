@@ -4235,3 +4235,32 @@ span and read as though the rail only covered 2 PM–11 PM. Trimming the 2 PM
 column would mean a per-tab rail window; `GHOURS` is global and feeds the rail,
 the chart and the KPI strip, so it is a real refactor rather than a tweak and is
 left alone deliberately.
+
+## ⚠ Activity returned zero rows: the dates were sent twice
+
+Metabase returned rows for 16 Sep with grain=day; the dashboard showed `0` on
+every pill, `0` in the KPI strip and "No rows." in the chart.
+
+`buildParameters` pushes `start_date` and `end_date` **unconditionally** for
+every key that gets past the early returns. The `TEXT_VARS` entries for the
+eight Activity views also listed them, so each date went out as **two
+parameters aimed at one template tag** and the query came back empty.
+
+Every other entry in that map lists `grain` alone — `'cardtype:data': ['grain']`
+— and for exactly this reason. The map's contract is invisible from looking at
+it, so it is now **asserted at module load**:
+
+```
+TEXT_VARS["grading:act_corner"] lists start_date, which buildParameters
+already sends. Remove it, or the parameter goes out twice and the query
+returns nothing.
+```
+
+Verified both ways: reintroducing `start_date` makes `api/ticker.js` throw on
+import, and the real file imports clean.
+
+This is the fourth bug in this tab whose symptom was *plausible emptiness* —
+zeros and "no rows" look like a quiet shift, not a fault. The others were the
+bare-array response shape, the missing declarations, and the unrepainted
+failure path. Anything on this tab that reads as "nothing happened" is worth
+checking against Metabase directly before believing it.

@@ -70,6 +70,11 @@ const CARDS = {
   'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
 
+// Values here are the OPTIONAL text filters only. start_date and end_date are
+// pushed unconditionally by buildParameters for every key that gets past the
+// early returns, so listing them here sends each one twice -- two parameters
+// aimed at a single template tag, which Metabase answers with zero rows.
+// Asserted at module load rather than left as a comment nobody reads.
 const TEXT_VARS = {
   'cards':        ['grain', 'source', 'card_type'],
   'recomp:total': ['grain'],
@@ -96,14 +101,20 @@ const TEXT_VARS = {
   'grading:surface_verify':   [],
   'grading:centering_verify': [],
   // Activity takes the shared grain + date window, like Card Type and Review.
-  'grading:act_centering':  ['grain','start_date','end_date'],
-  'grading:act_corner':     ['grain','start_date','end_date'],
-  'grading:act_edge':       ['grain','start_date','end_date'],
-  'grading:act_surface':    ['grain','start_date','end_date'],
-  'grading:actv_centering': ['grain','start_date','end_date'],
-  'grading:actv_corner':    ['grain','start_date','end_date'],
-  'grading:actv_edge':      ['grain','start_date','end_date'],
-  'grading:actv_surface':   ['grain','start_date','end_date'],
+  //
+  // grain ONLY. start_date and end_date are pushed unconditionally by the
+  // loop above for every key that reaches it -- listing them here as well
+  // sent each date TWICE, two parameters aimed at one template tag, and
+  // Metabase answered with zero rows. Every other entry in this map lists
+  // grain alone for exactly that reason.
+  'grading:act_centering':  ['grain'],
+  'grading:act_corner':     ['grain'],
+  'grading:act_edge':       ['grain'],
+  'grading:act_surface':    ['grain'],
+  'grading:actv_centering': ['grain'],
+  'grading:actv_corner':    ['grain'],
+  'grading:actv_edge':      ['grain'],
+  'grading:actv_surface':   ['grain'],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -206,6 +217,17 @@ const SINGLE_DATE = new Set(['recomp:highend']);
 
 // Cards whose filters are all optional — we pull the set and filter in the
 // browser, so sending nothing is both valid and cheaper than guessing.
+for (const [k, vars] of Object.entries(TEXT_VARS)) {
+  for (const v of vars) {
+    if (v === 'start_date' || v === 'end_date') {
+      throw new Error(
+        `TEXT_VARS["${k}"] lists ${v}, which buildParameters already sends. ` +
+        'Remove it, or the parameter goes out twice and the query returns nothing.'
+      );
+    }
+  }
+}
+
 const NO_PARAMS = new Set([
   'orders:all', 'orders:queue', 'orders:cards',
   'grading:corner', 'grading:edge', 'grading:surface', 'grading:centering',
