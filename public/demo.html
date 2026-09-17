@@ -697,7 +697,9 @@
      between them is carried by saturation and lightness, roughly 1.9:1 in
      luminance. Every symbol sits on the same black plate, so colour is the only
      other thing telling those two tiles apart -- keep the gap if either moves. */
-  .gsect{background:#000;border-radius:14px;padding:18px;margin-top:6px;
+  /* Sits directly above #panel-recomp on Activity, so it needs the gap a
+     sibling section would have had. */
+  .gsect{background:#000;border-radius:14px;padding:18px;margin:6px 0 16px;
          --corners:#F8D3D6; --edges:#F2C68E; --surface:#838CC8; --centering:#E8858E;
          --plate:#000000}
   .gtop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 4px 14px}
@@ -715,9 +717,32 @@
   .gpill[aria-pressed="true"]{background:var(--neon);border-color:var(--neon);
                               color:#06240A;font-weight:700}
   .gpill:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
-  .gtot{margin-left:auto;display:flex;align-items:baseline;gap:9px;padding-right:4px}
-  .gtot b{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;
-          color:var(--neon)}
+  /* Activity's sub-pills, on their own line under the pill row. The left rule
+     is a stub rather than a full border: it points up at the pill these belong
+     to without boxing them in. */
+  .gpills.gsub{margin:14px 0 0;padding-left:14px;position:relative;flex-wrap:wrap}
+  .gpills.gsub::before{content:"";position:absolute;left:3px;top:50%;
+                       width:7px;height:1px;background:var(--line2)}
+  .gpill.sm{font-size:12.5px;padding:7px 15px}
+  /* The subgrade row on Activity. Each pill carries its own count, so the row
+     replaces the tiles rather than just selecting between them. */
+  /* The subgrade row is a separate choice from Graded / Grading verify, so it
+     needs a clear gap rather than sitting tight under it. */
+  .gpills.gsubrow{margin-top:18px;flex-wrap:wrap}
+  .gpill b{font-weight:700;font-variant-numeric:tabular-nums;margin-left:8px}
+  /* Unselected pills tint to their subgrade so the row still maps onto the
+     colours used everywhere else; the selected one takes the neon fill like
+     every other pill in the app. */
+  .gpill[data-sub]{border-color:color-mix(in srgb, var(--c) 45%, transparent)}
+  .gpill[data-sub] b{color:var(--c)}
+  .gpill[data-sub][aria-pressed="true"]{background:var(--neon);
+    border-color:var(--neon);color:#06240A}
+  .gpill[data-sub][aria-pressed="true"] b{color:#06240A}
+  /* Its own row at the foot of the section now, not a right-aligned item in
+     the header. Big, left-aligned and directly above the rail it sums. */
+  .gtot{display:flex;align-items:baseline;gap:10px;padding:4px 4px 0;margin-top:18px}
+  .gtot b{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;
+          color:var(--neon);letter-spacing:-.5px}
   .gtot span{font-size:12px;color:var(--tx);letter-spacing:.06em;
              text-transform:uppercase}
 
@@ -1668,10 +1693,18 @@
   // Grader-shaped rows: Recomp Total, Card Type (both), Review (both).
   // Column names deliberately vary by view, because normalizeGrader is supposed
   // to tolerate that — the real questions genuinely disagree on these.
-  function graderRows(view){
+  function graderRows(view, subgrade){
     var roster = (view === "recomp") ? RECOMP : FLOOR;
     var n      = (view === "recomp") ? 17 : 22;
     var scale  = view === "recomp" ? 1 : (view === "verify" ? 2.2 : 1.6);
+    // One quarter-ish each, so the four summed look like one floor's output
+    // rather than four floors'. Verify activity is a fraction of grading.
+    if(view === "grading_act")  scale = 0.42;
+    if(view === "grading_actv") scale = 0.16;
+    // Not everyone works every subgrade -- which is the case the merge has to
+    // handle, since a grader missing from one result set must still appear.
+    if(subgrade === "surface")   n = Math.max(8, n - 6);
+    if(subgrade === "centering") n = Math.max(8, n - 3);
     var rows = [], team = {}, teamTotal = 0, teamShift = 0, teamOut = 0;
     GH.forEach(function(k){ team[k] = 0; });
 
@@ -1688,7 +1721,11 @@
         if(inShift) shift += v; else out += v;
       });
       var outside = ri(0, 4);
-      if(view === "recomp"){
+      if(view === "grading_act" || view === "grading_actv"){
+        r["shift total (2pm-11pm)"] = shift;
+        r["extra time (11pm-3am)"]  = out + outside;
+        r["total tasks"]            = shift + out + outside;
+      } else if(view === "recomp"){
         r["shift total (3pm-11pm)"] = shift;
         r["outside 12pm-11pm"]      = out + outside;
         r["total comps"]            = shift + out + outside;
@@ -2114,6 +2151,34 @@
     return rows;
   }
 
+  // Surface / Graded is REAL SHAPE, captured from question 39641 on 16 Sep so
+  // the demo exercises what the live question actually returns: a 3 PM shift
+  // start (not 2 PM), both an "Extra Time" and an "Outside Window" column, and
+  // a period timestamp rather than a date. Demo only -- the live build never
+  // reaches this file.
+  var SURFACE_ACT_PERIOD = "Sep 16, 2026, 12:00 AM";
+  function surfaceActRows(){
+    var PERIOD = SURFACE_ACT_PERIOD;
+    return [
+      {"Period": PERIOD, "Grader": "★ TEAM TOTAL", "Total Tasks": 642, "Shift Total (3pm-11pm)": 638, "3 PM": 181, "4 PM": 141, "5 PM": 136, "6 PM": 105, "7 PM": 0, "8 PM": 75, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 4},
+      {"Period": PERIOD, "Grader": "Cyrist Leviste", "Total Tasks": 144, "Shift Total (3pm-11pm)": 140, "3 PM": 40, "4 PM": 26, "5 PM": 41, "6 PM": 24, "7 PM": 0, "8 PM": 9, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 4},
+      {"Period": PERIOD, "Grader": "Alex Arcangel", "Total Tasks": 82, "Shift Total (3pm-11pm)": 82, "3 PM": 26, "4 PM": 18, "5 PM": 18, "6 PM": 15, "7 PM": 0, "8 PM": 5, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Jairho Joshua Orillaza", "Total Tasks": 57, "Shift Total (3pm-11pm)": 57, "3 PM": 0, "4 PM": 20, "5 PM": 29, "6 PM": 6, "7 PM": 0, "8 PM": 2, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Xerxia Buena", "Total Tasks": 56, "Shift Total (3pm-11pm)": 56, "3 PM": 20, "4 PM": 12, "5 PM": 7, "6 PM": 8, "7 PM": 0, "8 PM": 9, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Rose Ann Navarro", "Total Tasks": 50, "Shift Total (3pm-11pm)": 50, "3 PM": 9, "4 PM": 11, "5 PM": 9, "6 PM": 12, "7 PM": 0, "8 PM": 9, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Erys De Leon", "Total Tasks": 39, "Shift Total (3pm-11pm)": 39, "3 PM": 9, "4 PM": 9, "5 PM": 5, "6 PM": 2, "7 PM": 0, "8 PM": 14, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Queenie Guerrero", "Total Tasks": 37, "Shift Total (3pm-11pm)": 37, "3 PM": 26, "4 PM": 9, "5 PM": 0, "6 PM": 2, "7 PM": 0, "8 PM": 0, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Mark Salvador", "Total Tasks": 37, "Shift Total (3pm-11pm)": 37, "3 PM": 17, "4 PM": 8, "5 PM": 3, "6 PM": 6, "7 PM": 0, "8 PM": 3, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Ehm Crucillo", "Total Tasks": 35, "Shift Total (3pm-11pm)": 35, "3 PM": 6, "4 PM": 7, "5 PM": 5, "6 PM": 12, "7 PM": 0, "8 PM": 5, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Princess Cordova", "Total Tasks": 25, "Shift Total (3pm-11pm)": 25, "3 PM": 4, "4 PM": 3, "5 PM": 8, "6 PM": 7, "7 PM": 0, "8 PM": 3, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Abe Dato", "Total Tasks": 21, "Shift Total (3pm-11pm)": 21, "3 PM": 5, "4 PM": 6, "5 PM": 5, "6 PM": 2, "7 PM": 0, "8 PM": 3, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "dominic bediones", "Total Tasks": 20, "Shift Total (3pm-11pm)": 20, "3 PM": 5, "4 PM": 3, "5 PM": 4, "6 PM": 4, "7 PM": 0, "8 PM": 4, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Jan Raymond Padrin…", "Total Tasks": 18, "Shift Total (3pm-11pm)": 18, "3 PM": 6, "4 PM": 5, "5 PM": 0, "6 PM": 2, "7 PM": 0, "8 PM": 5, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "Jasmin Banaban", "Total Tasks": 12, "Shift Total (3pm-11pm)": 12, "3 PM": 3, "4 PM": 3, "5 PM": 1, "6 PM": 3, "7 PM": 0, "8 PM": 2, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0},
+      {"Period": PERIOD, "Grader": "rence tang", "Total Tasks": 9, "Shift Total (3pm-11pm)": 9, "3 PM": 5, "4 PM": 1, "5 PM": 1, "6 PM": 0, "7 PM": 0, "8 PM": 2, "9 PM": 0, "10 PM": 0, "11 PM": 0, "12 AM": 0, "1 AM": 0, "2 AM": 0, "Extra Time (11pm-3am)": 0, "Outside Window": 0}
+    ];
+  }
+
   // -------------------------------------------------------------- routing ---
 
   function ticker(q){
@@ -2123,8 +2188,20 @@
     var end   = q.get("end_date")   || start;
 
     if(tab === "cards")    return cardsRows(start, end);
-    if(tab === "grading")  return gradingTaskRows(
-                             GSIDES[String(view).replace(/_verify$/,"")] ? view : "corner");
+    if(tab === "grading"){
+      // Activity is grader-shaped, not task-shaped: one row per grader with
+      // hour buckets, the same columns Card Type and Review return. Scaled down
+      // per subgrade so summing the four lands near a realistic floor total.
+      // Surface uses the captured real rows; the other three stay generated.
+      if(view === "act_surface") return surfaceActRows();
+      if(/^act_/.test(view))  return graderRows("grading_act", view.slice(4));
+      // actv_* is the Grading-verify half, which has no question yet. The mock
+      // answers it anyway so the sub-pill can be exercised; the real proxy
+      // returns 501 until the ids are set.
+      if(/^actv_/.test(view)) return graderRows("grading_actv", view.slice(5));
+      return gradingTaskRows(
+        GSIDES[String(view).replace(/_verify$/,"")] ? view : "corner");
+    }
     if(tab === "cardtype") return graderRows(view === "verify" ? "verify" : "data");
     if(tab === "review")   return graderRows("review");
     if(tab === "orders")   return view === "queue" ? queueRows()
@@ -2548,6 +2625,82 @@
 </section>
 </div>
 
+<!-- Grading: open subgrade work, task level. Its own panel rather than an
+     Orders subtab, because it is not scoped to an order. -->
+<div id="gpanel" hidden>
+  <section class="gsect" aria-labelledby="g-name">
+    <div class="gtop">
+      <span class="gname" id="g-name">Grading</span>
+      <div class="gpills" role="group" aria-label="Grading view">
+        <button class="gpill" id="p-activity" aria-pressed="true">Activity</button>
+        <button class="gpill" id="p-queued" aria-pressed="false">Queued</button>
+        <button class="gpill" id="p-verify" aria-pressed="false">Verify needed</button>
+      </div>
+    </div>
+    <!-- Activity's two halves, on their own line BELOW the pill row rather than
+         beside it: inline, three pills plus two read as five peers of equal
+         standing, when these two only exist while Activity is chosen. -->
+    <div class="gpills gsub" id="g-actpills" role="group" aria-label="Activity kind" hidden>
+      <button class="gpill sm" id="p-act-graded" aria-pressed="true">Graded</button>
+      <button class="gpill sm" id="p-act-verify" aria-pressed="false">Grading verify</button>
+    </div>
+
+    <!-- Activity picks its subgrade with pills, not tiles: the KPI strip below
+         already carries the headline numbers, so a second row of big numerals
+         would be repeating them one line above. -->
+    <div class="gpills gsubrow" id="g-subpills" role="group"
+         aria-label="Subgrade" hidden></div>
+    <!-- The headline figure, sitting directly above the shift rail rather
+         than in the top-right corner of the header: on Activity it is the
+         number the rail below breaks down, so it belongs next to it. -->
+    <div class="gtot" id="g-totrow">
+      <b id="g-tot">&mdash;</b><span id="g-tot-l">tasks queued</span>
+    </div>
+    <div class="gtiles" id="g-tiles"></div>
+    <div class="gnote" id="g-note"></div>
+  </section>
+
+  <!-- Task list for the selected subgrade. Serves both pills: each has its own
+       four questions returning the same row shape, so the table, the filters
+       and the column set are identical and only the dataset changes. -->
+  <section class="panel gtasks" id="g-tasksec">
+    <div class="gfilters">
+      <div class="fld"><label for="gf-order">Order #</label>
+        <input id="gf-order" type="text" inputmode="numeric" placeholder="any"></div>
+      <div class="fld"><label for="gf-ac">AC #</label>
+        <input id="gf-ac" type="text" inputmode="numeric" placeholder="any"></div>
+      <div class="fld"><label for="gf-side">Side</label>
+        <select id="gf-side"></select></div>
+      <div class="fld"><label for="gf-pre">Pre-graded</label>
+        <select id="gf-pre">
+          <option value="">All</option>
+          <option value="true">Pre-graded</option>
+          <option value="false">Raw</option>
+        </select></div>
+      <div class="fld"><label for="gf-ostat">Order status</label>
+        <select id="gf-ostat"></select></div>
+      <div class="fld"><label for="gf-cstat">Card status</label>
+        <select id="gf-cstat"></select></div>
+      <div class="fld"><label for="gf-kind">Kind</label>
+        <select id="gf-kind"></select></div>
+      <div class="fld"><label for="gf-tstat">Task status</label>
+        <select id="gf-tstat"></select></div>
+      <div class="fld"><label for="gf-days">Days in queue &ge;</label>
+        <input id="gf-days" type="number" min="0" step="1" placeholder="any"></div>
+      <div class="fld"><label for="gf-due">Due on or before</label>
+        <input id="gf-due" type="date"></div>
+      <button class="btn ghost" id="gf-clear">Clear filters</button>
+    </div>
+    <div class="gcount" id="g-count"></div>
+    <div class="gtwrap">
+      <table class="gtable">
+        <thead><tr id="g-thead"></tr></thead>
+        <tbody id="g-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
 <div id="panel-recomp" hidden>
 
   <div class="subtabs" id="recomp-subtabs">
@@ -2598,6 +2751,9 @@
         <h2 id="gcharttitle">Total recomps by grader</h2>
         <div style="display:flex;gap:8px">
           <button class="ghost" id="gvGrader" aria-pressed="true">By grader</button>
+          <!-- Grading Activity only: the other tabs that use this panel have a
+               single task kind, so there is nothing to group by. -->
+          <button class="ghost" id="gvSub" aria-pressed="false" hidden>By subgrade</button>
           <button class="ghost" id="gvPeriod" aria-pressed="false">By period</button>
         </div>
       </div>
@@ -2744,65 +2900,6 @@
   <button class="subtab" id="osub-assign" aria-selected="false">Assignments</button>
   <button class="subtab" id="osub-done"   aria-selected="false">Breakdown</button>
   <button class="subtab" id="osub-team"   aria-selected="false">Team</button>
-</div>
-
-<!-- Grading: open subgrade work, task level. Its own panel rather than an
-     Orders subtab, because it is not scoped to an order. -->
-<div id="gpanel" hidden>
-  <section class="gsect" aria-labelledby="g-name">
-    <div class="gtop">
-      <span class="gname" id="g-name">Grading</span>
-      <div class="gpills" role="group" aria-label="Grading task state">
-        <button class="gpill" id="p-queued" aria-pressed="true">Queued</button>
-        <button class="gpill" id="p-verify" aria-pressed="false">Verify needed</button>
-      </div>
-      <div class="gtot">
-        <b id="g-tot">&mdash;</b><span id="g-tot-l">tasks queued</span>
-      </div>
-    </div>
-    <div class="gtiles" id="g-tiles"></div>
-    <div class="gnote" id="g-note"></div>
-  </section>
-
-  <!-- Task list for the selected subgrade. Serves both pills: each has its own
-       four questions returning the same row shape, so the table, the filters
-       and the column set are identical and only the dataset changes. -->
-  <section class="panel gtasks" id="g-tasksec">
-    <div class="gfilters">
-      <div class="fld"><label for="gf-order">Order #</label>
-        <input id="gf-order" type="text" inputmode="numeric" placeholder="any"></div>
-      <div class="fld"><label for="gf-ac">AC #</label>
-        <input id="gf-ac" type="text" inputmode="numeric" placeholder="any"></div>
-      <div class="fld"><label for="gf-side">Side</label>
-        <select id="gf-side"></select></div>
-      <div class="fld"><label for="gf-pre">Pre-graded</label>
-        <select id="gf-pre">
-          <option value="">All</option>
-          <option value="true">Pre-graded</option>
-          <option value="false">Raw</option>
-        </select></div>
-      <div class="fld"><label for="gf-ostat">Order status</label>
-        <select id="gf-ostat"></select></div>
-      <div class="fld"><label for="gf-cstat">Card status</label>
-        <select id="gf-cstat"></select></div>
-      <div class="fld"><label for="gf-kind">Kind</label>
-        <select id="gf-kind"></select></div>
-      <div class="fld"><label for="gf-tstat">Task status</label>
-        <select id="gf-tstat"></select></div>
-      <div class="fld"><label for="gf-days">Days in queue &ge;</label>
-        <input id="gf-days" type="number" min="0" step="1" placeholder="any"></div>
-      <div class="fld"><label for="gf-due">Due on or before</label>
-        <input id="gf-due" type="date"></div>
-      <button class="btn ghost" id="gf-clear">Clear filters</button>
-    </div>
-    <div class="gcount" id="g-count"></div>
-    <div class="gtwrap">
-      <table class="gtable">
-        <thead><tr id="g-thead"></tr></thead>
-        <tbody id="g-tbody"></tbody>
-      </table>
-    </div>
-  </section>
 </div>
 
 <div id="opanel" hidden>
@@ -3002,8 +3099,8 @@
     // completed in a window -- so no grain, no date range, no rail.
     grading: {
       label: "Grading",
-      subtitle: "subgrade workload \u00b7 queued and awaiting verify",
-      railHint: "",
+      subtitle: "grader activity \u00b7 subgrade queue \u00b7 awaiting verify",
+      railHint: "subgrade tasks per hour across the {W14-3} {TZ} window",
       unit: "tasks",
       showSourceFilters: false
     },
@@ -3128,11 +3225,21 @@
   }
   // Tabs that replace the shared body entirely: no shift window, no rail, no
   // grain or date filters. Orders was the only one, so those were all written
-  // as `name === "orders"`; Grading is the second, which is why they now ask
-  // this instead.
+  // as `name === "orders"`; Grading was the second.
+  //
+  // Grading is conditional: its Queued and Verify pills are snapshots and own
+  // the body, but Activity is a date-windowed view that wants the grain, start,
+  // end and grader controls back. So this asks the pill, not just the tab.
   function ownsBody(t){
     t = t || TAB;
-    return t === "orders" || t === "grading";
+    if(t === "grading") return !gIsActivity();
+    return t === "orders";
+  }
+  // Which tabs render into #panel-recomp. Same conditional, same reason.
+  function graderPanelNow(t){
+    t = t || TAB;
+    if(t === "grading") return gIsActivity();
+    return usesGraderPanel(t);
   }
   var rrows = [];
   var rview = "cat";
@@ -6314,6 +6421,14 @@
     if(l.indexOf(who) < 0) l.push(who);
     setCardRevs(k, l);
   }
+  // oaRemove has always called this for card rows; it was never written, so
+  // removing one reviewer from a card in the Orders assignment panel threw a
+  // ReferenceError and the whole handler died -- the row simply did not change.
+  // Mirrors removeOrderReviewer: filter that one name out and re-set the list,
+  // which also drops the key entirely when the last name goes.
+  function removeCardRev(k, who){
+    setCardRevs(k, cardRevs(k).filter(function(n){ return n !== who; }));
+  }
   function toggleCardRev(k, who){
     var l = cardRevs(k), i = l.indexOf(who);
     if(i >= 0) l.splice(i, 1); else l.push(who);
@@ -8091,10 +8206,10 @@
   // EIGHT TASK-level questions -- four subgrades x two pills:
   //
   //             queued     verify needed
-  //   corner     39535         39601
-  //   edge       39536         39604
-  //   surface    39469         39603
-  //   centering  39436         39602
+  //   corner     39535         39635
+  //   edge       39536         39636
+  //   surface    39469         39637
+  //   centering  39436         39634
   //
   // They are task rows, not card rows -- one per side, so a card contributes
   // four corner tasks and two centering tasks. That is why a tile total here
@@ -8162,8 +8277,24 @@
   var gTasks     = {queued:{}, verify:{}};   // pill -> step -> task rows
   var gTaskState = {queued:{}, verify:{}};   // "" | "loading" | "done" | "error"
   var gTaskErr   = {queued:{}, verify:{}};
-  var gPill = "queued";       // "queued" | "verify"
-  var gSel  = "corner";       // which subgrade the table lists
+  var gPill = "activity";     // "activity" | "queued" | "verify"
+  var gAct  = "graded";       // Activity's half: "graded" | "verify"
+  var gSel  = "corner";       // which subgrade the task table lists
+  var gActState = "";         // "" | "loading" | "done" | "error"
+  var gActErr   = "";
+  // Each subgrade's grader rows kept separately as well as merged, so picking
+  // a subgrade swaps the panel's data instead of refetching. "" means all four.
+  var gActLists = {};         // step key -> normalizeGrader rows
+  var gActSel   = "";         // "" | step key
+
+  // Activity is a different KIND of view from the other two pills: per-grader
+  // throughput over a date window, not a snapshot of open work. It reuses the
+  // Card Type / Review grader panel wholesale -- same rail, same chart, same
+  // table -- so the only new code is fetching four questions and summing them.
+  function gIsActivity(){ return gPill === "activity"; }
+  function gActView(step){
+    return (gAct === "verify" ? "actv_" : "act_") + step;
+  }
 
   // The proxy view name. Queued is the bare step; verify suffixes it.
   function gView(pill, step){
@@ -8245,19 +8376,27 @@
     return Object.keys(gFil).some(function(k){ return gFil[k] !== ""; });
   }
 
+  function gStepName(key){
+    var hit = GSTEPS.filter(function(st){ return st.key === key; })[0];
+    return hit ? hit.name : key;
+  }
+
   function gCounts(){
+    if(gIsActivity()) return gActTotals();
     var out = {};
     GSTEPS.forEach(function(st){ out[st.key] = gFiltered(st.key).length; });
     return out;
   }
 
   function gBusy(){
+    if(gIsActivity()) return gActState === "loading" || gActState === "";
     return GSTEPS.some(function(st){
       var v = gTaskState[gPill][st.key];
       return v === "loading" || !v;
     });
   }
   function gFailed(){
+    if(gIsActivity()) return gActState === "error" ? gActErr : "";
     var bad = GSTEPS.filter(function(st){
       return gTaskState[gPill][st.key] === "error";
     });
@@ -8269,6 +8408,9 @@
   }
 
   function renderGrading(){
+    // Re-assert it here too. renderGrading runs on every state change, so
+    // this is the path that self-corrects if anything else went wrong.
+    setGradingVisibility();
     var tiles = $("g-tiles"), note = $("g-note");
     if(!tiles) return;
 
@@ -8276,6 +8418,9 @@
       tiles.innerHTML = '<div class="gnote">Loading grading tasks\u2026</div>';
       $("g-tot").textContent = "\u2014";
       note.textContent = "";
+      // Still paint the pill row -- it is the only way to change subgrade, and
+      // an empty strip where the controls live reads as broken rather than busy.
+      renderSubPills();
       return;
     }
 
@@ -8284,12 +8429,20 @@
     var total  = GSTEPS.reduce(function(a, st){ return a + counts[st.key]; }, 0);
 
     $("g-tot").textContent   = fmt(total);
-    var word = (gPill === "queued") ? "tasks queued" : "tasks awaiting verify";
-    $("g-tot-l").textContent = gAnyFilter() ? word + ", filtered" : word;
+    var word = gIsActivity()
+        ? (gAct === "verify" ? "verifies in window" : "tasks in window")
+      : (gPill === "queued") ? "tasks queued" : "tasks awaiting verify";
+    // The task filters only exist on the snapshot pills, so "filtered" would be
+    // meaningless -- and misleading -- on Activity.
+    $("g-tot-l").textContent = (!gIsActivity() && gAnyFilter())
+      ? word + ", filtered" : word;
 
     tiles.innerHTML = GSTEPS.map(function(st){
       var n = counts[st.key];
       var pct = total ? Math.round(n / total * 100) : 0;
+      // Tiles only render on the snapshot pills now, so this is always gSel --
+      // kept explicit rather than assumed, since the tiles and the Activity
+      // pill row track two different selections.
       var sel = (gSel === st.key);
       return '<button type="button" class="gtile' + (n ? '' : ' zero')
            +      '" data-gstep="' + st.key + '"'
@@ -8302,22 +8455,43 @@
            + '<span class="gbody">'
            +   '<span class="gnum">' + fmt(n) + '</span>'
            +   '<span class="gside">'
-           +     '<s>' + pct + '% of ' + (gPill === "queued" ? "queue" : "verify") + '</s>'
+           +     '<s>' + pct + '% of '
+           +       (gIsActivity() ? "window"
+                  : gPill === "queued" ? "queue" : "verify") + '</s>'
            +   '</span>'
            + '</span>'
            + '<span class="gbar"></span>'
            + '</button>';
     }).join("");
 
+    renderSubPills();
+
     tiles.querySelectorAll("[data-gstep]").forEach(function(b){
-      b.onclick = function(){ gSel = b.getAttribute("data-gstep"); renderGrading(); };
+      b.onclick = function(){
+        var k = b.getAttribute("data-gstep");
+        if(gIsActivity()) setGradingSubgrade(k);
+        else { gSel = k; renderGrading(); }
+      };
     });
 
     note.textContent = err
       ? "Some subgrades failed to load \u2014 " + err
-      : "One row per task, so a card contributes four corner tasks and two "
-        + "centering tasks \u2014 these are task counts, not card counts."
-        + (gPill === "verify" ? " Awaiting verify means graded but not yet approved." : "");
+      : gIsActivity()
+        ? (total === 0
+            // Zero across all four is almost never a data problem: the
+            // grading shift runs into the small hours, so "today" is empty
+            // until the afternoon and the default date range is today.
+            // A row of bare zeros gives no hint of that.
+            ? "No tasks in this window. The shift runs " + shiftWindowLabel()
+              + ", so today shows nothing until the afternoon \u2014 try an "
+              + "earlier start and end date."
+          : gActSel
+            ? "Showing " + gStepName(gActSel)
+              + " only \u2014 click the pill again, or All, for the four combined."
+            : "All four subgrades combined. Click a subgrade to see it alone.")
+        : "One row per task, so a card contributes four corner tasks and two "
+          + "centering tasks \u2014 these are task counts, not card counts."
+          + (gPill === "verify" ? " Awaiting verify means graded but not yet approved." : "");
 
     syncGradeFilterOptions();
     renderGradeTable();
@@ -8332,13 +8506,18 @@
     return '<span class="ostat" style="background:' + c + '22;color:' + c + '">'
          + esc(prettyStatus(v)) + '</span>';
   }
-  // Task states have their own palette, already defined for the card table:
-  // queued grey, done light green, the three terminal states dark green.
+  // `done` means graded but not yet approved -- which on this tab IS "verify
+  // needed". Left as "done" it reads as finished, i.e. the opposite of why the
+  // row is on the Verify pill at all. The colour stays taskColor's, so the chip
+  // still matches the same state in the card table; only the word changes.
+  function gTaskLabel(v){
+    return v === "done" ? "Verify needed" : taskLabel(v);
+  }
   function taskChip(v){
     if(!v) return '<span class="gchip">\u2014</span>';
     var c = taskColor(v);
     return '<span class="ostat" style="background:' + c.bg + ';color:' + c.fg + '">'
-         + esc(taskLabel(v)) + '</span>';
+         + esc(gTaskLabel(v)) + '</span>';
   }
 
   var GCOLS = [
@@ -8438,7 +8617,7 @@
       el.innerHTML = '<option value="">All</option>'
         + vals.map(function(v){
             var label = isStatus ? prettyStatus(v)
-                      : pair[1] === "status" ? taskLabel(v)
+                      : pair[1] === "status" ? gTaskLabel(v)
                       : v.replace(/_/g," ");
             return '<option value="' + esc(v) + '">' + esc(label) + '</option>';
           }).join("");
@@ -8446,13 +8625,103 @@
     });
   }
 
+  // Everything the pill choice controls, in one function. Three pills x two
+  // layouts scattered across setTab and two render paths is how a panel ends up
+  // visible on a tab that never fills it.
+  // Which parts of the Grading section exist for the current pill. Split out
+  // of applyGradingLayout and called FIRST by both it and renderGrading, so a
+  // fault anywhere later cannot leave the tiles on screen under Activity --
+  // which is exactly what happened when applyGradingLayout threw on an
+  // undeclared variable and stopped before reaching these four lines.
+  //
+  // Idempotent and cheap: setting .hidden to the value it already has costs
+  // nothing, so calling it from two places needs no coordination.
+  function setGradingVisibility(){
+    var act = gIsActivity();
+    $("g-subpills").hidden = !act;   // pill row: Activity only
+    $("g-tiles").hidden    = act;    // tiles + caption: snapshot pills only
+    $("g-note").hidden     = act;
+    $("g-tasksec").hidden  = act;    // task table: snapshot pills only
+    $("g-actpills").hidden = !act;   // Graded / Grading verify
+    $("panel-recomp").hidden = !act; // grader panel: Activity only
+  }
+
+  function applyGradingLayout(){
+    setGradingVisibility();
+    var act = gIsActivity();
+    $("p-activity").setAttribute("aria-pressed", act ? "true" : "false");
+    $("p-queued").setAttribute("aria-pressed", gPill === "queued" ? "true" : "false");
+    $("p-verify").setAttribute("aria-pressed", gPill === "verify" ? "true" : "false");
+    $("p-act-graded").setAttribute("aria-pressed", gAct === "graded" ? "true" : "false");
+    $("p-act-verify").setAttribute("aria-pressed", gAct === "verify" ? "true" : "false");
+
+    if(act){
+      $("panel-body").hidden = true;
+      $("groups").hidden = true;
+      // rpanel-total can still be hidden from a previous visit to Recomp's
+      // other sub-panels. renderRecomp would fix that, but it only runs once
+      // the loader resolves, which leaves the panel blank until then.
+      showRecompPanel("rpanel-total", {kpis:true, viewToggle:true});
+      // And repaint it now. The KPI strip, rail, chart and table are shared
+      // with Card Type and Review, so arriving here from Review left ITS
+      // numbers on screen -- "Total reviews 4,705", "268 reviews" -- until the
+      // four questions answered. Stale numbers under the wrong noun, which is
+      // indistinguishable from real ones.
+      if(gActState !== "done") renderRecomp();
+    }
+
+    // Activity wants the grain / date / grader controls back, which ownsBody()
+    // hides for the snapshot pills.
+    document.querySelectorAll("[data-not-orders]").forEach(function(el){
+      el.hidden = ownsBody("grading");
+    });
+    $("f-window").textContent = act
+      ? "Grader throughput across the selected window"
+      : "Open grading tasks right now \u2014 no date window applies here";
+    // Name the subgrade wherever the panel describes itself. "reviews" leaking
+    // onto this tab is what a shared panel does if nothing re-renders it, and
+    // the nouns come from unit() + these hints.
+    var sub = gActSel ? gStepName(gActSel).toLowerCase() : "subgrade";
+    document.querySelectorAll(".railhint").forEach(function(el){
+      // NOT shiftWindowLabel(): that returns the SHIFT span (2 PM-11 PM),
+      // while the rail spans the whole window. The grading questions also
+      // start at 3 PM rather than 2 PM -- their columns run 3 PM to 2 AM and
+      // their shift total is labelled 3pm-11pm -- so the rail's leading 2 PM
+      // column is always empty for this tab. Said plainly here rather than
+      // left as an unexplained zero.
+      if(act) el.textContent = sub + " tasks per hour \u00b7 shift runs 3 PM\u201311 PM "
+                             + tzTag() + ", rail shows through 3 AM";
+    });
+    $("gvSub").hidden = !act;
+    // Leaving "by subgrade" selected on a tab that has no subgrades would draw
+    // an empty chart with no way back to a populated one.
+    if(!act && gview === "subgrade") setGView("grader");
+    $("gcharttitle").textContent = (gview === "subgrade")
+      ? "Total tasks by subgrade"
+      : "Total tasks by grader"
+        + (act && gActSel ? " \u00b7 " + gStepName(gActSel) : "");
+  }
+
   function setGradingPill(which){
+    if(gPill === which) return;
     gPill = which;
-    $("p-queued").setAttribute("aria-pressed", which === "queued" ? "true" : "false");
-    $("p-verify").setAttribute("aria-pressed", which === "verify" ? "true" : "false");
-    // Each pill has its own four questions; the other pill's rows are kept, so
-    // switching back is instant.
-    loadGrading(false);
+    applyGradingLayout();
+    renderGrading();        // clear the old pill's numbers before fetching
+    // Each pill has its own questions; the others' rows are kept, so switching
+    // back is instant.
+    if(gIsActivity()) loadGradingActivity(false);
+    else loadGrading(false);
+  }
+
+  function setGradingAct(which){
+    if(gAct === which) return;
+    gAct = which;
+    // Clear BEFORE repainting. Rendering first would paint the outgoing half's
+    // numbers under the incoming label -- the exact thing this is here to stop.
+    // loadGradingActivity repaints once it has set the loading state.
+    gActState = ""; gActLists = {}; gActSel = ""; grows = [];
+    applyGradingLayout();
+    loadGradingActivity(true);
   }
 
   // Returns a promise resolving "ok" or "error" so Refresh can report on this
@@ -8497,6 +8766,178 @@
     });
   }
 
+  // Four questions, one grader panel. A grader works several subgrades, so the
+  // same name comes back in all four result sets -- summed here rather than
+  // concatenated, because the chart happens to group by grader and would have
+  // looked right while the Graders table listed each person four times and the
+  // row count read 88 instead of 22.
+  function mergeGraderRows(lists){
+    var by = {}, order = [];
+    lists.forEach(function(list){
+      // normalizeGrader marks the question's own TEAM TOTAL row. gData()
+      // filters it for the chart and table, but a merge that kept it would
+      // add every grader's work a second time -- so drop it at the source.
+      list.filter(function(r){ return !r.isTotal; }).forEach(function(r){
+        var k = normName(r.grader);
+        if(!by[k]){
+          // Copy, so the first subgrade's row object is not mutated in place --
+          // it is still referenced by that fetch's own array.
+          var c = {}; Object.keys(r).forEach(function(f){ c[f] = r[f]; });
+          c.hours = {}; Object.keys(r.hours || {}).forEach(function(h){
+            c.hours[h] = r.hours[h];
+          });
+          by[k] = c; order.push(k);
+          return;
+        }
+        var t = by[k];
+        t.total   += r.total;
+        t.shift   += r.shift;
+        t.outside += r.outside;
+        Object.keys(r.hours || {}).forEach(function(h){
+          t.hours[h] = (t.hours[h] || 0) + r.hours[h];
+        });
+      });
+    });
+    return order.map(function(k){ return by[k]; });
+  }
+
+  // The panel shows one subgrade or all four. Selecting is a local swap: the
+  // rows are already here, so it must not go near the network.
+  function applyGraderRows(){
+    if(gActSel && gActLists[gActSel]) grows = gActLists[gActSel];
+    else grows = mergeGraderRows(GSTEPS.map(function(st){
+      return gActLists[st.key] || [];
+    }));
+  }
+
+  // Each subgrade's total for the window, read off the same rows the panel
+  // draws so a pill can never disagree with the bars underneath it.
+  function gActTotals(){
+    var out = {};
+    GSTEPS.forEach(function(st){
+      // Same exclusion as the merge, or a pill would report roughly twice
+      // its real figure and disagree with the bars it selects.
+      out[st.key] = (gActLists[st.key] || [])
+        .filter(function(r){ return !r.isTotal; })
+        .reduce(function(a, r){ return a + (r.total || 0); }, 0);
+    });
+    return out;
+  }
+
+  // "" is all four combined. The row carries an explicit All pill, so this is a
+  // plain radio: clicking the selected pill keeps it selected.
+  function setGradingSubgrade(step){
+    gActSel = step || "";
+    applyGraderRows();
+    refreshGraderFilter();
+    renderGrading();
+    renderRecomp();
+  }
+
+  function renderSubPills(){
+    var host = $("g-subpills");
+    // Deliberately NOT skipped when hidden. Bailing on host.hidden made the
+    // row depend on visibility being applied before the render -- true
+    // today, but a silent empty strip the moment that order changes.
+    // Writing innerHTML into a hidden node costs nothing.
+    if(!host) return;
+    var totals = gActTotals();
+    var all = GSTEPS.reduce(function(a, st){ return a + totals[st.key]; }, 0);
+
+    host.innerHTML =
+      '<button type="button" class="gpill sm" data-sub=""'
+      + ' aria-pressed="' + (gActSel ? "false" : "true") + '">All'
+      + '<b>' + fmt(all) + '</b></button>'
+      + GSTEPS.map(function(st){
+          return '<button type="button" class="gpill sm" data-sub="' + st.key + '"'
+               + ' style="--c:var(' + GCOLOR[st.key] + ')"'
+               + ' aria-pressed="' + (gActSel === st.key ? "true" : "false") + '">'
+               + esc(st.name) + '<b>' + fmt(totals[st.key]) + '</b></button>';
+        }).join("");
+
+    host.querySelectorAll("[data-sub]").forEach(function(b){
+      b.onclick = function(){ setGradingSubgrade(b.getAttribute("data-sub")); };
+    });
+  }
+
+  function loadGradingActivity(force){
+    if(!$("start_date").value || !$("end_date").value){
+      banner("Pick a start and end date to run the query.","err");
+      return Promise.resolve("error");
+    }
+    if(!force && gActState === "done"){
+      // setTab clears `grows` on every tab entry, so the cached path cannot
+      // just repaint: the rows live in gActLists and `grows` has to be rebuilt
+      // from them first. Without this, returning to the tab drew an empty
+      // rail, chart and table while the tiles showed real numbers.
+      applyGraderRows();
+      refreshGraderFilter();
+      renderGrading();
+      renderRecomp();
+      return Promise.resolve("ok");
+    }
+
+    gActState = "loading";
+    // Repaint immediately. Without this the tiles keep the PREVIOUS pill's
+    // numbers -- queued task counts sitting under the Activity label, captioned
+    // "% of queue" -- for as long as four questions take to answer. On a slow
+    // day that is seconds of confidently wrong numbers.
+    renderGrading();
+    setDot("load");
+    banner("");
+
+    var qs = GSTEPS.map(function(st){
+      var q = new URLSearchParams();
+      q.set("tab", "grading");
+      q.set("view", gActView(st.key));
+      q.set("grain", $("grain").value);
+      q.set("start_date", $("start_date").value);
+      q.set("end_date", $("end_date").value);
+      return q;
+    });
+
+    return Promise.all(qs.map(function(q){
+      return fetch(API + "?" + q.toString(), {headers:{"Accept":"application/json"}})
+        .then(function(r){
+          return r.json().then(function(d){
+            // A 501 means the view is registered but has no question id yet --
+            // which is exactly the Grading-verify half. Carry the message
+            // rather than an empty array, or it reads as "nobody did any work".
+            if(!r.ok) throw new Error((d && d.error) || ("HTTP " + r.status));
+            return normalizeGrader(rowsOf(d));
+          });
+        });
+    })).then(function(lists){
+      gActLists = {};
+      GSTEPS.forEach(function(st, i){ gActLists[st.key] = lists[i]; });
+      applyGraderRows();
+      refreshGraderFilter();
+      gActState = "done"; gActErr = "";
+      applyGradingLayout();
+      renderGrading();
+      renderRecomp();
+      $("f-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-US");
+      $("f-source").textContent  = "Source: Metabase question";
+      if(!gData().length){
+        banner("Query ran but returned no rows for this date range.","");
+        setDot("stale");
+      } else { banner(""); setDot(""); }
+      return "ok";
+    }).catch(function(e){
+      gActLists = {}; grows = [];
+      gActState = "error";
+      gActErr = String(e && e.message || e);
+      applyGradingLayout();
+      // renderGrading too, or the pill row keeps the zeros from the loading
+      // state and nothing anywhere says the request failed.
+      renderGrading();
+      renderRecomp();
+      banner(gActErr, "err");
+      setDot("err");
+      return "error";
+    });
+  }
+
   // Enter, Refresh and Auto all called load() directly, which builds its query
   // from TAB -- on Grading that sends tab=grading and comes back "Unknown
   // tab/view". They go through here instead.
@@ -8508,7 +8949,9 @@
   // and the styled dropdowns -- while the tabs bound above it kept working, so
   // the page looked fine and only the buttons were dead.
   function loadCurrent(){
-    if(TAB === "grading") return loadGrading(true);
+    if(TAB === "grading"){
+      return gIsActivity() ? loadGradingActivity(true) : loadGrading(true);
+    }
     return load();
   }
 
@@ -9561,8 +10004,19 @@
 
       var shift   = num(["shift_total","shift total","Shift Total",
                          "shift total (2pm-11pm)","shift total (3pm-11pm)"]);
-      var outside = num(["extra_time","Extra Time","extra time (11pm-3am)",
-                         "outside_window","outside window","outside 12pm-11pm"]);
+      // "Outside window" and "extra time" are NOT the same quantity, and a
+      // question can carry both: 39641 returns Extra Time (11pm-3am) = 0 and
+      // Outside Window = 4, because nothing ran after 11 PM but four tasks fell
+      // outside the window entirely. Reading extra time first gave outside = 0,
+      // so total (642) no longer equalled shift (638) + outside, and the rail
+      // reported a phantom 4-task gap.
+      //
+      // Outside-window is the one that reconciles with the total, so it wins
+      // when present; extra time is the fallback for questions that only name
+      // their overflow that way.
+      var outside = num(["outside_window","outside window","Outside Window",
+                         "outside 12pm-11pm",
+                         "extra_time","Extra Time","extra time (11pm-3am)"]);
       var total   = num(["total_comps","total comps","Total Comps",
                          "total_tasks","total tasks","Total Tasks",
                          "total_verifies","total verifies","Total Verifies",
@@ -9615,14 +10069,18 @@
       return nt.some(function(w){ return w.indexOf(t) === 0; });
     });
   }
-  function gData(){
-    var list = grows.filter(function(r){ return !r.isTotal; });
+  // The grader filter, applied to any list rather than only to `grows`. The
+  // by-subgrade chart needs it against each subgrade's own rows, and typing a
+  // name should narrow that chart the same way it narrows the other two.
+  function gFilterList(rows){
+    var list = (rows || []).filter(function(r){ return !r.isTotal; });
     var q = ($("grader").value || "").trim();
     if(!q) return list;
     var exact = list.filter(function(r){ return normName(r.grader) === normName(q); });
     if(exact.length) return exact;
     return list.filter(function(r){ return graderMatches(r.grader, q); });
   }
+  function gData(){ return gFilterList(grows); }
 
 
   // ---- recomp normalize ----
@@ -10025,10 +10483,38 @@
   }
 
 
+  // Read the subgrade colour off the CSS rather than keeping a second copy of
+  // the palette in JS -- one list to change, and it cannot drift from the tiles.
+  function gSubColor(key){
+    try {
+      var el = $("g-tiles");
+      var v = el && getComputedStyle(el).getPropertyValue(GCOLOR[key] || "");
+      return (v || "").trim() || shiftColor();
+    } catch(e){ return shiftColor(); }
+  }
+
   function renderGraderChart(){
     var d = gData(), groups={}, order=[];
 
-    if(gview==="period"){
+    if(gview==="subgrade"){
+      // Built from gActLists, not from `grows` -- the merge deliberately sums
+      // the four together and loses which subgrade each number came from, so
+      // the only place the split still exists is the per-subgrade lists.
+      //
+      // Deliberately ignores the tile selection: picking Corners and then
+      // asking for the subgrade split would otherwise draw one bar.
+      GSTEPS.forEach(function(st){
+        var rows = gFilterList(gActLists[st.key] || []);
+        groups[st.key] = {
+          label: st.name,
+          total: rows.reduce(function(a,r){ return a + (r.total||0); }, 0),
+          shift: rows.reduce(function(a,r){ return a + (r.shift||0); }, 0)
+        };
+        order.push(st.key);
+      });
+      // Fixed order -- Corner, Edge, Surface, Centering, matching the tiles.
+      // Sorting by size would make the bars jump between loads.
+    } else if(gview==="period"){
       d.forEach(function(r){
         if(!groups[r.period]){ groups[r.period]={label:r.period,total:0,shift:0}; order.push(r.period); }
         groups[r.period].total += r.total;
@@ -10050,9 +10536,12 @@
       var g=groups[k];
       var ht = max? Math.max(2, Math.round(g.total/max*248)) : 2;
       var sp = g.total? (g.shift/g.total*100) : 0;
+      // In subgrade mode each bar takes its own tile colour, so the chart and
+      // the tiles above it read as the same four things.
+      var inColor = (gview==="subgrade") ? gSubColor(k) : shiftColor();
       return '<div class="col"><div class="tot">'+fmt(g.total)+'</div>'+
              '<div class="stack" style="height:'+ht+'px">'+
-             '<div class="seg" style="height:'+sp+'%;'+gradFor(shiftColor())+
+             '<div class="seg" style="height:'+sp+'%;'+gradFor(inColor)+
              '" title="in shift: '+fmt(g.shift)+'"></div>'+
              '<div class="seg" style="height:'+(100-sp)+'%;'+gradFor(OUTSIDE_COLOR)+
              '" title="outside shift: '+fmt(g.total-g.shift)+'"></div>'+
@@ -10354,7 +10843,7 @@
   }
 
   function renderRecomp(){
-    if(TAB==="cardtype" || TAB==="review"){
+    if(TAB==="cardtype" || TAB==="review" || (TAB==="grading" && gIsActivity())){
       showRecompPanel("rpanel-total", {kpis:true, viewToggle:true});
       renderGraderKpis(); renderGraderRail(); renderGraderChart(); renderGraderTable();
       return;
@@ -10749,15 +11238,16 @@
     if(name==="grading"){
       $("panel-body").hidden = true;
       $("groups").hidden = true;
-      $("panel-recomp").hidden = true;
       bindGradeFilters();
+      applyGradingLayout();   // owns panel-recomp and the date controls
+      renderGrading();        // don't leave the last tab's tiles on screen
     }
     $("statusline").innerHTML = "<b>Precision Labeling</b> · " + fillTz(cfg.subtitle);
     // The window note describes the measurement period for completed work.
     // Orders has none -- it is a snapshot of what is open right now -- and
     // leaving the shift-window text there implied a filter that isn't applied.
     $("f-window").textContent = (name==="grading")
-      ? "Open grading tasks right now \u2014 no date window applies here"
+      ? ""                       // applyGradingLayout sets this per pill
       : (name==="orders")
       ? "Showing every open order \u2014 no date window applies here"
       : (name==="cards")
@@ -10769,6 +11259,8 @@
     document.querySelectorAll("[data-not-orders]").forEach(function(el){
       el.hidden = ownsBody(name);
     });
+    // applyGradingLayout re-runs this for Grading, where the answer depends on
+    // the pill and not just the tab.
     document.querySelectorAll(".railhint").forEach(function(el){
       el.textContent = fillTz(cfg.railHint);
     });
@@ -10778,7 +11270,10 @@
     $("groups").hidden       = (name!=="cards");
     // Card Type reuses the recomp Total panel: same column shape, same rail,
     // chart and table. Only the data source and the pills differ.
-    var graderPanel = usesGraderPanel(name);
+    // graderPanelNow, not usesGraderPanel: Grading renders into this panel too,
+    // but only on its Activity pill. applyGradingLayout re-runs this line for
+    // that tab, so this is the value for every other one.
+    var graderPanel = graderPanelNow(name);
     $("panel-recomp").hidden     = !graderPanel;
     $("recomp-subtabs").hidden   = (name!=="recomp");
     syncAgeSrc();
@@ -10793,7 +11288,10 @@
     // that belongs to the other team.
     $("grader").value = "";
     refreshGraderFilter();
-    if(name==="grading"){ loadGrading(false); return; }
+    if(name==="grading"){
+      if(gIsActivity()) loadGradingActivity(false); else loadGrading(false);
+      return;
+    }
     if(graderPanel) renderRecomp(); else renderAll();
     load();
   }
@@ -10907,8 +11405,11 @@
   $("tab-review").onclick   = function(){ setTab("review"); };
   $("tab-orders").onclick   = function(){ setTab("orders"); };
   $("tab-grading").onclick  = function(){ setTab("grading"); };
+  $("p-activity").onclick   = function(){ setGradingPill("activity"); };
   $("p-queued").onclick     = function(){ setGradingPill("queued"); };
   $("p-verify").onclick     = function(){ setGradingPill("verify"); };
+  $("p-act-graded").onclick = function(){ setGradingAct("graded"); };
+  $("p-act-verify").onclick = function(){ setGradingAct("verify"); };
 
   function setRvSub(name){
     RVSUB = name;
@@ -10981,10 +11482,12 @@
     gview=v;
     $("gvGrader").setAttribute("aria-pressed", v==="grader");
     $("gvPeriod").setAttribute("aria-pressed", v==="period");
+    $("gvSub").setAttribute("aria-pressed", v==="subgrade");
     renderGraderChart();
   }
   $("gvGrader").onclick = function(){ setGView("grader"); };
   $("gvPeriod").onclick = function(){ setGView("period"); };
+  $("gvSub").onclick    = function(){ setGView("subgrade"); };
 
   // grader filtering is client-side — the query already returns every grader
   $("grader").onchange = function(){ renderGrader(); };

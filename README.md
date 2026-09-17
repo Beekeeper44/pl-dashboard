@@ -3657,10 +3657,10 @@ have caught this before it shipped, and now runs with the other checks.
 
 | subgrade | queued | verify needed |
 |---|---|---|
-| Corner | 39535 | 39601 |
-| Edge | 39536 | 39604 |
-| Surface | 39469 | 39603 |
-| Centering | 39436 | 39602 |
+| Corner | 39535 | 39635 |
+| Edge | 39536 | 39636 |
+| Surface | 39469 | 39637 |
+| Centering | 39436 | 39634 |
 
 Env overrides follow the pattern `METABASE_GRADING_<SUBGRADE>_VERIFY_CARD_ID`.
 
@@ -3701,3 +3701,537 @@ differently. The test checks `DAYS_IN_QUEUE` does **not** match — it ends in
 QUEUE, not QUEUED, and a looser pattern would have put days-in-queue in the
 "On card" column. That column's header is no longer "Queued on card", since it
 holds two different quantities depending on the pill.
+
+## `done` reads as "Verify needed" in the grading table
+
+The four verify questions return `TASK_STATUS = done` on every row. Rendered
+literally, the Task status column on the **Verify needed** pill said "done" all
+the way down — which reads as finished, the opposite of why those rows are
+there. `done` means graded but not yet approved.
+
+`gTaskLabel()` changes that one word. Three things it deliberately does not do:
+
+- **It does not touch the colour.** `taskColor` still supplies the chip, so the
+  same state looks identical here and in the card table.
+- **It does not relabel `done_skip_verify`.** That one really is finished; only
+  bare `done` is awaiting anything.
+- **It does not change the stored value.** Filter `<option>` values stay raw, so
+  a row with `done` still matches a filter set to `done`. Relabelling the value
+  instead of the text would have quietly broken the filter — which the test
+  checks.
+
+One thing left alone: Task status is constant within a pill — every Queued row
+says `queued`, every Verify row `done` — so the column and its filter carry no
+information in this table. Both are kept, because the column set was asked for
+in full and a column that is constant today can stop being constant when a
+question changes. Worth removing if the tab ever feels crowded.
+
+## Grading → Activity
+
+A third pill, leftmost and the default: **per-grader throughput over a date
+window**, as opposed to Queued and Verify needed, which are snapshots of open
+work. Two sub-pills, `Graded` and `Grading verify`.
+
+| subgrade | graded | grading verify |
+|---|---|---|
+| Centering | 39638 | — |
+| Corner | 39639 | — |
+| Edge | 39640 | — |
+| Surface | 39641 | — |
+
+The verify half is **registered but has no ids yet** (`METABASE_GRADING_ACTV_*`).
+A registered view with no card id now returns **501 with the env var's name**
+rather than sending `/api/card//query` to Metabase and surfacing an opaque 404.
+
+### It reuses the grader panel rather than rebuilding it
+
+The rail, the by-grader/by-period chart and the Graders table are the same
+`#rpanel-total` that Card Type and Review render into — the Activity questions
+return the same row shape, so `normalizeGrader` and `renderRecomp` do the work
+unchanged. The only genuinely new logic is fetching four questions and summing
+them.
+
+**`mergeGraderRows` sums by grader; it does not concatenate.** A grader works
+several subgrades, so the same name comes back in all four sets. Concatenating
+would have *looked* right, because `renderGraderChart` groups by grader and sums
+— but the Graders table lists rows as returned, so it would have shown each
+person four times and the row count would have read 88 instead of 22. The merge
+keys on `normName`, so spacing and case variants land on one person, and it
+copies rather than mutating: the first subgrade's row objects still belong to
+that fetch's array.
+
+A grader present in only one subgrade still appears, and a subgrade nobody
+worked contributes nothing rather than erroring.
+
+### Two conditionals had to become pill-aware
+
+`ownsBody()` decided whether a tab hides the grain/date/grader controls. Grading
+was flatly in that set; now Queued and Verify own the body while Activity wants
+those controls back, so it asks the pill. `graderPanelNow()` is the same change
+for `#panel-recomp`, which `setTab` had been deciding with `usesGraderPanel`.
+
+`applyGradingLayout()` is the single place that decides what the tab shows.
+Three pills across two layouts, spread over `setTab` and two render paths, is
+how a panel ends up visible on a view that never fills it.
+
+### Activity tiles filter the panel
+
+The four subgrade tiles show on Activity too, carrying that subgrade's
+throughput for the window. Clicking one narrows the rail, the chart and the
+Graders table to it; clicking the selected tile again returns to all four
+combined. The chart heading names the selection.
+
+This is why `loadGradingActivity` keeps `gActLists` — each subgrade's grader
+rows — as well as the merge. Selecting is a local swap with no network call, so
+it is instant and cannot fail halfway.
+
+Two things worth keeping:
+
+- **Tile totals are read off the same rows the panel draws**, not counted
+  separately, so a tile can never disagree with its own bars. The test asserts
+  the four tiles sum to the merged total.
+- **Activity defaults to nothing selected**, unlike Queued and Verify where
+  exactly one tile is always chosen. Those pills feed a table that has to list
+  *something*; Activity's combined view is a legitimate and better default, so
+  the tiles there are a toggle rather than a radio.
+
+Switching between Graded and Grading verify clears `gActLists` before loading.
+They are different questions, and without the clear a slow or failed load would
+leave the other half's numbers sitting under the newly-selected label.
+
+### By subgrade
+
+A third chart grouping beside **By grader** and **By period**, shown only on
+Grading → Activity. The other tabs using this panel have a single task kind, so
+there is nothing there to group by, and the button stays hidden. If "by
+subgrade" is selected and the tab changes, it falls back to By grader —
+otherwise the chart would draw empty with no obvious way back.
+
+It is built from `gActLists`, not from `grows`: the merge sums the four together
+and loses which subgrade each number came from, so the per-subgrade lists are
+the only place that split still exists.
+
+Two deliberate choices:
+
+- **It ignores the tile selection.** Picking Corners and then asking for the
+  subgrade split would otherwise draw a single bar, which is not a split.
+- **Fixed order — Corner, Edge, Surface, Centering — not sorted by size**, so
+  the bars line up with the tiles above and do not rearrange between loads. By
+  grader still sorts by volume, where ranking is the point.
+
+Each bar takes its own tile colour, read off the CSS custom property via
+`getComputedStyle` rather than keeping a second copy of the palette in JS. One
+list to change, and it cannot drift from the tiles.
+
+The grader search narrows this chart like the other two: `gFilterList` is the
+old `gData` body, now callable against any list.
+
+## The Grading section moved above the grader panel
+
+`#gpanel` was inserted next to `#opanel`, below `#panel-recomp`. On Activity
+that put the pills and the subgrade tiles *underneath* the shift rail they
+select — a header rendering after its own content. It now sits immediately
+before `#panel-recomp`, with the bottom margin a sibling section would have.
+
+Only the document order changed; every id, handler and visibility rule is the
+same. Both builds are asserted to have `#gpanel` ahead of `#panel-recomp`.
+
+## ⚠ Stale numbers under a freshly-clicked pill
+
+Clicking Activity set `gActState = "loading"` and started four fetches, but
+repainted nothing until they resolved. The tiles kept the **previous pill's**
+numbers — queued task counts, captioned "% of queue", with the section total
+reading "tasks queued" — sitting under the Activity label for however long four
+questions take. Not a blank waiting state: confident, specific, wrong numbers,
+which is the worst kind to put on a wall display.
+
+`loadGradingActivity` now repaints as soon as it sets the loading state, and
+`setGradingPill` repaints on the way in.
+
+`setGradingAct` had the same fix applied in the wrong order — it rendered before
+clearing `gActLists`, which would have painted the outgoing half's numbers under
+the incoming label, exactly the bug it was meant to prevent. The clear happens
+first; the repaint comes from the loader.
+
+The test models what the tiles are told to show between the click and the
+response, and asserts the queued counts never appear under the Activity label.
+
+Switching Graded / Grading verify also clears `gActSel` now. A tile selection
+carried across would have re-applied to a dataset that had not loaded yet.
+
+## ⚠ Activity drew no bars after the first visit
+
+Three faults stacked into one symptom: tiles showing real numbers with an empty
+rail, chart and Graders table beneath them.
+
+**1. `setTab` wipes `grows` on every tab entry.** It has to — the roster differs
+per tab. But `loadGradingActivity` then saw `gActState === "done"`, skipped the
+fetch as an optimisation and repainted. The rows were still in `gActLists`;
+`grows` was not rebuilt from them, so the panel drew nothing. The cached path
+now calls `applyGraderRows()` first. The tiles kept working throughout because
+they read `gActLists` directly, which is exactly why the two disagreed.
+
+**2. `rpanel-total` can be hidden from a previous visit** to Recomp's Daily,
+Assign or Zone sub-panels. `renderRecomp` would have fixed it, but that only
+runs once the loader resolves — leaving `#panel-recomp` visible and empty until
+then. `applyGradingLayout` now calls `showRecompPanel` itself.
+
+**3. Nothing painted the tiles on tab entry**, so the previous tab's render sat
+there until four questions answered.
+
+The general shape: **a cache check that skips work must skip only the fetch, not
+the render.** Two of the three were the same mistake — an early return that
+assumed the DOM and the derived state were still where the last run left them,
+when something in between had reset them.
+
+The test re-runs the entry sequence with and without the rebuild and asserts the
+bar count goes from 0 to 2.
+
+## Activity: subgrade pills, not tiles
+
+Activity now looks like the other grader-panel tabs — KPI strip, shift rail,
+chart, Graders table — with a row of pills above it: **All · Corners · Edges ·
+Surface · Centering**, each carrying its own count for the window.
+
+The big tiles are for the snapshot pills only. On Activity the KPI strip below
+already carries the headline numbers, so a row of 46px numerals one line above
+was saying the same thing twice. The pills keep the subgrade colours on their
+borders and counts, so the row still maps onto the palette used everywhere else.
+
+Selection is a plain radio now — an explicit **All** pill means clicking the
+selected one no longer has to double as the way back to the combined view, which
+is what the tiles needed.
+
+Order is Corner, Edge, Surface, Centering, matching the tiles, the chart and the
+Metabase columns.
+
+## ⚠ Three functions were called but never written
+
+`applyGraderRows`, `gActTotals` and `setGradingSubgrade` were referenced from
+four places and declared nowhere: an edit script aborted partway and its earlier
+changes were written while the block defining them was not. The Activity load
+threw a `ReferenceError` inside the promise chain, which the `.catch` swallowed
+into "load failed" — so the rail, chart and KPI strip were empty while the tiles
+kept showing the previous pill's numbers.
+
+`node --check` cannot catch this. Calling a function that does not exist is
+**valid syntax**; it only fails at runtime.
+
+`tools-check-undeclared.py` is the guard. It collects every `function name(`,
+`var name =`, `name: function` and parameter name, then flags any camelCase call
+that matches none of them. It treats a page's `<script>` tags as one shared
+scope, because they are — the demo mock legitimately calls helpers declared in
+the app block.
+
+It found a second, older bug immediately: **`removeCardRev` had never been
+written.** `oaRemove` has always called it for card rows, so removing one
+reviewer from a card in the Orders assignment panel threw and the handler died
+mid-way — the row just did not change, with nothing in the UI to say why. Now
+written, mirroring `removeOrderReviewer`.
+
+## ⚠ "Total reviews" on the Grading tab
+
+The KPI strip, shift rail, chart and Graders table are the **same DOM nodes**
+for Card Type, Review and now Grading → Activity. Arriving from Review left
+Review's render in place — `Total reviews 4,705`, `268 reviews`, `409 reviews in
+extra time` — until four questions answered. Real numbers, wrong tab, wrong
+noun, and nothing on screen saying so.
+
+`setTab` clears `grows` but returns early for Grading, and `renderRecomp` only
+ran once the loader resolved. `applyGradingLayout` now repaints immediately when
+the data is not already loaded, so the worst case is a strip of zeros rather
+than another team's totals.
+
+The nouns themselves were already right: `unit()` reads `TABS[TAB].unit`, which
+is `tasks` for Grading. Nothing had asked it.
+
+`TABS.grading.railHint` is a real string now instead of `""`, so `setTab`'s
+generic rail-hint line produces something sensible before `applyGradingLayout`
+refines it. On Activity the hint names the selected subgrade — "corner tasks per
+hour across the 2 PM–11 PM PT window" — and says "subgrade tasks" when all four
+are combined.
+
+The test switches from Review to Grading and asserts the word "review" cannot
+appear anywhere in the strip or rail note on entry.
+
+## ⚠ Edits that silently did not land
+
+Twice now a Python edit script has hit a failed assertion partway through,
+after earlier replacements had already been made to the in-memory string — but
+the file write is at the END, so a mid-script failure leaves the file at its
+previous state and the *successful* replacements are lost with it. Both times
+the result was a build that parsed cleanly and behaved as if half a feature had
+never been written:
+
+- `applyGraderRows`, `gActTotals` and `setGradingSubgrade` — called, never
+  declared. Caught by `tools-check-undeclared.py`.
+- The visibility switch (`g-tiles` hidden on Activity, `g-subpills` shown) and
+  the Activity-aware total label. **Not** caught by anything — the code was
+  valid, it just still said `hidden = false`. The tiles kept showing on Activity
+  and the pill row never rendered at all.
+
+The second class needs a different check: after every edit, grep back for the
+marker the edit was supposed to introduce, rather than trusting that the script
+finished. The audit is now a table of expected strings run against the file.
+
+`[hidden]{display:none !important}` at the top of the stylesheet is what makes
+`el.hidden = true` work on `.gtiles` and `.gpills` at all — both set `display`,
+which beats the UA's plain `[hidden]` rule. That was already there, and is worth
+not deleting.
+
+## Activity shows the pill row only
+
+The four tiles are for Queued and Verify needed. On Activity the KPI strip
+carries the headline numbers and the pill row carries the per-subgrade counts,
+so the tiles were a third copy of the same figures. Tiles and pill row are
+mutually exclusive, asserted per pill in the tests: never both, never neither.
+
+The pill row also paints during loading. It is the only way to change subgrade,
+and an empty strip where the controls live reads as broken rather than busy.
+
+## Graded / Grading verify sit below the pill row
+
+They were inline in `.gtop`, immediately after Activity / Queued / Verify
+needed. Five pills on one line read as five peers of equal standing, when the
+last two only exist while Activity is chosen and switch something different.
+
+They are their own row under the pill row now, with a short stub rule on the
+left pointing up at the pill they belong to rather than a full border boxing
+them in. Order inside `.gsect` is: pill row → Graded/Grading verify → subgrade
+pills → tiles.
+
+Markup move only. Every id, handler and the `g-actpills` visibility rule are
+unchanged, and the audit checks all three are still wired after the move.
+
+## ⚠ The questions return their own TEAM TOTAL row
+
+`normalizeGrader` flags the `★ TEAM TOTAL` row the grader questions include, and
+`gData()` filters it before the chart, KPI strip and table. `mergeGraderRows`
+did not — so every grader's work was counted once as themselves and again inside
+the total row, and the merged figure came out at roughly **double**. The pill
+counts had the same fault.
+
+Both now drop `isTotal` at the source. The test asserts the unfiltered path
+would have given exactly 2×, which is the tell to look for if these numbers ever
+seem too large.
+
+The selected-subgrade path deliberately keeps the row: with one question behind
+the panel, the Graders table showing that question's own totals row is correct,
+and `gData()` still filters it everywhere it would distort a calculation.
+
+Replaying the four Graded questions end-to-end through the demo mock:
+
+```
+pill counts   : corner 1347 · edge 1372 · surface 995 · centering 1113
+All pill      : 4827
+merged total  : 4827   (22 graders)
+pills === bars: true
+```
+
+That equality is the invariant worth keeping: the pills sum to what the bars
+below them add up to.
+
+## The total sits above the shift rail
+
+`#g-totrow` moved out of the header's top-right corner onto its own line at the
+foot of the Grading section — which is directly above the rail. On Activity it
+is the figure the rail breaks down, so it belongs beside it rather than diagonally
+across the panel from it. Larger and left-aligned now that it is not competing
+with the pills for the header row.
+
+## ⚠ Queued and Verify needed rendered nothing
+
+`gActSel` and `gActLists` were **assigned but never declared** — the third edit
+script to abort before writing the block that declared them.
+
+In sloppy mode an assignment creates a global, so the code parsed and Activity
+half-worked. But `applyGradingLayout` *reads* `gActSel` before anything assigns
+it, which throws a `ReferenceError` on the first call. That killed the function
+partway, so on Queued and Verify needed nothing rendered and nothing loaded —
+the tiles and task table stayed empty with the filter bar sitting there looking
+fine. Neither pill's code was touched; they were collateral.
+
+Both are declared now. `node --check` cannot see this class of fault either:
+reading an undeclared variable is valid syntax.
+
+### The guard, and why it took three attempts
+
+`tools-check-undeclared.py` now runs two checks: **undeclared calls** and
+**implicit globals** — anything assigned with a bare `name = ...` that is never
+declared anywhere.
+
+Getting it to report the truth needed a character scanner, not regexes:
+
+- **Apostrophes in comments.** `// the subgrade's own rows` opens a fake string
+  that swallows code to the next quote. The first version lost **75% of the
+  file** and reported every real declaration as missing.
+- **Comma-separated declarations.** `var oLoading = false, oError = "";`
+  declares two names; capturing only the first flagged six ordinary variables.
+- **Regex literals.** `/[?&]demo=1(&|$)/` looks like an assignment to `demo`.
+  Told apart from division by the last significant character before the slash.
+
+It is verified by reintroducing the bug: delete the `gActSel` declaration and
+the guard reports it and exits 1; restore it and it exits 0. A guard that has
+never been shown to fail is not a guard.
+
+### The pattern behind all three
+
+Three separate features shipped broken for the same mechanical reason: a Python
+edit script hit a failed assertion partway through, and because the file write
+is at the end, the successful replacements before it were discarded too — while
+the run still looked like it had done something. Syntax checks passed every
+time, because the code that remained was always valid.
+
+The habit that catches it: after every edit, grep for the marker the edit was
+supposed to introduce. Not "did the script run" — "is the change in the file".
+
+## Visibility no longer depends on one function finishing
+
+The six `hidden` assignments that decide what the Grading section shows are in
+`setGradingVisibility()`, called **first** by both `applyGradingLayout()` and
+`renderGrading()`.
+
+They used to live in the middle of `applyGradingLayout`, after code that could
+throw — and did. When it threw on the undeclared `gActSel`, the function stopped
+before reaching them, so the tiles stayed on screen under Activity and the pill
+row never appeared. One fault, and the section showed the wrong pill's entire UI
+with no error visible.
+
+Splitting them out means the ordering fault cannot recur: whatever happens later
+in the layout, the right things are already hidden. `renderGrading` calls it too
+and runs on every state change, so that path self-corrects.
+
+Setting `.hidden` to the value it already holds costs nothing, so two call sites
+need no coordination.
+
+The test asserts the useful half directly: with the layout function throwing
+part-way, the tiles are **still** hidden on Activity.
+
+## The subgrade pill row
+
+Directly beneath Graded / Grading verify, in `.gsect` order:
+
+```
+Activity · Queued · Verify needed
+  Graded · Grading verify
+    All 4,827 · Corners 1,347 · Edges 1,372 · Surface 995 · Centering 1,113
+  <total>
+  <shift rail, chart, graders table>
+```
+
+`renderSubPills` no longer skips when the row is hidden. Bailing on
+`host.hidden` made the content depend on visibility being applied *before* the
+render — true today, but a silently empty strip the moment that order changes,
+and this section has already lost its contents twice to ordering. Writing
+`innerHTML` into a hidden node costs nothing.
+
+Verified by running the real function against a stub DOM: five buttons, correct
+counts, and still five when the row is hidden.
+
+## Surface / Graded uses captured real rows in the demo
+
+`surfaceActRows()` in `public/demo.html` is question 39641's actual output from
+16 Sep, kept verbatim so the demo exercises what the live question really
+returns rather than a generated approximation. **Demo only** — the mock never
+runs in a deployment, and the live build reads Metabase as normal.
+
+What that captured shape has that the generated rows did not:
+
+- a **3 PM** shift start, not 2 PM (`Shift Total (3pm-11pm)`)
+- **both** an `Extra Time (11pm-3am)` and an `Outside Window` column
+- a period *timestamp* ("Sep 16, 2026, 12:00 AM"), not a date
+- a `★ TEAM TOTAL` row alongside 15 graders
+
+The figures are internally consistent: the 15 graders sum to 642, matching the
+total row, and each hour column sums to its own total.
+
+## ⚠ "Outside window" and "extra time" are different quantities
+
+Running those captured rows through `normalizeGrader` exposed a live bug. The
+alias list read `extra_time` first, so a question carrying **both** columns
+returned `outside = 0`:
+
+```
+TEAM TOTAL -> total 642  shift 638  outside 0     642 === 638 + 0 ?  false
+```
+
+Nothing ran after 11 PM (extra time 0), but four tasks fell outside the window
+entirely (outside window 4). The rail then reported a phantom four-task gap
+against a question whose own numbers added up perfectly.
+
+Outside-window is the column that reconciles with the total, so it now wins when
+present; extra time stays the fallback for questions that only name their
+overflow that way.
+
+```
+TEAM TOTAL -> total 642  shift 638  outside 4     642 === 638 + 4 ?  true
+```
+
+The test covers the shapes that must not regress: extra-time-only (Review and
+Card Type), Recomp's `outside 12pm-11pm`, neither column, and both non-zero.
+
+## Spacing and the all-zero window
+
+More room between the three rows of the Grading header: `14px` above
+Graded/Grading verify, `18px` above the subgrade pills, `18px` above the total.
+Each is a separate decision, and they were reading as one block.
+
+**A row of zeros now explains itself.** Opening the tab in the morning shows
+`ALL 0 · CORNERS 0 · EDGES 0 · SURFACE 0 · CENTERING 0` and `0 TASKS IN WINDOW`,
+which looks broken but is correct: the date range defaults to today and the
+grading shift runs into the small hours, so today is empty until the afternoon.
+The note says so and suggests an earlier range, instead of leaving five zeros to
+be interpreted.
+
+Confirmed the demo is not affected by replaying the four Activity requests
+through the mock's own `fetch`:
+
+```
+corner    ok rows 23  total 1347
+edge      ok rows 23  total 1372
+surface   ok rows 16  total  642   (the captured real rows)
+centering ok rows 20  total 1167
+```
+
+**The failure path also repainted nothing.** `loadGradingActivity`'s `catch`
+called `applyGradingLayout` and `renderRecomp` but not `renderGrading`, so a
+failed request left the pill row showing the zeros from its loading state with
+no message anywhere. Same class as the stale-numbers bugs: the state changed and
+the thing displaying it was never told.
+
+## Surface / Graded renders — verified numerically
+
+Computed straight from the captured rows through the app's own
+`normalizeGrader`, so this is what the demo draws rather than what it ought to:
+
+```
+TOTAL TASKS BY GRADER      15 bars
+  144  Cyrist Leviste      in-shift 140, outside 4
+   82  Alex Arcangel
+   57  Jairho Joshua Orillaza
+   ...
+    9  rence tang
+
+SHIFT RAIL
+   3 PM 181 · 4 PM 141 · 5 PM 136 · 6 PM 105 · 8 PM 75
+   2 PM, 7 PM and 9 PM-2 AM all empty
+   hours 638 | total 642 | outside 4 | extra time 0
+```
+
+**It will look sparser than the Review screenshots**, and that is the data, not
+a fault: grading happened in five hour-buckets that day, against Review's
+twenty-two graders across every hour. The 4-task "outside window" figure now
+reconciles instead of showing as a phantom gap.
+
+### One cosmetic mismatch left
+
+These questions start at **3 PM** — columns run 3 PM to 2 AM, shift total
+labelled `3pm-11pm` — while `GHOURS` and the rail start at 2 PM. So the rail's
+leading 2 PM column is permanently empty on this tab.
+
+The rail hint now states the real span ("shift runs 3 PM–11 PM PT, rail shows
+through 3 AM") instead of calling `shiftWindowLabel()`, which returns the shift
+span and read as though the rail only covered 2 PM–11 PM. Trimming the 2 PM
+column would mean a per-tab rail window; `GHOURS` is global and feeds the rail,
+the chart and the KPI strip, so it is a real refactor rather than a tweak and is
+left alone deliberately.

@@ -47,10 +47,25 @@ const CARDS = {
   // ...and the same four again for the verify-needed pill. Separate questions
   // rather than a status parameter, so the two pills are symmetric: same row
   // shape, same client code path, nothing derived.
-  'grading:corner_verify':    { env: 'METABASE_GRADING_CORNER_VERIFY_CARD_ID',    fallback: '39601' },
-  'grading:edge_verify':      { env: 'METABASE_GRADING_EDGE_VERIFY_CARD_ID',      fallback: '39604' },
-  'grading:surface_verify':   { env: 'METABASE_GRADING_SURFACE_VERIFY_CARD_ID',   fallback: '39603' },
-  'grading:centering_verify': { env: 'METABASE_GRADING_CENTERING_VERIFY_CARD_ID', fallback: '39602' },
+  // Activity — per-grader, per-hour THROUGHPUT over a date window. Same row
+  // shape as the Card Type and Review questions (grader + hour buckets), not
+  // the task-level shape the other two pills use, so these feed the shared
+  // grader panel instead of the subgrade tiles.
+  'grading:act_centering': { env: 'METABASE_GRADING_ACT_CENTERING_CARD_ID', fallback: '39638' },
+  'grading:act_corner':    { env: 'METABASE_GRADING_ACT_CORNER_CARD_ID',    fallback: '39639' },
+  'grading:act_edge':      { env: 'METABASE_GRADING_ACT_EDGE_CARD_ID',      fallback: '39640' },
+  'grading:act_surface':   { env: 'METABASE_GRADING_ACT_SURFACE_CARD_ID',   fallback: '39641' },
+  // The Grading Verify half of Activity. No question ids yet -- env only, no
+  // fallback, so an unconfigured view fails with "no card id" rather than
+  // quietly serving the graded numbers under the wrong sub-pill.
+  'grading:actv_centering': { env: 'METABASE_GRADING_ACTV_CENTERING_CARD_ID', fallback: '' },
+  'grading:actv_corner':    { env: 'METABASE_GRADING_ACTV_CORNER_CARD_ID',    fallback: '' },
+  'grading:actv_edge':      { env: 'METABASE_GRADING_ACTV_EDGE_CARD_ID',      fallback: '' },
+  'grading:actv_surface':   { env: 'METABASE_GRADING_ACTV_SURFACE_CARD_ID',   fallback: '' },
+  'grading:corner_verify':    { env: 'METABASE_GRADING_CORNER_VERIFY_CARD_ID',    fallback: '39635' },
+  'grading:edge_verify':      { env: 'METABASE_GRADING_EDGE_VERIFY_CARD_ID',      fallback: '39636' },
+  'grading:surface_verify':   { env: 'METABASE_GRADING_SURFACE_VERIFY_CARD_ID',   fallback: '39637' },
+  'grading:centering_verify': { env: 'METABASE_GRADING_CENTERING_VERIFY_CARD_ID', fallback: '39634' },
   'review:pregraded': { env: 'METABASE_REVIEW_PREGRADED_CARD_ID', fallback: '34684' },
   'review:raw':       { env: 'METABASE_REVIEW_RAW_CARD_ID',       fallback: '34685' },
 };
@@ -80,6 +95,15 @@ const TEXT_VARS = {
   'grading:edge_verify':      [],
   'grading:surface_verify':   [],
   'grading:centering_verify': [],
+  // Activity takes the shared grain + date window, like Card Type and Review.
+  'grading:act_centering':  ['grain','start_date','end_date'],
+  'grading:act_corner':     ['grain','start_date','end_date'],
+  'grading:act_edge':       ['grain','start_date','end_date'],
+  'grading:act_surface':    ['grain','start_date','end_date'],
+  'grading:actv_centering': ['grain','start_date','end_date'],
+  'grading:actv_corner':    ['grain','start_date','end_date'],
+  'grading:actv_edge':      ['grain','start_date','end_date'],
+  'grading:actv_surface':   ['grain','start_date','end_date'],
   'review:pregraded': ['grain'],
   'review:raw':       ['grain'],
 };
@@ -328,6 +352,16 @@ export async function runQuery(key, query, opts) {
   }
 
   const cardId = (spec.env ? process.env[spec.env] : null) || spec.fallback;
+  // A registered view with no id is a view whose question does not exist yet.
+  // Say that, rather than letting an empty id reach Metabase as
+  // /api/card//query and come back as an opaque 404.
+  if (!cardId) {
+    const err = new Error(
+      `No Metabase card id for "${key}". Set ${spec.env || 'its env var'}.`
+    );
+    err.status = 501;
+    throw err;
+  }
   const tagInfo = await getTagIds(host, apiKey, cardId);
   const tagIds = tagInfo.map;
   const parameters = buildParameters(query, key, tagIds, opts.noParams);
