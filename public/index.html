@@ -7503,7 +7503,12 @@
     if(gBusy()){
       tiles.innerHTML = '<div class="gnote">Loading grading tasks\u2026</div>';
       $("g-tot").textContent = "\u2014";
-      note.textContent = "";
+      // Say which questions are in flight rather than blanking the note. On
+      // Activity the note is the only place anything is explained.
+      note.textContent = gIsActivity()
+        ? "Loading four " + (gAct === "verify" ? "grading-verify" : "graded")
+          + " questions\u2026"
+        : "";
       // Still paint the pill row -- it is the only way to change subgrade, and
       // an empty strip where the controls live reads as broken rather than busy.
       renderSubPills();
@@ -7563,7 +7568,7 @@
     note.textContent = err
       ? "Some subgrades failed to load \u2014 " + err
       : gIsActivity()
-        ? (total === 0 && gActDiagText()
+        ? ((total === 0 || gFailed()) && gActDiagText()
             // Zeros with the payload the proxy actually sent. Four separate
             // faults on this tab have produced an identical row of zeros, and
             // the only thing that tells them apart is the request.
@@ -7732,7 +7737,13 @@
     var act = gIsActivity();
     $("g-subpills").hidden = !act;   // pill row: Activity only
     $("g-tiles").hidden    = act;    // tiles + caption: snapshot pills only
-    $("g-note").hidden     = act;
+    // NOT hidden on Activity. It was, because the note started life as the
+    // tiles' caption -- but it now carries Activity's own text: which
+    // subgrade is selected, why a window is empty, and the per-subgrade
+    // payload dump. Hiding it meant every one of those was written into an
+    // element nobody could see, which is why an empty Activity view showed
+    // bare zeros and no explanation at all.
+    $("g-note").hidden     = false;
     $("g-tasksec").hidden  = act;    // task table: snapshot pills only
     $("g-actpills").hidden = !act;   // Graded / Grading verify
     $("panel-recomp").hidden = !act; // grader panel: Activity only

@@ -4339,3 +4339,26 @@ happened" is never self-explanatory.
 
 `.gnote` is `pre-wrap` and selectable, because the point of those lines is being
 pasted into a message rather than retyped off a screen.
+
+## ⚠ The note was hidden on Activity — so nothing was ever explained
+
+`setGradingVisibility` hid `#g-note` on Activity. It started life as the tiles'
+caption, and the tiles are hidden there, so hiding it looked consistent.
+
+But that element now carries **every** Activity explanation: which subgrade is
+selected, why a window is empty, and the per-subgrade payload dump. All of it
+was being written into a node nobody could see. An empty Activity view showed
+bare zeros and nothing else, and each round of diagnostics I added went into the
+same invisible element.
+
+The note is visible on all three pills now, and the tests assert that directly
+rather than checking the text in isolation. **Text written to a hidden element
+is not a message** — worth remembering before adding more of it.
+
+Two related gaps closed at the same time:
+
+- The `gBusy()` branch **blanked** the note and returned, wiping the diagnostic
+  as soon as a reload began. It now names what is in flight.
+- The payload dump showed only when *all four* subgrades were empty. It also
+  shows when one has failed while others returned rows — which is the case where
+  a single broken question hides behind three working ones.
